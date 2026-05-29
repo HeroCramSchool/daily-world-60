@@ -1,0 +1,274 @@
+{
+  "version": 1,
+  "updatedAt": "2026-05-30",
+  "excludedReasons": {
+    "state-propaganda": "国営プロパガンダ強、信頼性低"
+  },
+  "sources": [
+    {
+      "id": "bbc-world",
+      "name": "BBC News World",
+      "url": "https://www.bbc.com/news/world",
+      "rssUrl": "https://feeds.bbci.co.uk/news/world/rss.xml",
+      "region": "Europe",
+      "country": "GB",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "reuters-world",
+      "name": "Reuters World",
+      "url": "https://www.reuters.com/world/",
+      "rssUrl": "https://feeds.reuters.com/Reuters/worldNews",
+      "region": "Global",
+      "country": "GB",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "ap-top",
+      "name": "AP News Top",
+      "url": "https://apnews.com/",
+      "rssUrl": "https://feeds.apnews.com/apf-topnews",
+      "region": "NorthAmerica",
+      "country": "US",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "cnn-world",
+      "name": "CNN International",
+      "url": "https://edition.cnn.com/world",
+      "rssUrl": "http://rss.cnn.com/rss/edition_world.rss",
+      "region": "NorthAmerica",
+      "country": "US",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "guardian-world",
+      "name": "The Guardian World",
+      "url": "https://www.theguardian.com/world",
+      "rssUrl": "https://www.theguardian.com/world/rss",
+      "region": "Europe",
+      "country": "GB",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "abc-au",
+      "name": "ABC News Australia",
+      "url": "https://www.abc.net.au/news/",
+      "rssUrl": "https://www.abc.net.au/news/feed/45910/rss.xml",
+      "region": "Oceania",
+      "country": "AU",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "cbc-world",
+      "name": "CBC News World",
+      "url": "https://www.cbc.ca/news/world",
+      "rssUrl": "https://www.cbc.ca/cmlink/rss-world",
+      "region": "NorthAmerica",
+      "country": "CA",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "rnz",
+      "name": "RNZ",
+      "url": "https://www.rnz.co.nz/news/world",
+      "rssUrl": "https://www.rnz.co.nz/rss/world.xml",
+      "region": "Oceania",
+      "country": "NZ",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "dw-world",
+      "name": "Deutsche Welle",
+      "url": "https://www.dw.com/en/top-stories/s-9097",
+      "rssUrl": "https://rss.dw.com/rdf/rss-en-top",
+      "region": "Europe",
+      "country": "DE",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "france24",
+      "name": "France 24",
+      "url": "https://www.france24.com/en/",
+      "rssUrl": "https://www.france24.com/en/rss",
+      "region": "Europe",
+      "country": "FR",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "euronews",
+      "name": "Euronews",
+      "url": "https://www.euronews.com/",
+      "rssUrl": "https://www.euronews.com/rss",
+      "region": "Europe",
+      "country": "FR",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "kyiv-independent",
+      "name": "Kyiv Independent",
+      "url": "https://kyivindependent.com/",
+      "rssUrl": "https://kyivindependent.com/feed/",
+      "region": "Europe",
+      "country": "UA",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "nhk-world",
+      "name": "NHK World Japan",
+      "url": "https://www3.nhk.or.jp/nhkworld/en/news/",
+      "rssUrl": "https://www3.nhk.or.jp/nhkworld/en/news/feeds/",
+      "region": "Asia",
+      "country": "JP",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "japan-times",
+      "name": "The Japan Times",
+      "url": "https://www.japantimes.co.jp/",
+      "rssUrl": "https://www.japantimes.co.jp/feed/",
+      "region": "Asia",
+      "country": "JP",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "scmp",
+      "name": "South China Morning Post",
+      "url": "https://www.scmp.com/",
+      "rssUrl": "https://www.scmp.com/rss/91/feed",
+      "region": "Asia",
+      "country": "HK",
+      "language": "en",
+      "reliability": "medium"
+    },
+    {
+      "id": "straits-times",
+      "name": "The Straits Times",
+      "url": "https://www.straitstimes.com/",
+      "rssUrl": "https://www.straitstimes.com/news/world/rss.xml",
+      "region": "Asia",
+      "country": "SG",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "times-of-india-world",
+      "name": "Times of India World",
+      "url": "https://timesofindia.indiatimes.com/world",
+      "rssUrl": "https://timesofindia.indiatimes.com/rssfeeds/296589292.cms",
+      "region": "Asia",
+      "country": "IN",
+      "language": "en",
+      "reliability": "medium"
+    },
+    {
+      "id": "korea-herald",
+      "name": "Korea Herald",
+      "url": "https://www.koreaherald.com/",
+      "rssUrl": "https://www.koreaherald.com/common_prog/rssdisp.php?ct=02&ct2=00",
+      "region": "Asia",
+      "country": "KR",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "bangkok-post",
+      "name": "Bangkok Post",
+      "url": "https://www.bangkokpost.com/",
+      "rssUrl": "https://www.bangkokpost.com/rss/data/topstories.xml",
+      "region": "Asia",
+      "country": "TH",
+      "language": "en",
+      "reliability": "medium"
+    },
+    {
+      "id": "aljazeera",
+      "name": "Al Jazeera English",
+      "url": "https://www.aljazeera.com/",
+      "rssUrl": "https://www.aljazeera.com/xml/rss/all.xml",
+      "region": "MiddleEast",
+      "country": "QA",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "the-national",
+      "name": "The National (UAE)",
+      "url": "https://www.thenationalnews.com/",
+      "rssUrl": "https://www.thenationalnews.com/world/rss/",
+      "region": "MiddleEast",
+      "country": "AE",
+      "language": "en",
+      "reliability": "high"
+    },
+    {
+      "id": "arab-news",
+      "name": "Arab News",
+      "url": "https://www.arabnews.com/",
+      "rssUrl": "https://www.arabnews.com/taxonomy/term/1/feed",
+      "region": "MiddleEast",
+      "country": "SA",
+      "language": "en",
+      "reliability": "medium"
+    },
+    {
+      "id": "allafrica-latest",
+      "name": "AllAfrica Latest",
+      "url": "https://allafrica.com/",
+      "rssUrl": "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf",
+      "region": "Africa",
+      "country": "ZA",
+      "language": "en",
+      "reliability": "medium"
+    },
+    {
+      "id": "news24-sa",
+      "name": "News24 South Africa",
+      "url": "https://www.news24.com/",
+      "rssUrl": "https://feeds.news24.com/articles/news24/world/rss",
+      "region": "Africa",
+      "country": "ZA",
+      "language": "en",
+      "reliability": "medium"
+    },
+    {
+      "id": "mercopress",
+      "name": "MercoPress",
+      "url": "https://en.mercopress.com/",
+      "rssUrl": "https://en.mercopress.com/rss/index.xml",
+      "region": "SouthAmerica",
+      "country": "UY",
+      "language": "en",
+      "reliability": "medium"
+    },
+    {
+      "id": "buenos-aires-times",
+      "name": "Buenos Aires Times",
+      "url": "https://www.batimes.com.ar/",
+      "rssUrl": "https://www.batimes.com.ar/feed",
+      "region": "SouthAmerica",
+      "country": "AR",
+      "language": "en",
+      "reliability": "medium"
+    }
+  ],
+  "excluded": [
+    { "id": "tass", "name": "TASS", "country": "RU", "reason": "state-propaganda" },
+    { "id": "xinhua", "name": "Xinhua", "country": "CN", "reason": "state-propaganda" },
+    { "id": "presstv", "name": "Press TV", "country": "IR", "reason": "state-propaganda" }
+  ]
+}

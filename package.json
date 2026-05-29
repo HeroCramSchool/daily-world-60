@@ -1,0 +1,32 @@
+{
+  "name": "daily-world-60",
+  "version": "0.1.0",
+  "description": "Daily World 60 — Shorts Pipeline (DDD)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fetch": "tsx interfaces/cli/fetch-news.ts",
+    "curate": "tsx interfaces/cli/curate.ts",
+    "script": "tsx interfaces/cli/generate-script.ts",
+    "tts": "tsx interfaces/cli/synthesize-audio.ts",
+    "broll": "tsx interfaces/cli/fetch-broll.ts",
+    "render": "tsx interfaces/cli/render-video.ts",
+    "thumbnail": "tsx interfaces/cli/generate-thumbnail.ts",
+    "publish": "tsx interfaces/cli/publish-all.ts",
+    "pipeline": "tsx interfaces/cli/run-pipeline.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "dotenv": "^16.4.5",
+    "fast-xml-parser": "^4.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
