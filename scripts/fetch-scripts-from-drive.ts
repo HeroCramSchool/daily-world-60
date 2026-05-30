@@ -87,11 +87,10 @@ async function main() {
 }
 
 export async function driveClient(): Promise<drive_v3.Drive> {
-  const saJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!saJson) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON not set");
-  const creds = JSON.parse(saJson);
+  // Uses Application Default Credentials (ADC).
+  // In GitHub Actions, google-github-actions/auth@v2 (WIF) sets these automatically.
+  // Locally, run `gcloud auth application-default login` first.
   const auth = new google.auth.GoogleAuth({
-    credentials: creds,
     scopes: ["https://www.googleapis.com/auth/drive"],
   });
   return google.drive({ version: "v3", auth });
