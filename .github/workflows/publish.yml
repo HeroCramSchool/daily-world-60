@@ -40,13 +40,8 @@ jobs:
       YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
       YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
 
-      # X (Twitter) API v2
-      X_API_KEY: ${{ secrets.X_API_KEY }}
-      X_API_SECRET: ${{ secrets.X_API_SECRET }}
-      X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
-      X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
-
-      # Instagram / TikTok — Playwright cookies (base64 encoded)
+      # X / Instagram / TikTok — Playwright cookies (base64 encoded)
+      X_COOKIES_B64: ${{ secrets.X_COOKIES_B64 }}
       INSTAGRAM_COOKIES_B64: ${{ secrets.INSTAGRAM_COOKIES_B64 }}
       TIKTOK_COOKIES_B64: ${{ secrets.TIKTOK_COOKIES_B64 }}
 

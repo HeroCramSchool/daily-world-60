@@ -16,7 +16,7 @@ const SCOPES = [
   "https://www.googleapis.com/auth/youtube",
 ];
 
-const PORT = 3000;
+const PORT = 3737;
 const REDIRECT = `http://localhost:${PORT}/callback`;
 
 async function main() {
