@@ -132,8 +132,8 @@ function vertical(s: Story, mmdd: string, code: string, bgN: number): string {
          preserveAspectRatio="xMidYMid slice"/>
   <rect width="${W}" height="${H}" fill="url(#darken)"/>
 
-  <!-- Top: date stripe -->
-  <rect x="60" y="220" width="500" height="86" fill="#F5E63B"/>
+  <!-- Top: date stripe (width ample for 'MAY 30 · WORLD' at 46pt + letter-spacing 6) -->
+  <rect x="60" y="220" width="640" height="86" fill="#F5E63B"/>
   <text x="80" y="284" font-family="Hiragino Sans" font-weight="900"
         font-size="46" fill="#0A0A0A" letter-spacing="6">${escape(mmdd)} · WORLD</text>
 
@@ -237,8 +237,8 @@ function square(s: Story, mmdd: string, code: string, bgN: number): string {
          preserveAspectRatio="xMidYMid slice"/>
   <rect width="${W}" height="${H}" fill="url(#darken)"/>
 
-  <!-- Top stripe -->
-  <rect x="60" y="60" width="400" height="74" fill="#F5E63B"/>
+  <!-- Top stripe (width ample for 'MAY 30 · WORLD' at 38pt + letter-spacing 6) -->
+  <rect x="60" y="60" width="540" height="74" fill="#F5E63B"/>
   <text x="80" y="115" font-family="Hiragino Sans" font-weight="900"
         font-size="38" fill="#0A0A0A" letter-spacing="6">${escape(mmdd)} · WORLD</text>
 
