@@ -211,7 +211,7 @@ function fitCaption(
   boxH: number,
   candidates = [64, 58, 52, 48, 44, 40, 36, 32, 28],
 ): { fontSize: number; lines: string[]; lineHeight: number } {
-  const widthPerChar = 0.55; // Hiragino Sans 大字幅近似
+  const widthPerChar = 0.62; // Hiragino Sans 太字 letter-spacing -1 想定、安全マージン込み
   const lineGapRatio = 1.32;
   for (const fs of candidates) {
     const charsPerLine = Math.max(8, Math.floor(boxW / (fs * widthPerChar)));
@@ -221,7 +221,6 @@ function fitCaption(
       return { fontSize: fs, lines, lineHeight };
     }
   }
-  // 最小フォントで強制 fit
   const fs = candidates[candidates.length - 1];
   const charsPerLine = Math.max(8, Math.floor(boxW / (fs * widthPerChar)));
   const lines = wrapAll(text, charsPerLine);
@@ -289,10 +288,10 @@ function hookSvg(story: Story): string {
   const countryName = story.country.name ?? story.country.code;
   // 国名 font: 単語長で動的に
   const cnFontSize = fitKeywordFontSize(countryName, 900, 130);
-  // Headline: x=60, w=960、Y 1230-1790 (560px) に fit
+  // Headline: x=60, w=960、Y 1230-1790 (560px) に fit (max 56pt)
   const hlBoxW = 960, hlBoxH = 560, hlBoxY = 1230;
   const hlFit = fitCaption(story.headline, hlBoxW, hlBoxH,
-                           [72, 64, 58, 52, 48, 44, 40, 36]);
+                           [56, 50, 46, 42, 38, 34, 30, 26]);
   const hlTotalH = hlFit.lines.length * hlFit.lineHeight;
   const hlStartY = hlBoxY + (hlBoxH - hlTotalH) / 2 + hlFit.fontSize;
   let headlineSvg = "";
