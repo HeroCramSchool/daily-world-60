@@ -50,14 +50,20 @@ async function main() {
   }
 
   // Mix audio + loop bg + simple title overlay
+  // 注意: -shortest は -stream_loop と相性が悪く無限出力になることがあるため
+  //       audio の長さを明示的に取得して -t で打ち切る。
+  const audioDuration = await ffprobeDuration(audio);
+  console.log(`[render] audio duration = ${audioDuration.toFixed(2)}s`);
+
   await run("ffmpeg", [
     "-y",
     "-stream_loop", "-1", "-i", bgInput,
     "-i", audio,
-    "-shortest",
+    "-t", audioDuration.toFixed(3),
     "-vf", "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:" +
            "text='DAILY WORLD 60':fontcolor=white:fontsize=64:" +
            "x=(w-text_w)/2:y=80:box=1:boxcolor=black@0.55:boxborderw=18",
+    "-map", "0:v:0", "-map", "1:a:0",
     "-c:v", "libx264", "-c:a", "aac", "-b:a", "192k",
     "-pix_fmt", "yuv420p",
     out,
@@ -74,6 +80,25 @@ function run(cmd: string, args: string[]): Promise<void> {
     const proc = spawn(cmd, args, { stdio: ["ignore", "inherit", "inherit"] });
     proc.on("error", reject);
     proc.on("close", code => (code === 0 ? resolve() : reject(new Error(`${cmd} exit ${code}`))));
+  });
+}
+
+function ffprobeDuration(file: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(
+      "ffprobe",
+      ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", file],
+      { stdio: ["ignore", "pipe", "inherit"] },
+    );
+    let out = "";
+    proc.stdout.on("data", chunk => (out += chunk.toString()));
+    proc.on("error", reject);
+    proc.on("close", code => {
+      if (code !== 0) return reject(new Error(`ffprobe exit ${code}`));
+      const n = parseFloat(out.trim());
+      if (!Number.isFinite(n) || n <= 0) return reject(new Error(`bad duration: ${out}`));
+      resolve(n);
+    });
   });
 }
 
