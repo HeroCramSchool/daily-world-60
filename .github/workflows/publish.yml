@@ -145,9 +145,12 @@ jobs:
         if: env.RUN_MODE == 'publish'
         run: npx tsx scripts/fetch-approved-video.ts ${{ steps.date.outputs.value }}
 
-      - name: Step F2 — Publish to all 4 platforms (xvfb-wrapped for headed Playwright)
+      - name: Step F2 — Publish to all 4 platforms (xvfb-wrapped, hardened flags)
         if: env.RUN_MODE == 'publish' || env.RUN_MODE == 'full'
-        run: xvfb-run -a --server-args="-screen 0 1280x1920x24" npx tsx scripts/publish-all.ts ${{ steps.date.outputs.value }}
+        run: |
+          xvfb-run -a \
+            --server-args="-screen 0 1280x1920x24 -ac +extension RANDR +extension GLX +extension COMPOSITE -noreset -dpi 96" \
+            npx tsx scripts/publish-all.ts ${{ steps.date.outputs.value }}
 
       - name: Step G — Upload final results to Drive (best effort)
         if: always()

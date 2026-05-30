@@ -118,6 +118,7 @@ export async function publishX(input: XPublishInput): Promise<XPublishResult> {
         );
       } catch { /* ignore */ }
       try { await ctx.close(); } catch { /* ignore */ }
+      await sleep(1500); // profile file handle flush
     }
   }
 }

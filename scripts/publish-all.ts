@@ -31,7 +31,12 @@ interface Story {
   keyword?: { word: string; definitionEn: string };
 }
 interface ScriptEn { date: string; stories: Story[]; }
-interface ScriptJp { date: string; stories: Story[]; }
+interface JpThreadTweet { tweetIndex?: number; text: string; }
+interface ScriptJp {
+  date: string;
+  stories: Story[];
+  thread?: JpThreadTweet[]; // Routine v2 が直接ツイート配列を入れる場合
+}
 
 async function main() {
   const date = process.argv[2] ?? new Date().toISOString().slice(0, 10);
@@ -193,7 +198,16 @@ function buildSocialCaption(story: Story): string {
 }
 
 function buildXThread(scriptJp: ScriptJp, scriptEn: ScriptEn, mmdd: string): string[] {
+  // Routine v2 出力は scriptJp.thread に直接ツイート配列が入ってる
+  if (Array.isArray(scriptJp.thread) && scriptJp.thread.length > 0) {
+    return scriptJp.thread.map(t => t.text).filter(Boolean);
+  }
+  // フォールバック: stories から組み立て (古いフォーマット用)
   const tweets: string[] = [];
+  if (!Array.isArray(scriptJp.stories) || scriptJp.stories.length === 0) {
+    console.warn("[publish] scriptJp has neither thread nor stories — empty X thread");
+    return tweets;
+  }
   scriptJp.stories.forEach((jpStory, i) => {
     const enStory = scriptEn.stories[i];
     const keyword = enStory?.keyword?.word;

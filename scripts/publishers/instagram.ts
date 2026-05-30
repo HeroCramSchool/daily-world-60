@@ -42,25 +42,46 @@ export async function publishInstagram(
     await page.goto("https://www.instagram.com/", { waitUntil: "domcontentloaded" });
     await humanRead(2200, 3500);
 
-    // Step 1: 「+ Create / 作成」ボタン
+    // Step 1: 「+ Create / 作成」ボタン (2026 UI 対応で selector 拡張)
     const createSelectors = [
+      // 直接 URL に飛ぶのが最も確実 (新しい UI でも /create/select/ は維持されている)
+      'a[href="/create/select/"]',
+      'a[href*="/create/"]',
+      // SVG aria-label (日英)
       'svg[aria-label="新規投稿"]',
       'svg[aria-label="New post"]',
-      'a[href="#"][role="link"]:has(svg[aria-label*="新規"])',
+      'svg[aria-label="作成"]',
+      'svg[aria-label="Create"]',
+      // role link + svg
+      'a[role="link"]:has(svg[aria-label*="新規"])',
+      'a[role="link"]:has(svg[aria-label*="作成"])',
+      'a[role="link"]:has(svg[aria-label*="New"])',
+      'a[role="link"]:has(svg[aria-label*="Create"])',
+      // menuitem
       'div[role="menuitem"]:has-text("投稿")',
-      'a[href="/create/select/"]',
+      'div[role="menuitem"]:has-text("作成")',
+      'div[role="menuitem"]:has-text("Post")',
+      'div[role="menuitem"]:has-text("Create")',
+      // span (新 UI)
+      'span:has-text("Create")',
+      'span:has-text("作成")',
     ];
     let clickedCreate = false;
     for (const sel of createSelectors) {
       const el = page.locator(sel).first();
-      if (await el.isVisible().catch(() => false)) {
+      if (await el.isVisible({ timeout: 3000 }).catch(() => false)) {
         await humanClick(page, el);
         clickedCreate = true;
+        console.log(`[ig] create button hit via: ${sel}`);
         break;
       }
     }
     if (!clickedCreate) {
-      return { ok: false, error: "Create button not found" };
+      // Fallback: 直接 /create/select/ に飛ぶ
+      console.log("[ig] selectors all failed → navigating directly to /create/select/");
+      await page.goto("https://www.instagram.com/create/select/", { waitUntil: "domcontentloaded" });
+      await humanRead(2000, 3000);
+      clickedCreate = true;
     }
     await humanRead(1500, 2500);
 
