@@ -40,11 +40,15 @@ async function main() {
     console.log(`[drive-upload] created ${remoteName}`);
   }
 
-  // Also upload final.mp4, voice.mp3, thumbnail.png if they exist
+  // Also upload final.mp4, voice.mp3, thumbnails and social images if they exist
   const extras: Array<{ local: string; remote: string; mime: string }> = [
-    { local: "final.mp4",     remote: `video-${date}.mp4`,     mime: "video/mp4" },
-    { local: "voice.mp3",     remote: `voice-${date}.mp3`,     mime: "audio/mpeg" },
-    { local: "thumbnail.png", remote: `thumbnail-${date}.png`, mime: "image/png" },
+    { local: "final.mp4",        remote: `video-${date}.mp4`,        mime: "video/mp4" },
+    { local: "voice.mp3",        remote: `voice-${date}.mp3`,        mime: "audio/mpeg" },
+    { local: "thumbnail.png",    remote: `thumbnail-${date}.png`,    mime: "image/png" },
+    { local: "yt-thumbnail.png", remote: `yt-thumbnail-${date}.png`, mime: "image/png" },
+    { local: "ig-feed.png",      remote: `ig-feed-${date}.png`,      mime: "image/png" },
+    { local: "ig-story.png",     remote: `ig-story-${date}.png`,     mime: "image/png" },
+    { local: "x-card.png",       remote: `x-card-${date}.png`,       mime: "image/png" },
   ];
 
   for (const e of extras) {

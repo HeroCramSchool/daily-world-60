@@ -49,25 +49,29 @@ async function main() {
     await fs.unlink(listFile).catch(() => {});
   }
 
-  // Mix audio + loop bg + simple title overlay
+  // Mix audio + loop bg + title overlay (PNG overlay, drawtext not available on some ffmpeg builds)
   // 注意: -shortest は -stream_loop と相性が悪く無限出力になることがあるため
   //       audio の長さを明示的に取得して -t で打ち切る。
   const audioDuration = await ffprobeDuration(audio);
   console.log(`[render] audio duration = ${audioDuration.toFixed(2)}s`);
 
+  const headerPng = await buildHeaderPng(dir);
+
   await run("ffmpeg", [
     "-y",
     "-stream_loop", "-1", "-i", bgInput,
+    "-i", headerPng,
     "-i", audio,
     "-t", audioDuration.toFixed(3),
-    "-vf", "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:" +
-           "text='DAILY WORLD 60':fontcolor=white:fontsize=64:" +
-           "x=(w-text_w)/2:y=80:box=1:boxcolor=black@0.55:boxborderw=18",
-    "-map", "0:v:0", "-map", "1:a:0",
+    "-filter_complex",
+    "[0:v][1:v]overlay=0:60:format=auto[v]",
+    "-map", "[v]", "-map", "2:a:0",
     "-c:v", "libx264", "-c:a", "aac", "-b:a", "192k",
     "-pix_fmt", "yuv420p",
     out,
   ]);
+
+  await fs.unlink(headerPng).catch(() => {});
 
   await fs.unlink(bgInput).catch(() => {});
 
@@ -81,6 +85,23 @@ function run(cmd: string, args: string[]): Promise<void> {
     proc.on("error", reject);
     proc.on("close", code => (code === 0 ? resolve() : reject(new Error(`${cmd} exit ${code}`))));
   });
+}
+
+async function buildHeaderPng(dir: string): Promise<string> {
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 200" width="1080" height="200">
+  <rect x="120" y="40" width="840" height="120" rx="24" ry="24" fill="rgba(0,0,0,0.7)"/>
+  <text x="540" y="125" text-anchor="middle"
+        font-family="Helvetica, Arial Black, sans-serif"
+        font-size="76" font-weight="900" fill="#FFFFFF"
+        letter-spacing="6">DAILY WORLD 60</text>
+</svg>`;
+  const svgPath = path.join(dir, "_header.svg");
+  const pngPath = path.join(dir, "_header.png");
+  await fs.writeFile(svgPath, svg, "utf-8");
+  await run("rsvg-convert", ["-w", "1080", "-h", "200", svgPath, "-o", pngPath]);
+  await fs.unlink(svgPath).catch(() => {});
+  return pngPath;
 }
 
 function ffprobeDuration(file: string): Promise<number> {
