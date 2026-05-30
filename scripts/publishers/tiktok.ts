@@ -1,7 +1,10 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { chromium, type BrowserContext } from "playwright";
+import type { BrowserContext } from "playwright";
 import { decodeCookies } from "./cookie-util.js";
+import { launchStealthContext } from "../auth/captcha/stealth-context.js";
+import { humanClick, humanType, humanRead, sleep } from "../auth/captcha/human-mouse.js";
+import { tryAutoSolveCaptcha } from "../auth/captcha/index.js";
 
 export interface TikTokPublishInput {
   videoPath: string;
@@ -15,72 +18,103 @@ export interface TikTokPublishResult {
   error?: string;
 }
 
-/**
- * TikTok: Playwright で Web版にログイン → studio から動画アップロード。
- * Cookie は GitHub Secret TIKTOK_COOKIES_B64 (base64 of JSON array) から復元。
- */
+const PROFILE_DIR = path.join(process.env.HOME ?? "", ".config", "dailyworld60", "profile-tiktok-pub");
+
 export async function publishTikTok(
   input: TikTokPublishInput,
 ): Promise<TikTokPublishResult> {
   const cookiesB64 = process.env.TIKTOK_COOKIES_B64;
-  if (!cookiesB64) {
-    return { ok: false, error: "TIKTOK_COOKIES_B64 not set" };
-  }
+  if (!cookiesB64) return { ok: false, error: "TIKTOK_COOKIES_B64 not set" };
 
+  await fs.mkdir(PROFILE_DIR, { recursive: true });
   const cookies = decodeCookies(cookiesB64);
 
-  const browser = await chromium.launch({ headless: true });
-  let context: BrowserContext | undefined;
+  let ctx: BrowserContext | undefined;
   try {
-    context = await browser.newContext({
-      viewport: { width: 1440, height: 900 },
-      userAgent:
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36",
-    });
-    await context.addCookies(cookies);
-    const page = await context.newPage();
+    ctx = await launchStealthContext(PROFILE_DIR);
+    await ctx.addCookies(cookies);
+    const page = await ctx.newPage();
 
     await page.goto("https://www.tiktok.com/tiktokstudio/upload", { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(3000);
+    await humanRead(3000, 4500);
 
-    // Upload file
+    // CAPTCHA が出ていれば挑戦
+    await tryAutoSolveCaptcha(page);
+
+    // Step 1: file upload
     const fileInput = page.locator('input[type="file"]').first();
+    await fileInput.waitFor({ state: "attached", timeout: 30_000 });
     await fileInput.setInputFiles(path.resolve(input.videoPath));
-    await page.waitForTimeout(8000); // 動画処理待ち
+    await humanRead(8000, 12_000); // 動画処理の長め待ち
 
-    // Fill caption
-    const captionArea = page.locator('div[contenteditable="true"]').first();
-    await captionArea.waitFor({ timeout: 30000 });
-    await captionArea.click();
-    await captionArea.fill(input.caption.slice(0, 2200));
-    await page.waitForTimeout(2000);
+    // Step 2: caption
+    const captionSelectors = [
+      'div[contenteditable="true"][role="textbox"]',
+      'div[contenteditable="true"]',
+      'div[data-text="true"]',
+    ];
+    let captionArea = null;
+    for (const sel of captionSelectors) {
+      const el = page.locator(sel).first();
+      if (await el.isVisible({ timeout: 5000 }).catch(() => false)) {
+        captionArea = el;
+        break;
+      }
+    }
+    if (captionArea) {
+      // 既存テキスト（ファイル名等）を削除
+      await humanClick(page, captionArea);
+      await sleep(400);
+      await page.keyboard.press("Control+A").catch(() => {});
+      await page.keyboard.press("Meta+A").catch(() => {});
+      await sleep(150);
+      await page.keyboard.press("Delete");
+      await sleep(300);
+      await humanType(page, captionArea, input.caption.slice(0, 2200));
+      await humanRead(1500, 2500);
+    }
 
-    // Click "Post" button
-    const postBtn = page.getByRole("button", { name: /post|公開|投稿/i }).first();
-    await postBtn.waitFor({ timeout: 20000 });
-    await postBtn.click();
+    // Step 3: Post / 公開
+    const postBtnSelectors = [
+      'button[data-e2e="post_video_button"]',
+      'button:has-text("投稿")',
+      'button:has-text("Post")',
+      'button:has-text("公開")',
+    ];
+    let posted = false;
+    for (const sel of postBtnSelectors) {
+      const el = page.locator(sel).first();
+      if (await el.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await humanClick(page, el);
+        posted = true;
+        break;
+      }
+    }
 
-    // Wait for confirmation (URL change or success message)
+    if (!posted) {
+      return { ok: false, error: "Post button not found" };
+    }
+
+    // 完了 or 検証要求待ち
     await page
-      .waitForURL(/manage|upload/, { timeout: 90000 })
+      .waitForURL(/posts|manage|upload\/?$/, { timeout: 120_000 })
       .catch(() => {});
+    await sleep(3000);
 
     return { ok: true, url: "https://www.tiktok.com/@60dailyworld" };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   } finally {
-    if (context) {
+    if (ctx) {
       try {
-        const newCookies = await context.cookies();
+        const newCookies = await ctx.cookies();
         await fs.writeFile(
           path.join("output", "tiktok-cookies-latest.json"),
           JSON.stringify(newCookies, null, 2),
           "utf-8",
         );
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
+      try { await ctx.close(); } catch { /* ignore */ }
     }
-    await browser.close();
   }
 }
