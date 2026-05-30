@@ -3,25 +3,24 @@ import * as path from "node:path";
 import { spawn } from "node:child_process";
 
 /**
- * 1 ストーリー単独 60秒動画を構築する。
+ * 1 ストーリー単独 60秒動画を構築する (v7: 字幕同期 + 国旗なし body)。
+ *
+ * シーン構成:
+ *   Hook       : 0 → "comes from" cue 終了 (≈4s)
+ *                  → 国旗 + 国名 + headline 大字 + "TODAY'S NEWS"
+ *   Captions   : headline cue → keyword cue 開始
+ *                  → 各 cue を 1 scene 化、cue text を下部字幕として表示
+ *                  → 背景画像 4 枚を cue index で cycle
+ *                  → 上部に headline (compact) を常時 (国旗なし)
+ *   Word card  : keyword cue → subscribe cue 開始
+ *                  → 単語大字 + 定義中央寄せ
+ *   Subscribe  : subscribe cue → 60s
+ *                  → PLEASE SUBSCRIBE + 👍 + チャンネル名
  *
  * 入力:
  *   output/YYYY-MM-DD/script-en.json
- *   output/YYYY-MM-DD/voice-{code}.mp3   (~45-50s)
- *   output/YYYY-MM-DD/voice-{code}.vtt
- *   output/YYYY-MM-DD/_assets/bg-{code}-1..4.jpg  (背景画像 4枚)
- *   output/YYYY-MM-DD/_assets/{code}.png          (国旗)
- *
- * 出力:
- *   output/YYYY-MM-DD/news-{index}-{code}.mp4  (60s)
- *
- * 構成 (voice 約 45s + outro hold 約 15s):
- *   Hook         (0 → "comes from" cue 終了)        ~5s
- *   Body image 1 ("comes from" 終了 → 1/3 of body)  bg-{code}-1
- *   Body image 2 (1/3 → 2/3 of body)                bg-{code}-2
- *   Body image 3 (2/3 → "word of the day" cue 開始) bg-{code}-3
- *   Word card    ("word of the day" → "subscribe" cue 開始)
- *   Subscribe    ("subscribe" cue 開始 → 60s)
+ *   output/YYYY-MM-DD/voice-{code}.mp3, voice-{code}.vtt
+ *   output/YYYY-MM-DD/_assets/bg-{code}-1..4.jpg, {code}.png
  */
 
 const W = 1080;
@@ -30,11 +29,18 @@ const FPS = 30;
 const TOTAL_DURATION = 60;
 
 interface Country { code: string; flag: string; name?: string; }
-interface Story { index: number; country: Country; headline: string; summary: string; sourceName: string; }
+interface Keyword { word: string; definitionEn: string; }
+interface Story {
+  index: number;
+  country: Country;
+  headline: string;
+  summary: string;
+  sourceName: string;
+  keyword?: Keyword;
+}
 interface ScriptJson {
   date: string;
   stories: Story[];
-  todaysWord: { word: string; definitionEn: string; definitionJp: string };
 }
 
 interface VttCue { start: number; end: number; text: string; }
@@ -45,11 +51,11 @@ async function main() {
   const script: ScriptJson = JSON.parse(await fs.readFile(path.join(dir, "script-en.json"), "utf-8"));
 
   for (const story of script.stories) {
-    await buildOne(dir, story, script);
+    await buildOne(dir, story);
   }
 }
 
-async function buildOne(dir: string, story: Story, script: ScriptJson) {
+async function buildOne(dir: string, story: Story) {
   const code = story.country.code.toLowerCase();
   const audio = path.join(dir, `voice-${code}.mp3`);
   const vtt = path.join(dir, `voice-${code}.vtt`);
@@ -58,40 +64,71 @@ async function buildOne(dir: string, story: Story, script: ScriptJson) {
   const cues = await parseVtt(vtt);
   const audioDuration = await ffprobeDuration(audio);
 
-  // Find key cue start times
-  const find = (re: RegExp) => cues.find(c => re.test(c.text))?.start;
-  const tHookEnd     = find(/comes from/i) ?? 4;                  // intro 終了 (≈4s)
-  const tHeadline    = cues.find(c => c.text.includes(story.headline.slice(0, 20)))?.start ?? tHookEnd;
-  const tWordStart   = find(/word of the day|english word/i) ?? Math.max(audioDuration - 10, 30);
-  const tSubscribeStart = find(/subscribe/i) ?? Math.min(tWordStart + 12, audioDuration - 5);
+  // Key cue indices
+  const countryCueIdx = cues.findIndex(c => /comes from|news from/i.test(c.text));
+  const wordCueIdx = cues.findIndex(c => /english word from this story|word of the day/i.test(c.text));
+  const subscribeCueIdx = cues.findIndex(c => /subscribe/i.test(c.text));
 
-  // Video总长: 60s。voice が短くても subscribe で hold。
-  const targetTotal = TOTAL_DURATION;
+  const tHookEnd = countryCueIdx >= 0 ? cues[countryCueIdx].end : 4;
+  const tWordStart = wordCueIdx >= 0 ? cues[wordCueIdx].start : Math.max(audioDuration - 12, 30);
+  const tSubscribeStart = subscribeCueIdx >= 0 ? cues[subscribeCueIdx].start : Math.min(tWordStart + 10, audioDuration - 4);
 
-  // 計画した scene timing (cue ベース)
-  const hookStart = 0;
-  const bodyStart = tHeadline;          // ヘッドライン読み上げ開始
-  const bodyEnd = tWordStart;            // 「today's English word」 開始
-  const wordEnd = tSubscribeStart;       // 「subscribe」 開始
-  const subscribeEnd = targetTotal;      // 60s
+  // ─── Caption scenes (body) ───
+  // 各 cue (after country, before word) を 1 scene にする
+  const bodyStartIdx = countryCueIdx + 1;
+  const bodyEndIdx = wordCueIdx;
+  const bodyCues = cues.slice(bodyStartIdx, bodyEndIdx);
 
-  const bodyDur = bodyEnd - bodyStart;
-  const t1 = bodyStart + bodyDur / 3;
-  const t2 = bodyStart + 2 * bodyDur / 3;
+  // ─── Word scenes ───
+  const wordCues = wordCueIdx >= 0 && subscribeCueIdx >= 0
+    ? cues.slice(wordCueIdx, subscribeCueIdx)
+    : [];
 
-  const scenes = [
-    { id: "01-hook",     dur: bodyStart - hookStart, svg: hookSvg(story) },
-    { id: "02-body1",    dur: t1 - bodyStart,        svg: bodySvg(story, "1", 1) },
-    { id: "03-body2",    dur: t2 - t1,               svg: bodySvg(story, "2", 2) },
-    { id: "04-body3",    dur: bodyEnd - t2,          svg: bodySvg(story, "3", 3) },
-    { id: "05-word",     dur: wordEnd - bodyEnd,     svg: wordSvg(script.todaysWord) },
-    { id: "06-subscribe",dur: subscribeEnd - wordEnd,svg: subscribeSvg() },
-  ];
+  // ─── Scene list ───
+  type Scene = { id: string; dur: number; svg: string };
+  const scenes: Scene[] = [];
 
-  console.log(`[news] ${code} (story ${story.index}): audio=${audioDuration.toFixed(1)}s, total=${targetTotal}s`);
-  scenes.forEach(s => console.log(`[news]   ${s.id}: ${s.dur.toFixed(1)}s`));
+  // Hook
+  scenes.push({
+    id: "01-hook",
+    dur: tHookEnd,
+    svg: hookSvg(story),
+  });
 
-  // 各シーンを PNG → MP4 (no zoompan)
+  // Body cues: 各 cue を 1 scene 化
+  bodyCues.forEach((cue, i) => {
+    const dur = cue.end - cue.start;
+    const bgN = ((i) % 4) + 1; // 1..4 cycle
+    scenes.push({
+      id: `02-cap${(i + 1).toString().padStart(2, "0")}`,
+      dur,
+      svg: captionSvg(story, cue.text, bgN as 1 | 2 | 3 | 4),
+    });
+  });
+
+  // Word card: 各 word cue を 1 scene 化 (大字表示)
+  wordCues.forEach((cue, i) => {
+    const dur = cue.end - cue.start;
+    scenes.push({
+      id: `03-word${(i + 1).toString().padStart(2, "0")}`,
+      dur,
+      svg: wordSvg(story.keyword, cue.text, i),
+    });
+  });
+
+  // Subscribe: 残り全部
+  const usedSoFar = scenes.reduce((acc, s) => acc + s.dur, 0);
+  const subscribeDur = Math.max(2, TOTAL_DURATION - usedSoFar);
+  scenes.push({
+    id: "04-subscribe",
+    dur: subscribeDur,
+    svg: subscribeSvg(),
+  });
+
+  console.log(`[news] ${code} (story ${story.index}): audio=${audioDuration.toFixed(1)}s, total=${TOTAL_DURATION}s, scenes=${scenes.length}`);
+  console.log(`[news]   hook end=${tHookEnd.toFixed(2)} word start=${tWordStart.toFixed(2)} subscribe=${tSubscribeStart.toFixed(2)}`);
+
+  // ─── Render scenes ───
   const segments: string[] = [];
   for (const sc of scenes) {
     const svgPath = path.join(dir, `_n${story.index}-${sc.id}.svg`);
@@ -110,20 +147,19 @@ async function buildOne(dir: string, story: Story, script: ScriptJson) {
     segments.push(mp4Path);
   }
 
-  // Concat 全シーン
+  // Concat + audio
   const listFile = path.join(dir, `_concat-${code}.txt`);
   await fs.writeFile(listFile, segments.map(s => `file '${path.resolve(s)}'`).join("\n"), "utf-8");
   const bgVideo = path.join(dir, `_bg-${code}.mp4`);
   await run("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", listFile, "-c", "copy", bgVideo]);
   await fs.unlink(listFile).catch(() => {});
 
-  // 音声重ね + 60s 切り
   await run("ffmpeg", [
     "-y",
     "-i", bgVideo,
     "-i", audio,
     "-map", "0:v:0", "-map", "1:a:0",
-    "-t", String(targetTotal),
+    "-t", String(TOTAL_DURATION),
     "-c:v", "libx264", "-preset", "medium", "-crf", "20",
     "-c:a", "aac", "-b:a", "192k",
     "-pix_fmt", "yuv420p",
@@ -131,7 +167,7 @@ async function buildOne(dir: string, story: Story, script: ScriptJson) {
     out,
   ]);
 
-  // 中間ファイル削除
+  // Cleanup
   for (const s of segments) await fs.unlink(s).catch(() => {});
   await fs.unlink(bgVideo).catch(() => {});
   for (const sc of scenes) {
@@ -142,7 +178,7 @@ async function buildOne(dir: string, story: Story, script: ScriptJson) {
   console.log(`[news] → ${out} (${(stat.size / 1024 / 1024).toFixed(2)} MB)`);
 }
 
-// ─────── SVG scene builders ───────
+// ─────────── SVG scene builders ───────────
 
 function escape(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -164,13 +200,13 @@ function wrap(text: string, maxChars: number, maxLines = 5): string[] {
   return lines.slice(0, maxLines);
 }
 
-/** Hook scene: dark bg + 国旗 + 国名 (full) + "TODAY'S NEWS" + Headline 大字 */
+/** Hook: 国旗 + 国名 + headline (only here flag shows large). */
 function hookSvg(story: Story): string {
   const code = story.country.code.toLowerCase();
   const countryName = story.country.name ?? story.country.code;
   const headlineLines = wrap(story.headline, 22, 4);
   let headlineSvg = "";
-  const startY = 1300;
+  const startY = 1340;
   headlineLines.forEach((line, i) => {
     headlineSvg += `\n  <text x="60" y="${startY + i * 100}" font-family="Hiragino Sans" font-weight="900"
         font-size="80" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
@@ -178,25 +214,19 @@ function hookSvg(story: Story): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   <rect width="${W}" height="${H}" fill="#0A0A0A"/>
-  <!-- Top accent yellow stripe -->
   <rect x="0" y="0" width="${W}" height="60" fill="#F5E63B"/>
   <text x="60" y="200" font-family="Hiragino Sans" font-weight="900"
         font-size="60" fill="#F5E63B" letter-spacing="8">TODAY'S NEWS</text>
-  <!-- Flag -->
   <image href="_assets/${code}.png" x="60" y="280" width="480" height="320"
          preserveAspectRatio="xMidYMid meet"/>
-  <!-- Country name (large) -->
   <text x="60" y="780" font-family="Hiragino Sans" font-weight="900"
         font-size="110" fill="#FFFFFF" letter-spacing="-2">${escape(countryName.toUpperCase())}</text>
   <rect x="60" y="820" width="280" height="10" fill="#F5E63B"/>
-  <!-- Source -->
   <text x="60" y="950" font-family="Hiragino Sans" font-weight="600"
         font-size="40" fill="#F5E63B" letter-spacing="6">${escape(story.sourceName.toUpperCase())}</text>
-  <!-- "HEADLINE" label -->
   <text x="60" y="1180" font-family="Hiragino Sans" font-weight="600"
         font-size="36" fill="#9CA3AF" letter-spacing="6">HEADLINE</text>
   ${headlineSvg}
-  <!-- Brand footer -->
   <text x="60" y="1820" font-family="Hiragino Sans" font-weight="900"
         font-size="48" fill="#F5E63B" letter-spacing="4">DAILY WORLD 60</text>
   <text x="60" y="1870" font-family="Hiragino Sans" font-weight="600"
@@ -204,90 +234,91 @@ function hookSvg(story: Story): string {
 </svg>`;
 }
 
-/** Body scene: full bleed bg image + dark overlay + headline 上部 + caption 下部 */
-function bodySvg(story: Story, _label: string, bgN: 1 | 2 | 3): string {
+/**
+ * Caption scene (body):
+ *   - bg image (full-bleed) with darken gradient
+ *   - top: country chip + headline (compact, 国旗なし)
+ *   - bottom: caption text (current cue text)
+ */
+function captionSvg(story: Story, captionText: string, bgN: 1 | 2 | 3 | 4): string {
   const code = story.country.code.toLowerCase();
   const countryName = story.country.name ?? story.country.code;
-  const headlineLines = wrap(story.headline, 24, 2);
-  const summaryLines = wrap(story.summary, 28, 4);
+  const headlineLines = wrap(story.headline, 28, 2);
   let headlineSvg = "";
   headlineLines.forEach((line, i) => {
-    headlineSvg += `\n  <text x="60" y="${260 + i * 80}" font-family="Hiragino Sans" font-weight="900"
-        font-size="64" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
+    headlineSvg += `\n  <text x="60" y="${230 + i * 70}" font-family="Hiragino Sans" font-weight="900"
+        font-size="54" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
   });
-  let summarySvg = "";
-  summaryLines.forEach((line, i) => {
-    summarySvg += `\n  <text x="60" y="${1400 + i * 70}" font-family="Hiragino Sans" font-weight="700"
-        font-size="50" fill="#FFFFFF" letter-spacing="0">${escape(line)}</text>`;
+  // Caption text: large, bottom-half, white with strong outline-feel via box bg
+  const capLines = wrap(captionText, 24, 3);
+  const capStartY = 1480;
+  let capSvg = "";
+  capLines.forEach((line, i) => {
+    capSvg += `\n  <text x="540" y="${capStartY + i * 90}" text-anchor="middle"
+        font-family="Hiragino Sans" font-weight="900"
+        font-size="68" fill="#FFFFFF" letter-spacing="0">${escape(line)}</text>`;
   });
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   <defs>
     <linearGradient id="darken" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#0A0A0A" stop-opacity="0.92"/>
-      <stop offset="20%" stop-color="#0A0A0A" stop-opacity="0.55"/>
-      <stop offset="80%" stop-color="#0A0A0A" stop-opacity="0.55"/>
+      <stop offset="22%" stop-color="#0A0A0A" stop-opacity="0.50"/>
+      <stop offset="68%" stop-color="#0A0A0A" stop-opacity="0.55"/>
       <stop offset="100%" stop-color="#0A0A0A" stop-opacity="0.95"/>
     </linearGradient>
   </defs>
-  <!-- Full-bleed bg image -->
   <image href="_assets/bg-${code}-${bgN}.jpg" x="0" y="0" width="${W}" height="${H}"
          preserveAspectRatio="xMidYMid slice"/>
   <rect width="${W}" height="${H}" fill="url(#darken)"/>
 
-  <!-- Top: country chip + headline -->
+  <!-- Top: yellow stripe + country + headline (no flag) -->
   <rect x="0" y="0" width="${W}" height="60" fill="#F5E63B"/>
   <text x="60" y="160" font-family="Hiragino Sans" font-weight="900"
-        font-size="44" fill="#F5E63B" letter-spacing="6">${escape(countryName.toUpperCase())}</text>
+        font-size="40" fill="#F5E63B" letter-spacing="6">${escape(countryName.toUpperCase())} · ${escape(story.sourceName.toUpperCase())}</text>
   ${headlineSvg}
 
-  <!-- Country flag small -->
-  <image href="_assets/${code}.png" x="820" y="100" width="200" height="135"
-         preserveAspectRatio="xMidYMid meet"/>
-
-  <!-- Bottom: summary -->
-  <rect x="0" y="1340" width="${W}" height="6" fill="#F5E63B"/>
-  ${summarySvg}
-
-  <!-- Source -->
-  <text x="60" y="1820" font-family="Hiragino Sans" font-weight="600"
-        font-size="32" fill="#F5E63B" letter-spacing="4">SOURCE: ${escape(story.sourceName.toUpperCase())}</text>
+  <!-- Bottom caption box for readability -->
+  <rect x="40" y="1410" width="1000" height="380" fill="#0A0A0A" fill-opacity="0.78" rx="20"/>
+  ${capSvg}
 </svg>`;
 }
 
-/** Today's word card */
-function wordSvg(w: { word: string; definitionEn: string }): string {
-  const defLines = wrap(w.definitionEn, 28, 3);
-  let defSvg = "";
-  const defStartY = 1180;
-  defLines.forEach((line, i) => {
-    defSvg += `\n  <text x="540" y="${defStartY + i * 70}" text-anchor="middle"
+/**
+ * Word card scene. cue text changes between "Today's English word from this story is X"
+ *   / "X means: ..." / "You will hear this word in world news...".
+ * We show the big word always and add the cue text below.
+ */
+function wordSvg(keyword: Keyword | undefined, cueText: string, cueIdx: number): string {
+  const word = keyword?.word ?? "word";
+  // For first cue ("today's English word is X") show big word.
+  // For subsequent ("X means: ...") show definition.
+  const capLines = wrap(cueText, 26, 3);
+  let capSvg = "";
+  capLines.forEach((line, i) => {
+    capSvg += `\n  <text x="540" y="${1180 + i * 75}" text-anchor="middle"
         font-family="Hiragino Sans" font-weight="700"
-        font-size="52" fill="#FFFFFF" letter-spacing="0">${escape(line)}</text>`;
+        font-size="54" fill="#FFFFFF" letter-spacing="0">${escape(line)}</text>`;
   });
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   <rect width="${W}" height="${H}" fill="#0F1B3D"/>
-  <!-- Big label -->
   <rect x="60" y="160" width="960" height="80" fill="#F5E63B"/>
   <text x="540" y="220" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
         font-size="44" fill="#0A0A0A" letter-spacing="8">TODAY'S ENGLISH WORD</text>
-  <!-- Word -->
-  <text x="540" y="800" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="220" fill="#F5E63B" letter-spacing="-4">${escape(w.word)}</text>
-  <!-- Decoration line -->
-  <rect x="240" y="900" width="600" height="8" fill="#F5E63B"/>
-  <!-- Definition -->
-  <text x="540" y="1060" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
-        font-size="40" fill="#9CA3AF" letter-spacing="6">MEANS</text>
-  ${defSvg}
-  <!-- Brand footer -->
+  <text x="540" y="780" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="210" fill="#F5E63B" letter-spacing="-4">${escape(word)}</text>
+  <rect x="240" y="880" width="600" height="8" fill="#F5E63B"/>
+  <text x="540" y="1050" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
+        font-size="40" fill="#9CA3AF" letter-spacing="6">${cueIdx === 0 ? "LISTEN" : cueIdx === 1 ? "MEANING" : "USE IT"}</text>
+  <rect x="40" y="1110" width="1000" height="380" fill="#0A0A0A" fill-opacity="0.45" rx="20"/>
+  ${capSvg}
   <text x="540" y="1820" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
         font-size="32" fill="#7A8AB5" letter-spacing="3">DAILY WORLD 60 · @60dailyworld</text>
 </svg>`;
 }
 
-/** Subscribe outro (held to end of video) */
+/** Subscribe outro (constant, used for any cue not in body/word). */
 function subscribeSvg(): string {
   const thumbUp = `<g transform="translate(396, 880) scale(2.4)">
     <path d="M0 60 L0 200 L100 200 L150 140 L150 90 L100 90 L120 30 Q120 0 90 0 L70 0 L40 60 Z"
@@ -297,17 +328,11 @@ function subscribeSvg(): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   <rect width="${W}" height="${H}" fill="#0F1B3D"/>
-
-  <!-- Hero CTA -->
   <text x="540" y="500" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
         font-size="120" fill="#FFFFFF" letter-spacing="2">PLEASE</text>
   <text x="540" y="640" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
         font-size="140" fill="#F5E63B" letter-spacing="2">SUBSCRIBE</text>
-
-  <!-- 👍 -->
   ${thumbUp}
-
-  <!-- Channel block -->
   <rect x="60" y="1380" width="960" height="360" fill="#0A0A0A"/>
   <text x="540" y="1500" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
         font-size="76" fill="#F5E63B" letter-spacing="4">DAILY WORLD 60</text>
@@ -320,7 +345,7 @@ function subscribeSvg(): string {
 </svg>`;
 }
 
-// ─────── Helpers ───────
+// ─────────── Helpers ───────────
 
 async function parseVtt(p: string): Promise<VttCue[]> {
   const text = await fs.readFile(p, "utf-8");
@@ -341,7 +366,6 @@ async function parseVtt(p: string): Promise<VttCue[]> {
 function toSec(h: string, m: string, s: string, ms: string): number {
   return Number(h) * 3600 + Number(m) * 60 + Number(s) + Number(ms) / 1000;
 }
-
 function ffprobeDuration(file: string): Promise<number> {
   return new Promise((resolve, reject) => {
     const proc = spawn(
@@ -360,7 +384,6 @@ function ffprobeDuration(file: string): Promise<number> {
     });
   });
 }
-
 function run(cmd: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const proc = spawn(cmd, args, { stdio: ["ignore", "inherit", "inherit"] });

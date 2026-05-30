@@ -11,7 +11,15 @@ import { Script } from "../domain/script/Script.js";
  */
 
 interface Country { code: string; flag: string; name?: string; }
-interface Story { index: number; country: Country; headline: string; summary: string; sourceName: string; }
+interface Keyword { word: string; definitionEn: string; }
+interface Story {
+  index: number;
+  country: Country;
+  headline: string;
+  summary: string;
+  sourceName: string;
+  keyword?: Keyword;
+}
 interface ScriptJson {
   date: string;
   stories: Story[];
@@ -30,7 +38,7 @@ async function main() {
     const mp3 = path.join(dir, `voice-${code}.mp3`);
     const vtt = path.join(dir, `voice-${code}.vtt`);
 
-    const narration = Script.toStoryNarration(story, script.todaysWord);
+    const narration = Script.toStoryNarration(story);
     console.log(`[tts] ${code}: ${narration.split(/\s+/).length} words`);
 
     await run("edge-tts", [
