@@ -27,33 +27,45 @@ async function main() {
     `scripts-${date}.json`,
   ];
 
+  // 同名ファイルが複数ある場合があるため、modifiedTime 降順で全部リストし、
+  // scriptEn を含む最初のものを採用する。
+  let json: Record<string, unknown> | undefined;
   let fileId: string | undefined;
   let fileName: string | undefined;
-  for (const name of candidateNames) {
+  outer: for (const name of candidateNames) {
     const r = await drive.files.list({
       q: `'${folderId}' in parents and name = '${name}' and trashed = false`,
-      fields: "files(id, name)",
-      pageSize: 1,
+      fields: "files(id, name, modifiedTime)",
+      orderBy: "modifiedTime desc",
+      pageSize: 20,
     });
-    if (r.data.files && r.data.files.length > 0) {
-      fileId = r.data.files[0].id!;
-      fileName = r.data.files[0].name!;
-      break;
+    for (const f of r.data.files ?? []) {
+      const res = await drive.files.get(
+        { fileId: f.id!, alt: "media" },
+        { responseType: "text" },
+      );
+      try {
+        const parsed = JSON.parse(res.data as unknown as string);
+        if (parsed && (parsed.scriptEn || parsed["script-en"] || parsed.script_en)) {
+          fileId = f.id!;
+          fileName = f.name!;
+          json = parsed;
+          console.log(`[drive] using ${fileName} (id=${fileId}, modified=${f.modifiedTime})`);
+          break outer;
+        } else {
+          console.log(`[drive] skipping ${f.name} (id=${f.id}) — no scriptEn`);
+        }
+      } catch {
+        console.log(`[drive] skipping ${f.name} (id=${f.id}) — invalid JSON`);
+      }
     }
   }
 
-  if (!fileId) {
+  if (!json) {
     throw new Error(
-      `No script file for ${date} found in "${FOLDER_NAME}". Looked for: ${candidateNames.join(", ")}`,
+      `No script file with scriptEn for ${date} in "${FOLDER_NAME}". Tried: ${candidateNames.join(", ")}`,
     );
   }
-
-  console.log(`[drive] downloading ${fileName} (id=${fileId})`);
-  const res = await drive.files.get(
-    { fileId, alt: "media" },
-    { responseType: "text" },
-  );
-  const json = JSON.parse(res.data as unknown as string);
 
   // Routine が publish-results 形式で保存している場合
   const scriptEn = json.scriptEn ?? json["script-en"] ?? json.script_en;

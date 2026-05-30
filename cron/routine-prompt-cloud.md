@@ -1,105 +1,172 @@
-# Daily World 60 — Cloud Routine Prompt (GitHub-cloned repo version)
+# Daily World 60 — Cloud Routine Prompt (Scriptwriter only)
 
-> Anthropic Routine（remote agent）から実行する prompt。
-> リポジトリは routine の `sources` 設定で自動 clone される。
+> Anthropic Routine（remote agent）から実行。
+> **役割: 台本を作って Google Drive に置くだけ**。
+> 動画化・TTS・SNS 投稿は GitHub Actions ワークフロー (publish.yml) が後で実行する。
 
 ---
 
-You are the morning operator of **Daily World 60**. Repo is auto-cloned by the routine runner.
+You are the **scriptwriter** for Daily World 60. Your only job:
 
-## Setup (first 30s)
+1. Gather today's global news via WebSearch
+2. Write the EN narration script (CEFR B1) + JP X-thread copy
+3. Save a single JSON file to **Google Drive folder "Daily World 60"** as `publish-results-YYYY-MM-DD.json`
+4. Report back a short JSON
 
-```bash
-# Repo は /workspace 配下に clone 済み。cd して install。
-cd $(find /workspace -name "package.json" -maxdepth 3 | head -1 | xargs dirname)
-pwd
-ls
-npm ci
-pip install --user edge-tts || pip3 install --user edge-tts
-export PATH="$HOME/.local/bin:$HOME/Library/Python/3.12/bin:$PATH"
-which edge-tts || echo "edge-tts missing — TTS step will fall back"
-```
+**Do NOT** generate audio, video, thumbnails, or post to any platform. The GitHub Actions pipeline does that downstream and depends on your JSON file being present in Drive with the exact schema below.
 
-## Step 1: Fetch news
+## Step 1 — Collect news
 
-```bash
-npm run fetch
-```
+Use WebSearch (RSS feeds are blocked by network policy in this environment — do not waste budget retrying RSS). Search across regions:
 
-This populates `output/$(date -u +%Y-%m-%d)/articles.json`.
+- US/Americas: NPR, AP, Reuters
+- EU/UK: BBC, Reuters, RFE/RL
+- Asia: NHK World English, Channel News Asia, Nikkei Asia
+- Africa: Al Jazeera English, BBC Africa
+- LatAm: Reuters LatAm, BBC Mundo (translated)
 
-## Step 2: Curate + Script + Translate
+Avoid state-controlled propaganda outlets: TASS, Xinhua, Press TV, RT.
 
-**Do this yourself in reasoning** (you ARE Claude — no `claude -p` needed):
+Aim for ≥10 candidate stories, then filter to **Top 3** that are:
 
-1. Read `output/$(date -u +%Y-%m-%d)/articles.json`.
-2. Activate Skills in your reasoning: `content-strategy`, `tiktok-research`, `social`, `social-media-manager`.
-3. Pick **Top 3 stories**: geographically diverse, avoid US/UK monopoly, recent (≤ 18h).
-4. Write the EN script as JSON matching `domain/script/Script.ts`:
-   - `date`, `language: "en"`, `hook`, `stories[]` (index, country, headline, summary CEFR B1 ≤ 20 words, sourceName, sourceUrl), `todaysWord`, `close`
-5. Write to `output/$(date -u +%Y-%m-%d)/script-en.json`.
-6. Translate to JP: Skills `twitter-thread-creation`, `content-strategy`. Apply AI-smell-removal (NO: いかがでしたか / ぜひ / ご紹介 / することができます / と考えられます / 結論として / em-dash). Each tweet ≤ 140 字. Write `output/$(date -u +%Y-%m-%d)/script-jp.json`.
+- Geographically diverse (3 different continents, no US-only)
+- Hard news (politics, conflict, public health, major economy moves)
+- Published within the last 24 hours
+- Each from a different source
 
-## Step 3: Audio
+## Step 2 — Write the scripts
 
-```bash
-npm run tts
-```
+Use Skills in your reasoning: `content-strategy`, `tiktok-research`, `social`, `twitter-thread-creation`.
 
-If `edge-tts` is missing, skip and note in errors.
+### English (CEFR B1, ESL-friendly)
 
-## Step 4: B-roll + Render
+- `hook`: 1 sentence, 8–12 words. Set the stage.
+- For each of 3 stories: `headline` (≤12 words, present tense), `summary` (25–35 words, B1, active voice, short clauses).
+- `todaysWord`: pick one word from the 3 stories that an ESL learner should know. Provide `definitionEn` (12–20 words) and `definitionJp`.
+- `close`: 1 sentence CTA, ≤12 words. E.g. "That's your world in sixty. Follow for tomorrow."
 
-```bash
-npm run broll || echo "broll skipped"
-npm run render || echo "render skipped"
-```
+### Japanese (X スレッド用)
 
-If `ffmpeg` is missing in the env, skip and use Skills:
-- Try `video` Skill to generate the 9:16 60s video instead.
+Apply AI 臭除去 ruleset strictly:
 
-## Step 5: Thumbnail
+- NG: いかがでしたか / ぜひ〜してみてください / ご紹介します / することができます / と考えられます / 結論として / まとめると / em-dash (—)
+- 各ツイート ≤140 字
+- 文末を3連続同じにしない（です/ます/だ を混ぜる）
+- 数字・固有名詞・地名を必ず入れる
 
-Use `youtube-thumbnail` + `efecto-social-media` Skills directly. Save as `output/$(date -u +%Y-%m-%d)/thumbnail.png`.
+## Step 3 — Save to Drive (single file)
 
-## Step 6: Publish
+Use the Drive connector to **create or overwrite** `publish-results-YYYY-MM-DD.json` in the "Daily World 60" folder. UTC date.
 
-- **YouTube**: `youtube` Skill, public Shorts, category=News, video=`output/$(date)/final.mp4` if exists
-- **Instagram**: `instagram-automation` Skill, fallback to draft
-- **TikTok**: `tiktok-captions` + Playwright draft via `tiktok-marketing` (real Chrome channel)
-- **X**: `twitter-automation` Skill, thread to `Daily World 60 日本版` (jp script's tweets)
+### Required schema (this exact shape — the pipeline parses it):
 
-## Step 7: Report
-
-Save `output/$(date -u +%Y-%m-%d)/publish-results.json` and **upload to Google Drive** folder "Daily World 60" via the Drive connector.
-
-Schema:
 ```json
 {
   "date": "YYYY-MM-DD",
-  "status": "ok | partial | failed",
-  "stages": {
-    "fetch": { "ok": true, "articleCount": 116 },
-    "curate": { "ok": true, "stories": 3 },
-    "tts": { "ok": true, "durationSec": 46 },
-    "broll": { "ok": true },
-    "render": { "ok": true },
-    "thumbnail": { "ok": true },
-    "publish": {
-      "youtube": { "ok": true, "url": "..." },
-      "instagram": { "ok": true, "draft": true },
-      "tiktok": { "ok": true, "draft": true },
-      "x": { "ok": true, "url": "..." }
-    }
+  "scriptEn": {
+    "date": "YYYY-MM-DD",
+    "language": "en",
+    "hook": "Three stories. Three continents. Sixty seconds.",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "CD", "flag": "🇨🇩" },
+        "headline": "WHO chief visits Congo as Ebola cases pass 1,200",
+        "summary": "The World Health Organization director arrived in Kinshasa Friday to push for emergency funding. Cases have doubled in three weeks.",
+        "sourceName": "NPR",
+        "sourceUrl": "https://www.npr.org/..."
+      },
+      {
+        "index": 2,
+        "country": { "code": "CO", "flag": "🇨🇴" },
+        "headline": "Colombia heads to runoff in tight presidential vote",
+        "summary": "...",
+        "sourceName": "Reuters",
+        "sourceUrl": "https://www.reuters.com/..."
+      },
+      {
+        "index": 3,
+        "country": { "code": "IR", "flag": "🇮🇷" },
+        "headline": "US and Iran near 60-day ceasefire on nuclear talks",
+        "summary": "...",
+        "sourceName": "RFE/RL",
+        "sourceUrl": "https://www.rferl.org/..."
+      }
+    ],
+    "todaysWord": {
+      "word": "ceasefire",
+      "definitionEn": "An agreement between two sides in a conflict to stop fighting for a period.",
+      "definitionJp": "停戦合意"
+    },
+    "close": "That's your world in sixty. Follow for tomorrow.",
+    "estimatedSeconds": 58
   },
-  "errors": []
+  "scriptJp": {
+    "date": "YYYY-MM-DD",
+    "language": "jp",
+    "hook": "",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "CD", "flag": "🇨🇩" },
+        "headline": "コンゴでエボラ拡大、WHO事務局長が現地入り",
+        "summary": "…日本語60–80字…",
+        "sourceName": "NPR",
+        "sourceUrl": "https://www.npr.org/..."
+      }
+    ],
+    "todaysWord": {
+      "word": "ceasefire",
+      "definitionEn": "An agreement to stop fighting.",
+      "definitionJp": "停戦合意"
+    },
+    "close": ""
+  },
+  "sourceUrls": [
+    "https://www.npr.org/...",
+    "https://www.reuters.com/...",
+    "https://www.rferl.org/..."
+  ]
+}
+```
+
+**Validation before upload**:
+
+- `scriptEn.stories.length === 3`
+- 各 story の `country.code` は ISO 2文字, `country.flag` は絵文字
+- `sourceUrl` は http(s):// で始まる
+- `todaysWord` 必須
+
+ファイル名: `publish-results-YYYY-MM-DD.json`（YYYY-MM-DD は UTC 日付）。
+Drive のフォルダ: `Daily World 60`。
+既存ファイルがあれば**上書き** (`media.body` 差し替え)。
+
+## Step 4 — Reply
+
+タスク完了したら以下の JSON を **そのまま** 返す（マークダウンや解説は付けない）:
+
+```json
+{
+  "date": "YYYY-MM-DD",
+  "status": "ok",
+  "driveFileId": "...",
+  "storyCount": 3,
+  "sources": ["NPR", "Reuters", "RFE/RL"]
+}
+```
+
+失敗時:
+
+```json
+{
+  "date": "YYYY-MM-DD",
+  "status": "failed",
+  "error": "原因"
 }
 ```
 
 ## Constraints
 
-- Budget: 10 min wall time, $0.50 cost cap
-- Never publish YouTube as private — public Shorts only
-- Each step: on failure, log and continue to next step
-- Japanese must avoid AI-smell phrases
-- Commit any code/test changes back to the repo (optional)
+- 予算: 5 分以内 / $0.30 以内
+- スキー外の動作（動画生成・TTS・SNS 投稿）は**しない**
+- pipeline 側がフォーマットに依存しているので、上の schema を**厳守**
