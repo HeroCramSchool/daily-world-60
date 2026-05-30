@@ -112,7 +112,7 @@ async function buildOne(dir: string, story: Story) {
     scenes.push({
       id: `03-word${(i + 1).toString().padStart(2, "0")}`,
       dur,
-      svg: wordSvg(story.keyword, cue.text, i),
+      svg: wordSvg(story.keyword, cue.text, i, story),
     });
   });
 
@@ -122,7 +122,7 @@ async function buildOne(dir: string, story: Story) {
   scenes.push({
     id: "04-subscribe",
     dur: subscribeDur,
-    svg: subscribeSvg(),
+    svg: subscribeSvg(story),
   });
 
   console.log(`[news] ${code} (story ${story.index}): audio=${audioDuration.toFixed(1)}s, total=${TOTAL_DURATION}s, scenes=${scenes.length}`);
@@ -183,6 +183,28 @@ async function buildOne(dir: string, story: Story) {
 function escape(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+
+/** Compact source URL: domain + first 40 chars of path. */
+function shortUrl(url: string, maxLen = 56): string {
+  const trimmed = url.replace(/^https?:\/\//, "").replace(/^www\./, "");
+  if (trimmed.length <= maxLen) return trimmed;
+  return trimmed.slice(0, maxLen - 1) + "…";
+}
+
+/**
+ * Source attribution footer (Y 1820-1910). Shown on hook + caption + word scenes.
+ * Designed not to overlap with any other text element.
+ */
+function sourceFooter(story: Story): string {
+  return `
+  <!-- Source attribution footer -->
+  <rect x="0" y="1820" width="${W}" height="100" fill="#0A0A0A" fill-opacity="0.92"/>
+  <rect x="0" y="1820" width="${W}" height="3" fill="#F5E63B"/>
+  <text x="60" y="1862" font-family="Hiragino Sans" font-weight="900"
+        font-size="24" fill="#F5E63B" letter-spacing="4">SOURCE</text>
+  <text x="60" y="1900" font-family="Hiragino Sans" font-weight="600"
+        font-size="22" fill="#FFFFFF" letter-spacing="0">${escape(story.sourceName)} · ${escape(shortUrl(story.sourceUrl))}</text>`;
+}
 function wrap(text: string, maxChars: number, maxLines = 5): string[] {
   const words = text.split(/\s+/);
   const lines: string[] = [];
@@ -204,9 +226,9 @@ function wrap(text: string, maxChars: number, maxLines = 5): string[] {
 function hookSvg(story: Story): string {
   const code = story.country.code.toLowerCase();
   const countryName = story.country.name ?? story.country.code;
-  const headlineLines = wrap(story.headline, 22, 4);
+  const headlineLines = wrap(story.headline, 22, 3);
   let headlineSvg = "";
-  const startY = 1340;
+  const startY = 1310;
   headlineLines.forEach((line, i) => {
     headlineSvg += `\n  <text x="60" y="${startY + i * 100}" font-family="Hiragino Sans" font-weight="900"
         font-size="80" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
@@ -222,15 +244,14 @@ function hookSvg(story: Story): string {
   <text x="60" y="780" font-family="Hiragino Sans" font-weight="900"
         font-size="110" fill="#FFFFFF" letter-spacing="-2">${escape(countryName.toUpperCase())}</text>
   <rect x="60" y="820" width="280" height="10" fill="#F5E63B"/>
-  <text x="60" y="950" font-family="Hiragino Sans" font-weight="600"
-        font-size="40" fill="#F5E63B" letter-spacing="6">${escape(story.sourceName.toUpperCase())}</text>
+  <text x="60" y="950" font-family="Hiragino Sans" font-weight="900"
+        font-size="44" fill="#F5E63B" letter-spacing="6">DAILY WORLD 60</text>
+  <text x="60" y="1000" font-family="Hiragino Sans" font-weight="600"
+        font-size="28" fill="#9CA3AF" letter-spacing="3">@60dailyworld</text>
   <text x="60" y="1180" font-family="Hiragino Sans" font-weight="600"
         font-size="36" fill="#9CA3AF" letter-spacing="6">HEADLINE</text>
   ${headlineSvg}
-  <text x="60" y="1820" font-family="Hiragino Sans" font-weight="900"
-        font-size="48" fill="#F5E63B" letter-spacing="4">DAILY WORLD 60</text>
-  <text x="60" y="1870" font-family="Hiragino Sans" font-weight="600"
-        font-size="28" fill="#7A7A7A" letter-spacing="2">@60dailyworld</text>
+  ${sourceFooter(story)}
 </svg>`;
 }
 
@@ -251,7 +272,8 @@ function captionSvg(story: Story, captionText: string, bgN: 1 | 2 | 3 | 4): stri
   });
   // Caption text: large, bottom-half, white with strong outline-feel via box bg
   const capLines = wrap(captionText, 24, 3);
-  const capStartY = 1480;
+  // Caption box: Y 1280-1740 (avoid source footer Y 1820+ and avoid overlap with top headline)
+  const capStartY = 1380;
   let capSvg = "";
   capLines.forEach((line, i) => {
     capSvg += `\n  <text x="540" y="${capStartY + i * 90}" text-anchor="middle"
@@ -272,15 +294,17 @@ function captionSvg(story: Story, captionText: string, bgN: 1 | 2 | 3 | 4): stri
          preserveAspectRatio="xMidYMid slice"/>
   <rect width="${W}" height="${H}" fill="url(#darken)"/>
 
-  <!-- Top: yellow stripe + country + headline (no flag) -->
+  <!-- Top: yellow stripe + country (no flag) -->
   <rect x="0" y="0" width="${W}" height="60" fill="#F5E63B"/>
   <text x="60" y="160" font-family="Hiragino Sans" font-weight="900"
-        font-size="40" fill="#F5E63B" letter-spacing="6">${escape(countryName.toUpperCase())} · ${escape(story.sourceName.toUpperCase())}</text>
+        font-size="40" fill="#F5E63B" letter-spacing="6">${escape(countryName.toUpperCase())}</text>
   ${headlineSvg}
 
-  <!-- Bottom caption box for readability -->
-  <rect x="40" y="1410" width="1000" height="380" fill="#0A0A0A" fill-opacity="0.78" rx="20"/>
+  <!-- Bottom caption box (Y 1280-1780) -->
+  <rect x="40" y="1280" width="1000" height="500" fill="#0A0A0A" fill-opacity="0.80" rx="20"/>
   ${capSvg}
+
+  ${sourceFooter(story)}
 </svg>`;
 }
 
@@ -289,10 +313,8 @@ function captionSvg(story: Story, captionText: string, bgN: 1 | 2 | 3 | 4): stri
  *   / "X means: ..." / "You will hear this word in world news...".
  * We show the big word always and add the cue text below.
  */
-function wordSvg(keyword: Keyword | undefined, cueText: string, cueIdx: number): string {
+function wordSvg(keyword: Keyword | undefined, cueText: string, cueIdx: number, story: Story): string {
   const word = keyword?.word ?? "word";
-  // For first cue ("today's English word is X") show big word.
-  // For subsequent ("X means: ...") show definition.
   const capLines = wrap(cueText, 26, 3);
   let capSvg = "";
   capLines.forEach((line, i) => {
@@ -313,14 +335,15 @@ function wordSvg(keyword: Keyword | undefined, cueText: string, cueIdx: number):
         font-size="40" fill="#9CA3AF" letter-spacing="6">${cueIdx === 0 ? "LISTEN" : cueIdx === 1 ? "MEANING" : "USE IT"}</text>
   <rect x="40" y="1110" width="1000" height="380" fill="#0A0A0A" fill-opacity="0.45" rx="20"/>
   ${capSvg}
-  <text x="540" y="1820" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
-        font-size="32" fill="#7A8AB5" letter-spacing="3">DAILY WORLD 60 · @60dailyworld</text>
+  <text x="540" y="1780" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
+        font-size="28" fill="#7A8AB5" letter-spacing="3">DAILY WORLD 60 · @60dailyworld</text>
+  ${sourceFooter(story)}
 </svg>`;
 }
 
-/** Subscribe outro (constant, used for any cue not in body/word). */
-function subscribeSvg(): string {
-  const thumbUp = `<g transform="translate(396, 880) scale(2.4)">
+/** Subscribe outro. Source 行は最下部に表示。 */
+function subscribeSvg(story: Story): string {
+  const thumbUp = `<g transform="translate(396, 800) scale(2.4)">
     <path d="M0 60 L0 200 L100 200 L150 140 L150 90 L100 90 L120 30 Q120 0 90 0 L70 0 L40 60 Z"
           fill="#F5E63B" stroke="#0A0A0A" stroke-width="6" stroke-linejoin="round"/>
     <rect x="-40" y="60" width="40" height="140" fill="#F5E63B" stroke="#0A0A0A" stroke-width="6"/>
@@ -328,20 +351,23 @@ function subscribeSvg(): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   <rect width="${W}" height="${H}" fill="#0F1B3D"/>
-  <text x="540" y="500" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+  <text x="540" y="440" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
         font-size="120" fill="#FFFFFF" letter-spacing="2">PLEASE</text>
-  <text x="540" y="640" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+  <text x="540" y="580" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
         font-size="140" fill="#F5E63B" letter-spacing="2">SUBSCRIBE</text>
   ${thumbUp}
-  <rect x="60" y="1380" width="960" height="360" fill="#0A0A0A"/>
-  <text x="540" y="1500" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="76" fill="#F5E63B" letter-spacing="4">DAILY WORLD 60</text>
-  <text x="540" y="1590" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="50" fill="#FFFFFF" letter-spacing="4">@60dailyworld</text>
-  <text x="540" y="1660" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
-        font-size="32" fill="#7A8AB5" letter-spacing="3">YouTube · TikTok · Instagram</text>
-  <text x="540" y="1720" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
-        font-size="28" fill="#7A8AB5" letter-spacing="3">3 world news every day, in 60 seconds</text>
+  <!-- Channel block (Y 1300-1620, smaller to leave room for source footer) -->
+  <rect x="60" y="1300" width="960" height="320" fill="#0A0A0A"/>
+  <text x="540" y="1410" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="68" fill="#F5E63B" letter-spacing="4">DAILY WORLD 60</text>
+  <text x="540" y="1490" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="46" fill="#FFFFFF" letter-spacing="4">@60dailyworld</text>
+  <text x="540" y="1550" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
+        font-size="28" fill="#7A8AB5" letter-spacing="3">YouTube · TikTok · Instagram</text>
+  <text x="540" y="1600" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
+        font-size="24" fill="#7A8AB5" letter-spacing="3">3 world news every day, in 60 seconds</text>
+
+  ${sourceFooter(story)}
 </svg>`;
 }
 
