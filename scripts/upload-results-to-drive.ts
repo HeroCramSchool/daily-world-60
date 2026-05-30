@@ -40,31 +40,38 @@ async function main() {
     console.log(`[drive-upload] created ${remoteName}`);
   }
 
-  // Also upload final.mp4 if it exists (size permitting)
-  const videoFile = path.join(dir, "final.mp4");
-  if (fs.existsSync(videoFile)) {
-    const stat = fs.statSync(videoFile);
-    if (stat.size < 100 * 1024 * 1024) {
-      // < 100 MB
-      const videoName = `video-${date}.mp4`;
-      const existingVideo = await drive.files.list({
-        q: `'${folderId}' in parents and name = '${videoName}' and trashed = false`,
-        fields: "files(id)",
-        pageSize: 1,
-      });
-      if (existingVideo.data.files && existingVideo.data.files.length > 0) {
-        await drive.files.update({
-          fileId: existingVideo.data.files[0].id!,
-          media: { mimeType: "video/mp4", body: fs.createReadStream(videoFile) },
-        });
-      } else {
-        await drive.files.create({
-          requestBody: { name: videoName, parents: [folderId] },
-          media: { mimeType: "video/mp4", body: fs.createReadStream(videoFile) },
-        });
-      }
-      console.log(`[drive-upload] uploaded ${videoName} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
+  // Also upload final.mp4, voice.mp3, thumbnail.png if they exist
+  const extras: Array<{ local: string; remote: string; mime: string }> = [
+    { local: "final.mp4",     remote: `video-${date}.mp4`,     mime: "video/mp4" },
+    { local: "voice.mp3",     remote: `voice-${date}.mp3`,     mime: "audio/mpeg" },
+    { local: "thumbnail.png", remote: `thumbnail-${date}.png`, mime: "image/png" },
+  ];
+
+  for (const e of extras) {
+    const local = path.join(dir, e.local);
+    if (!fs.existsSync(local)) continue;
+    const stat = fs.statSync(local);
+    if (stat.size > 100 * 1024 * 1024) {
+      console.warn(`[drive-upload] skip ${e.local}: too large (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
+      continue;
     }
+    const existingExtra = await drive.files.list({
+      q: `'${folderId}' in parents and name = '${e.remote}' and trashed = false`,
+      fields: "files(id)",
+      pageSize: 1,
+    });
+    if (existingExtra.data.files && existingExtra.data.files.length > 0) {
+      await drive.files.update({
+        fileId: existingExtra.data.files[0].id!,
+        media: { mimeType: e.mime, body: fs.createReadStream(local) },
+      });
+    } else {
+      await drive.files.create({
+        requestBody: { name: e.remote, parents: [folderId] },
+        media: { mimeType: e.mime, body: fs.createReadStream(local) },
+      });
+    }
+    console.log(`[drive-upload] uploaded ${e.remote} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
   }
 }
 
