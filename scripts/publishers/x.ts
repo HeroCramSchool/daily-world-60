@@ -1,6 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { chromium, type BrowserContext, type Cookie } from "playwright";
+import { chromium, type BrowserContext } from "playwright";
+import { decodeCookies } from "./cookie-util.js";
 
 export interface XPublishInput {
   thread: string[];
@@ -29,9 +30,7 @@ export async function publishX(input: XPublishInput): Promise<XPublishResult> {
     return { ok: false, error: "empty thread" };
   }
 
-  const cookies: Cookie[] = JSON.parse(
-    Buffer.from(cookiesB64, "base64").toString("utf-8"),
-  );
+  const cookies = decodeCookies(cookiesB64);
 
   const browser = await chromium.launch({ headless: true });
   let context: BrowserContext | undefined;
