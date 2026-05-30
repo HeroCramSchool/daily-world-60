@@ -21,8 +21,13 @@ export interface Script {
 export const Script = {
   toNarration(script: Script): string {
     const lines = [script.hook];
+    const last = script.stories.length;
     for (const s of script.stories) {
-      lines.push(`Story ${s.index} from ${s.country.flag} ${s.country.code}. ${s.headline}. ${s.summary}`);
+      const lead =
+        s.index === 1 ? "First, from" :
+        s.index === last ? "And finally, from" :
+        "Next news, from";
+      lines.push(`${lead} ${s.country.code}. ${s.headline}. ${s.summary}`);
     }
     lines.push(`Today's word: ${script.todaysWord.word}. ${script.todaysWord.definitionEn}.`);
     lines.push(script.close);

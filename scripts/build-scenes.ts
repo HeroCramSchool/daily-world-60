@@ -78,9 +78,11 @@ async function parseVttScenes(vttPath: string): Promise<{ scenes: SceneTime[]; a
     cues.find(c => re.test(c.text))?.start;
 
   const introStart = 0;
-  const s1Start = findStart(/Story 1 from/i);
-  const s2Start = findStart(/Story 2 from/i);
-  const s3Start = findStart(/Story 3 from/i);
+  // Match new lead-in phrases ("First, from CD" / "Next news, from KW" / "And finally, from SG")
+  // also keep legacy "Story N from" matching for safety.
+  const s1Start = findStart(/(first.*from|story 1 from)/i);
+  const s2Start = findStart(/(next news.*from|story 2 from)/i);
+  const s3Start = findStart(/(finally.*from|story 3 from)/i);
   const outroStart = findStart(/Today'?s word/i);
   const audioEnd = cues[cues.length - 1]?.end ?? 60;
 
@@ -147,18 +149,16 @@ async function main() {
     await fs.unlink(svgPath).catch(() => {});
   }
 
-  // Encode each PNG to mp4 of its dynamic duration
+  // Encode each PNG to mp4 of its dynamic duration. No zoompan (文字が切れるため静止画固定)。
   const segments: string[] = [];
   for (const sc of renderable) {
     const png = path.join(dir, `_scene-${sc.id}.png`);
     const mp4 = path.join(dir, `_scene-${sc.id}.mp4`);
     const duration = sc.end - sc.start;
-    const totalFrames = Math.max(1, Math.round(duration * FPS));
-    const zoomExpr = `min(zoom+0.0008,1.06)`;
     await run("ffmpeg", [
       "-y", "-loop", "1", "-i", png,
-      "-vf", `zoompan=z='${zoomExpr}':d=${totalFrames}:s=${W}x${H}:fps=${FPS},format=yuv420p`,
       "-t", duration.toFixed(3),
+      "-vf", `scale=${W}:${H},format=yuv420p`,
       "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", String(FPS),
       mp4,
     ]);
@@ -238,7 +238,7 @@ function introScene(s: Script, mmdd: string): string {
 function storyScene(st: Story, idx: number, accentColor: string, contextIcon: string, bgCode: string): string {
   const code = st.country.code.toLowerCase();
   const headlineLines = wrap(st.headline, 20, 3);
-  const startY = 1340;
+  const startY = 1280;
   const lineHeight = 110;
   let headlineSvg = "";
   headlineLines.forEach((line, i) => {
@@ -268,69 +268,84 @@ function storyScene(st: Story, idx: number, accentColor: string, contextIcon: st
 
   <!-- Top accent strip kept thin for hierarchy (60px) -->
   <rect x="0" y="0" width="${W}" height="60" fill="${accentColor}"/>
-  <text x="60" y="180" font-family="Hiragino Sans" font-weight="900"
-        font-size="52" fill="${onAccentText}" letter-spacing="6">STORY ${idx} / 3</text>
 
   <!-- Flag PNG -->
-  <image href="_assets/${code}.png" x="60" y="260" width="440" height="290"
+  <image href="_assets/${code}.png" x="60" y="200" width="440" height="290"
          preserveAspectRatio="xMidYMid meet"/>
 
   <!-- ISO code -->
-  <text x="1020" y="510" text-anchor="end" font-family="Hiragino Sans" font-weight="900"
+  <text x="1020" y="450" text-anchor="end" font-family="Hiragino Sans" font-weight="900"
         font-size="200" fill="#FFFFFF" letter-spacing="-4">${escape(st.country.code)}</text>
 
   <!-- Context icon -->
-  <g transform="translate(820, 700) scale(1.3)">${contextIcon}</g>
+  <g transform="translate(820, 640) scale(1.3)">${contextIcon}</g>
 
   <!-- Source -->
-  <text x="60" y="850" font-family="Hiragino Sans" font-weight="900"
+  <text x="60" y="800" font-family="Hiragino Sans" font-weight="900"
         font-size="50" fill="#F5E63B" letter-spacing="6">${escape(st.sourceName.toUpperCase())}</text>
-  <rect x="60" y="890" width="280" height="8" fill="#F5E63B"/>
+  <rect x="60" y="840" width="280" height="8" fill="#F5E63B"/>
 
-  <text x="60" y="1050" font-family="Hiragino Sans" font-weight="600"
+  <text x="60" y="1000" font-family="Hiragino Sans" font-weight="600"
         font-size="36" fill="#E5E7EB" letter-spacing="6">HEADLINE</text>
 
   ${headlineSvg}
 </svg>`;
 }
 
-/** Outro: today's word + PLEASE SUBSCRIBE + 👍 SVG + channel. Holds while voice plays. */
+/** Outro: today's word + PLEASE SUBSCRIBE + 👍 SVG + channel. */
 function outroScene(s: Script): string {
-  const thumbUp = `<g transform="translate(760, 1110) scale(1.6)">
+  // Centered thumb-up. Path bounding box ≈ 200x200 (-40..150 X, 0..200 Y) → scale 2.4 → 480x480.
+  // To center horizontally on 1080-wide canvas: width ≈ 480, start X = (1080-480)/2 = 300.
+  // Path's leftmost is -40, so translate X = 300 - (-40 * 2.4) = 300 + 96 = 396.
+  const thumbUp = `<g transform="translate(396, 1080) scale(2.4)">
     <path d="M0 60 L0 200 L100 200 L150 140 L150 90 L100 90 L120 30 Q120 0 90 0 L70 0 L40 60 Z"
           fill="#F5E63B" stroke="#0A0A0A" stroke-width="6" stroke-linejoin="round"/>
     <rect x="-40" y="60" width="40" height="140" fill="#F5E63B" stroke="#0A0A0A" stroke-width="6"/>
   </g>`;
 
+  // Truncate definition for safe fit (max ~50 chars)
+  const def = s.todaysWord.definitionEn.length > 50
+    ? s.todaysWord.definitionEn.slice(0, 49) + "…"
+    : s.todaysWord.definitionEn;
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   <rect width="${W}" height="${H}" fill="#0F1B3D"/>
 
-  <!-- Today's word card -->
-  <rect x="60" y="180" width="960" height="500" fill="#F5E63B"/>
-  <text x="100" y="280" font-family="Hiragino Sans" font-weight="900"
-        font-size="42" fill="#0A0A0A" letter-spacing="6">TODAY'S WORD</text>
-  <text x="100" y="470" font-family="Hiragino Sans" font-weight="900"
-        font-size="170" fill="#0A0A0A" letter-spacing="-3">${escape(s.todaysWord.word)}</text>
-  <text x="100" y="580" font-family="Hiragino Sans" font-weight="600"
-        font-size="46" fill="#0A0A0A" letter-spacing="0">${escape(s.todaysWord.definitionEn.slice(0, 56))}</text>
+  <!-- ───────── Today's word card (Y 160-600) ───────── -->
+  <rect x="60" y="160" width="960" height="440" fill="#F5E63B"/>
+  <text x="540" y="240" text-anchor="middle"
+        font-family="Hiragino Sans" font-weight="900"
+        font-size="40" fill="#0A0A0A" letter-spacing="8">TODAY'S WORD</text>
+  <text x="540" y="430" text-anchor="middle"
+        font-family="Hiragino Sans" font-weight="900"
+        font-size="150" fill="#0A0A0A" letter-spacing="-2">${escape(s.todaysWord.word)}</text>
+  <text x="540" y="530" text-anchor="middle"
+        font-family="Hiragino Sans" font-weight="600"
+        font-size="36" fill="#0A0A0A" letter-spacing="0">${escape(def)}</text>
 
-  <!-- CTA -->
-  <text x="60" y="900" font-family="Hiragino Sans" font-weight="900"
-        font-size="140" fill="#FFFFFF" letter-spacing="-3">PLEASE</text>
-  <text x="60" y="1050" font-family="Hiragino Sans" font-weight="900"
-        font-size="140" fill="#F5E63B" letter-spacing="-3">SUBSCRIBE</text>
+  <!-- ───────── PLEASE SUBSCRIBE (Y 720-980) ───────── -->
+  <text x="540" y="820" text-anchor="middle"
+        font-family="Hiragino Sans" font-weight="900"
+        font-size="100" fill="#FFFFFF" letter-spacing="2">PLEASE</text>
+  <text x="540" y="960" text-anchor="middle"
+        font-family="Hiragino Sans" font-weight="900"
+        font-size="120" fill="#F5E63B" letter-spacing="2">SUBSCRIBE</text>
 
+  <!-- ───────── Thumb-up 👍 (Y 1080-1480) ───────── -->
   ${thumbUp}
 
-  <!-- Channel block -->
-  <rect x="60" y="1480" width="960" height="320" fill="#0A0A0A"/>
-  <text x="540" y="1600" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="92" fill="#F5E63B" letter-spacing="2">DAILY WORLD 60</text>
-  <text x="540" y="1690" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="60" fill="#FFFFFF" letter-spacing="4">@60dailyworld</text>
-  <text x="540" y="1760" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
-        font-size="34" fill="#7A8AB5" letter-spacing="3">YouTube · TikTok · Instagram</text>
+  <!-- ───────── Channel block (Y 1540-1860, ample box) ───────── -->
+  <rect x="60" y="1540" width="960" height="320" fill="#0A0A0A"/>
+  <text x="540" y="1650" text-anchor="middle"
+        font-family="Hiragino Sans" font-weight="900"
+        font-size="76" fill="#F5E63B" letter-spacing="4">DAILY WORLD 60</text>
+  <text x="540" y="1740" text-anchor="middle"
+        font-family="Hiragino Sans" font-weight="900"
+        font-size="50" fill="#FFFFFF" letter-spacing="4">@60dailyworld</text>
+  <text x="540" y="1810" text-anchor="middle"
+        font-family="Hiragino Sans" font-weight="600"
+        font-size="30" fill="#7A8AB5" letter-spacing="3">YouTube · TikTok · Instagram</text>
 </svg>`;
 }
 
