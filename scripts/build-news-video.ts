@@ -66,7 +66,7 @@ async function buildOne(dir: string, story: Story) {
 
   // Key cue indices
   const countryCueIdx = cues.findIndex(c => /comes from|news from/i.test(c.text));
-  const wordCueIdx = cues.findIndex(c => /english word from this story|word of the day/i.test(c.text));
+  const wordCueIdx = cues.findIndex(c => /english keyword|english word|keyword from today's news|word of the day/i.test(c.text));
   const subscribeCueIdx = cues.findIndex(c => /subscribe/i.test(c.text));
 
   const tHookEnd = countryCueIdx >= 0 ? cues[countryCueIdx].end : 4;
@@ -192,6 +192,67 @@ function shortUrl(url: string, maxLen = 56): string {
 }
 
 /**
+ * Single word (キーワード) を指定幅に収めるフォントサイズを返す。
+ * Hiragino Sans 太字 letter-spacing -4 想定。文字幅は font-size の約 0.58 倍。
+ */
+function fitKeywordFontSize(word: string, maxWidth = 900, ceilingFontSize = 220): number {
+  const widthPerChar = 0.58;
+  const ideal = Math.floor(maxWidth / Math.max(1, word.length) / widthPerChar);
+  return Math.min(ceilingFontSize, ideal);
+}
+
+/**
+ * 与えられた文字列を box (W×H) に「一字一句残して」収めるフォントサイズと折り返し行を返す。
+ * 大きい font から小さい font に降りていき、最初に box 内に収まるものを採用。
+ */
+function fitCaption(
+  text: string,
+  boxW: number,
+  boxH: number,
+  candidates = [64, 58, 52, 48, 44, 40, 36, 32, 28],
+): { fontSize: number; lines: string[]; lineHeight: number } {
+  const widthPerChar = 0.55; // Hiragino Sans 大字幅近似
+  const lineGapRatio = 1.32;
+  for (const fs of candidates) {
+    const charsPerLine = Math.max(8, Math.floor(boxW / (fs * widthPerChar)));
+    const lines = wrapAll(text, charsPerLine);
+    const lineHeight = Math.round(fs * lineGapRatio);
+    if (lines.length * lineHeight <= boxH) {
+      return { fontSize: fs, lines, lineHeight };
+    }
+  }
+  // 最小フォントで強制 fit
+  const fs = candidates[candidates.length - 1];
+  const charsPerLine = Math.max(8, Math.floor(boxW / (fs * widthPerChar)));
+  const lines = wrapAll(text, charsPerLine);
+  return { fontSize: fs, lines, lineHeight: Math.round(fs * lineGapRatio) };
+}
+
+/** 折り返し: 行数の上限なし、一字一句残す。単語長が charsPerLine を超える場合は強制改行。 */
+function wrapAll(text: string, charsPerLine: number): string[] {
+  const lines: string[] = [];
+  const words = text.split(/\s+/).filter(Boolean);
+  let cur = "";
+  for (const w of words) {
+    if (w.length > charsPerLine) {
+      if (cur) { lines.push(cur); cur = ""; }
+      for (let i = 0; i < w.length; i += charsPerLine) {
+        lines.push(w.slice(i, i + charsPerLine));
+      }
+      continue;
+    }
+    if ((cur + " " + w).trim().length > charsPerLine) {
+      if (cur) lines.push(cur);
+      cur = w;
+    } else {
+      cur = (cur + " " + w).trim();
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+/**
  * Source attribution footer (Y 1820-1910). Shown on hook + caption + word scenes.
  * Designed not to overlap with any other text element.
  */
@@ -271,18 +332,16 @@ function captionSvg(story: Story, captionText: string, bgN: 1 | 2 | 3 | 4): stri
         font-size="54" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
   });
   // Caption text: large, bottom-half, white with strong outline-feel via box bg
-  // Caption: wrap で 1000px box に確実に収まる文字数 (20 chars 程度)、font 56pt
-  const capLines = wrap(captionText, 20, 4);
-  // Box Y 1260-1780 (520px)、行高 76、4行なら 304px → 中央寄せで上下 padding 100px
-  const totalCapHeight = capLines.length * 76;
-  const boxY = 1260;
-  const boxH = 520;
-  const capStartY = boxY + (boxH - totalCapHeight) / 2 + 56;
+  // Caption box: Y 1260-1780 (1000x520)。一字一句残し、収まる font-size を動的決定。
+  const boxX = 40, boxY = 1260, boxW = 1000, boxH = 520;
+  const fit = fitCaption(captionText, boxW - 80, boxH - 80);
+  const totalH = fit.lines.length * fit.lineHeight;
+  const capStartY = boxY + (boxH - totalH) / 2 + fit.fontSize;
   let capSvg = "";
-  capLines.forEach((line, i) => {
-    capSvg += `\n  <text x="540" y="${capStartY + i * 76}" text-anchor="middle"
+  fit.lines.forEach((line, i) => {
+    capSvg += `\n  <text x="540" y="${capStartY + i * fit.lineHeight}" text-anchor="middle"
         font-family="Hiragino Sans" font-weight="900"
-        font-size="56" fill="#FFFFFF" letter-spacing="0">${escape(line)}</text>`;
+        font-size="${fit.fontSize}" fill="#FFFFFF" letter-spacing="0">${escape(line)}</text>`;
   });
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
@@ -305,7 +364,7 @@ function captionSvg(story: Story, captionText: string, bgN: 1 | 2 | 3 | 4): stri
   ${headlineSvg}
 
   <!-- Bottom caption box (Y 1260-1780) -->
-  <rect x="40" y="1260" width="1000" height="520" fill="#0A0A0A" fill-opacity="0.82" rx="20"/>
+  <rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" fill="#0A0A0A" fill-opacity="0.82" rx="20"/>
   ${capSvg}
 
   ${sourceFooter(story)}
@@ -319,17 +378,22 @@ function captionSvg(story: Story, captionText: string, bgN: 1 | 2 | 3 | 4): stri
  */
 function wordSvg(keyword: Keyword | undefined, cueText: string, cueIdx: number, story: Story): string {
   const word = keyword?.word ?? "word";
-  // cap text を 20 chars × 4 行で wrap、中央寄せ
-  const capLines = wrap(cueText, 20, 4);
-  const boxY = 1140;
-  const boxH = 600;
-  const capStartY = boxY + (boxH - capLines.length * 76) / 2 + 56;
+  // Keyword 大字は単語長で動的サイズ
+  const kwFontSize = fitKeywordFontSize(word, 900, 220);
+
+  // Caption box (Y 1140-1740) に一字一句収まる font-size を計算
+  const boxX = 40, boxY = 1140, boxW = 1000, boxH = 600;
+  const fit = fitCaption(cueText, boxW - 80, boxH - 80,
+                         [56, 50, 46, 42, 38, 34, 30, 28]);
+  const totalH = fit.lines.length * fit.lineHeight;
+  const capStartY = boxY + (boxH - totalH) / 2 + fit.fontSize;
   let capSvg = "";
-  capLines.forEach((line, i) => {
-    capSvg += `\n  <text x="540" y="${capStartY + i * 76}" text-anchor="middle"
+  fit.lines.forEach((line, i) => {
+    capSvg += `\n  <text x="540" y="${capStartY + i * fit.lineHeight}" text-anchor="middle"
         font-family="Hiragino Sans" font-weight="700"
-        font-size="56" fill="#FFFFFF" letter-spacing="0">${escape(line)}</text>`;
+        font-size="${fit.fontSize}" fill="#FFFFFF" letter-spacing="0">${escape(line)}</text>`;
   });
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   <rect width="${W}" height="${H}" fill="#0F1B3D"/>
@@ -339,9 +403,9 @@ function wordSvg(keyword: Keyword | undefined, cueText: string, cueIdx: number, 
   <text x="540" y="260" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
         font-size="38" fill="#0A0A0A" letter-spacing="6">TODAY'S ENGLISH KEYWORD</text>
 
-  <!-- Big keyword (vertically centered upper half) -->
+  <!-- Big keyword (dynamic font-size to avoid overflow) -->
   <text x="540" y="640" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="200" fill="#F5E63B" letter-spacing="-4">${escape(word)}</text>
+        font-size="${kwFontSize}" fill="#F5E63B" letter-spacing="-2">${escape(word)}</text>
 
   <!-- Divider -->
   <rect x="290" y="740" width="500" height="8" fill="#F5E63B"/>
@@ -351,7 +415,7 @@ function wordSvg(keyword: Keyword | undefined, cueText: string, cueIdx: number, 
         font-size="44" fill="#9CA3AF" letter-spacing="8">${cueIdx === 0 ? "LISTEN" : cueIdx === 1 ? "MEANING" : "USE IT"}</text>
 
   <!-- Caption box (Y 1140-1740) -->
-  <rect x="40" y="${boxY}" width="1000" height="${boxH}" fill="#0A0A0A" fill-opacity="0.45" rx="20"/>
+  <rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" fill="#0A0A0A" fill-opacity="0.45" rx="20"/>
   ${capSvg}
 
   <!-- Brand footer just above source footer -->

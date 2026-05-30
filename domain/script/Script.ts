@@ -38,8 +38,8 @@ export const Script = {
 
   /**
    * 1ストーリー単独 60秒動画用のナレーション。
-   * 目標発話時間: 42-48秒。
-   * keyword は各ストーリー固有 (script-en.json の story.keyword) を使う。
+   * 目標発話時間: 約 55秒 (動画 60秒 - outro 5秒 hold)。
+   * 自然な英語の流れを意識し、短い相づち・コントラクションを使う。
    */
   toStoryNarration(
     s: {
@@ -52,22 +52,24 @@ export const Script = {
     const countryName = s.country.name ?? Country.nameOf(s.country.code);
     const kw = s.keyword;
     const lines = [
-      `Welcome to Daily World 60.`,
-      `Today's news from ${countryName}.`,
+      `Hi, and welcome to Daily World 60.`,
+      `Our story today comes from ${countryName}.`,
       `${s.headline}.`,
-      `Here are the details.`,
+      `Here's what's happening.`,
       s.summary,
     ];
     if (kw) {
+      const cap = kw.word.charAt(0).toUpperCase() + kw.word.slice(1);
       lines.push(
-        `Today's English word from this story is ${kw.word}.`,
-        `${kw.word.charAt(0).toUpperCase() + kw.word.slice(1)} means: ${kw.definitionEn}.`,
-        `You will hear this word in world news. Try using it.`,
+        `Now, let's pick up one English keyword from today's news.`,
+        `The keyword is ${kw.word}.`,
+        `${cap} means ${kw.definitionEn}.`,
+        `You'll hear this word often in world news, so try using it in your own English.`,
       );
     }
     lines.push(
-      `Thank you for watching Daily World 60.`,
-      `Please subscribe and follow for tomorrow's news.`,
+      `Thanks for watching Daily World 60.`,
+      `If you liked this story, please subscribe so you don't miss tomorrow's news from around the world.`,
       `See you tomorrow.`,
     );
     return lines.join(" ");
