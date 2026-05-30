@@ -126,8 +126,9 @@ jobs:
         if: env.RUN_MODE != 'publish'
         run: npx tsx scripts/generate-x-thread.ts ${{ steps.date.outputs.value }}
 
-      - name: Step F0 — Upload preview to Drive (for review)
+      - name: Step F0 — Upload preview to Drive (best effort)
         if: env.RUN_MODE == 'preview' || env.RUN_MODE == 'full'
+        continue-on-error: true
         run: npx tsx scripts/upload-results-to-drive.ts ${{ steps.date.outputs.value }}
 
       # --- Publish phase (publish / full) ---
@@ -139,8 +140,9 @@ jobs:
         if: env.RUN_MODE == 'publish' || env.RUN_MODE == 'full'
         run: npx tsx scripts/publish-all.ts ${{ steps.date.outputs.value }}
 
-      - name: Step G — Upload final results to Drive
+      - name: Step G — Upload final results to Drive (best effort)
         if: always()
+        continue-on-error: true
         run: npx tsx scripts/upload-results-to-drive.ts ${{ steps.date.outputs.value }}
 
       - name: Upload artifacts

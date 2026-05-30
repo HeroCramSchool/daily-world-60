@@ -40,15 +40,32 @@ async function main() {
     console.log(`[drive-upload] created ${remoteName}`);
   }
 
-  // Also upload final.mp4, voice.mp3, thumbnails and social images if they exist
+  // v11: 3 per-story videos + 各 5 サイズ画像 + x-thread + scripts
   const extras: Array<{ local: string; remote: string; mime: string }> = [
-    { local: "final.mp4",        remote: `video-${date}.mp4`,        mime: "video/mp4" },
-    { local: "voice.mp3",        remote: `voice-${date}.mp3`,        mime: "audio/mpeg" },
-    { local: "thumbnail.png",    remote: `thumbnail-${date}.png`,    mime: "image/png" },
-    { local: "yt-thumbnail.png", remote: `yt-thumbnail-${date}.png`, mime: "image/png" },
-    { local: "ig-feed.png",      remote: `ig-feed-${date}.png`,      mime: "image/png" },
-    { local: "ig-story.png",     remote: `ig-story-${date}.png`,     mime: "image/png" },
-    { local: "x-card.png",       remote: `x-card-${date}.png`,       mime: "image/png" },
+    // Scripts
+    { local: "script-en.json", remote: `script-en-${date}.json`, mime: "application/json" },
+    { local: "script-jp.json", remote: `script-jp-${date}.json`, mime: "application/json" },
+    { local: "x-thread.txt",   remote: `x-thread-${date}.txt`,   mime: "text/plain" },
+    // 3 videos (one per story)
+    { local: "news-1-cd.mp4", remote: `news-1-cd-${date}.mp4`, mime: "video/mp4" },
+    { local: "news-2-kw.mp4", remote: `news-2-kw-${date}.mp4`, mime: "video/mp4" },
+    { local: "news-3-sg.mp4", remote: `news-3-sg-${date}.mp4`, mime: "video/mp4" },
+    // 15 social images (5 sizes × 3 stories)
+    { local: "yt-thumbnail-h-cd.png", remote: `yt-thumbnail-h-cd-${date}.png`, mime: "image/png" },
+    { local: "yt-thumbnail-v-cd.png", remote: `yt-thumbnail-v-cd-${date}.png`, mime: "image/png" },
+    { local: "ig-reels-cover-cd.png", remote: `ig-reels-cover-cd-${date}.png`, mime: "image/png" },
+    { local: "ig-feed-cd.png",        remote: `ig-feed-cd-${date}.png`,        mime: "image/png" },
+    { local: "tiktok-cover-cd.png",   remote: `tiktok-cover-cd-${date}.png`,   mime: "image/png" },
+    { local: "yt-thumbnail-h-kw.png", remote: `yt-thumbnail-h-kw-${date}.png`, mime: "image/png" },
+    { local: "yt-thumbnail-v-kw.png", remote: `yt-thumbnail-v-kw-${date}.png`, mime: "image/png" },
+    { local: "ig-reels-cover-kw.png", remote: `ig-reels-cover-kw-${date}.png`, mime: "image/png" },
+    { local: "ig-feed-kw.png",        remote: `ig-feed-kw-${date}.png`,        mime: "image/png" },
+    { local: "tiktok-cover-kw.png",   remote: `tiktok-cover-kw-${date}.png`,   mime: "image/png" },
+    { local: "yt-thumbnail-h-sg.png", remote: `yt-thumbnail-h-sg-${date}.png`, mime: "image/png" },
+    { local: "yt-thumbnail-v-sg.png", remote: `yt-thumbnail-v-sg-${date}.png`, mime: "image/png" },
+    { local: "ig-reels-cover-sg.png", remote: `ig-reels-cover-sg-${date}.png`, mime: "image/png" },
+    { local: "ig-feed-sg.png",        remote: `ig-feed-sg-${date}.png`,        mime: "image/png" },
+    { local: "tiktok-cover-sg.png",   remote: `tiktok-cover-sg-${date}.png`,   mime: "image/png" },
   ];
 
   for (const e of extras) {
@@ -59,23 +76,28 @@ async function main() {
       console.warn(`[drive-upload] skip ${e.local}: too large (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
       continue;
     }
-    const existingExtra = await drive.files.list({
-      q: `'${folderId}' in parents and name = '${e.remote}' and trashed = false`,
-      fields: "files(id)",
-      pageSize: 1,
-    });
-    if (existingExtra.data.files && existingExtra.data.files.length > 0) {
-      await drive.files.update({
-        fileId: existingExtra.data.files[0].id!,
-        media: { mimeType: e.mime, body: fs.createReadStream(local) },
+    try {
+      const existingExtra = await drive.files.list({
+        q: `'${folderId}' in parents and name = '${e.remote}' and trashed = false`,
+        fields: "files(id)",
+        pageSize: 1,
       });
-    } else {
-      await drive.files.create({
-        requestBody: { name: e.remote, parents: [folderId] },
-        media: { mimeType: e.mime, body: fs.createReadStream(local) },
-      });
+      if (existingExtra.data.files && existingExtra.data.files.length > 0) {
+        await drive.files.update({
+          fileId: existingExtra.data.files[0].id!,
+          media: { mimeType: e.mime, body: fs.createReadStream(local) },
+        });
+      } else {
+        await drive.files.create({
+          requestBody: { name: e.remote, parents: [folderId] },
+          media: { mimeType: e.mime, body: fs.createReadStream(local) },
+        });
+      }
+      console.log(`[drive-upload] uploaded ${e.remote} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
+    } catch (err) {
+      // SA quota error etc. — log and continue (publish フェーズに進める)
+      console.warn(`[drive-upload] skip ${e.remote}: ${err instanceof Error ? err.message : err}`);
     }
-    console.log(`[drive-upload] uploaded ${e.remote} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
   }
 }
 
