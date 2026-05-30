@@ -19,7 +19,10 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
     "dotenv": "^16.4.5",
-    "fast-xml-parser": "^4.4.1"
+    "fast-xml-parser": "^4.4.1",
+    "googleapis": "^144.0.0",
+    "twitter-api-v2": "^1.18.0",
+    "playwright": "^1.48.0"
   },
   "devDependencies": {
     "@types/node": "^22.5.0",

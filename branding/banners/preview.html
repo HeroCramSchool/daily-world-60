@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Daily World 60 — Banner Candidates</title>
+<style>
+  body { background:#0a0a0a; color:#fff; font-family:-apple-system,Helvetica,Arial,sans-serif; margin:0; padding:32px; }
+  h1 { font-size:24px; margin:0 0 8px; font-weight:300; letter-spacing:2px; }
+  h2 { font-size:14px; margin:0 0 24px; font-weight:400; color:#999; letter-spacing:1px; }
+  .card { background:#111; border:1px solid #222; border-radius:16px; padding:18px; margin:0 auto 28px; max-width:1280px; }
+  .card h3 { margin:0 0 6px; font-size:18px; font-weight:700; letter-spacing:1px; }
+  .card p { margin:0 0 12px; font-size:13px; color:#999; line-height:1.5; }
+  .banner-yt {
+    width:100%; max-width:1280px; aspect-ratio:2560/1440;
+    background-size:cover; background-position:center;
+    border-radius:8px; position:relative; overflow:hidden;
+  }
+  /* YouTube safe area overlay (1546x423 at center) */
+  .banner-yt::after {
+    content:"YouTube safe area";
+    position:absolute; top:50%; left:50%;
+    width:60.4%; height:29.4%;
+    transform: translate(-50%, -50%);
+    border:2px dashed rgba(255,255,255,0.4);
+    color:rgba(255,255,255,0.5);
+    font-size:11px; letter-spacing:1px;
+    display:flex; align-items:flex-start; justify-content:flex-end; padding:6px 10px;
+  }
+  .row-label { width:100%; text-align:center; font-size:11px; color:#666; margin:8px 0; letter-spacing:2px; }
+</style>
+</head>
+<body>
+<h1>DAILY WORLD 60 — BANNER CANDIDATES</h1>
+<h2>YouTube banner = 2560×1440. Dashed box = safe area (1546×423) visible on all devices.</h2>
+
+<div class="card">
+  <h3>① Warm Extension（アイコン②の延長）</h3>
+  <p>アイコン②と同じ色トーン・globe要素を継承。左に globe+60、右にタイポと国旗3つ。統一感最強。</p>
+  <div class="banner-yt" style="background-image:url('banner-01-warm-extension.svg')"></div>
+</div>
+
+<div class="card">
+  <h3>② World Map（点描の世界地図 + 中央大型タイポ）</h3>
+  <p>ダーク背景に世界地図のドット描画。中央に DAILY WORLD と金「60」。ニュースメディアっぽい品格。</p>
+  <div class="banner-yt" style="background-image:url('banner-02-world-map.svg')"></div>
+</div>
+
+<div class="card">
+  <h3>③ Newsroom（LIVEバー・BREAKING風）</h3>
+  <p>BREAKING NEWS 風の赤背景・LIVEバー。視認性最強、ニュース番組らしさ全開。エネルギッシュ。</p>
+  <div class="banner-yt" style="background-image:url('banner-03-newsroom.svg')"></div>
+</div>
+
+</body>
+</html>

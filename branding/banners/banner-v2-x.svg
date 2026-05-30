@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  X header 1500x500
+
+  Layout math:
+  - icon circle radius = 130, diameter = 260
+  - gap = 70
+  - text "DAILY WORLD" 11 chars × 85px × 0.62 ≈ 580
+  - total width = 260 + 70 + 580 = 910
+  - group start x = (1500 - 910) / 2 = 295
+  - icon center x = 295 + 130 = 425
+  - text start x = 425 + 130 + 70 = 625
+  - text end x ≈ 625 + 580 = 1205 (within 1500)
+
+  Vertical:
+  - icon center y = 250
+  - text baseline y = 282
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 500" width="1500" height="500">
+  <defs>
+    <linearGradient id="bgX" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FB923C"/>
+      <stop offset="60%" stop-color="#DC2626"/>
+      <stop offset="100%" stop-color="#7F1D1D"/>
+    </linearGradient>
+  </defs>
+  <rect width="1500" height="500" fill="url(#bgX)"/>
+
+  <g transform="translate(425 250)">
+    <circle r="130" fill="#FFFFFF"/>
+    <g stroke="#0F172A" stroke-width="5" fill="none" stroke-linecap="round">
+      <circle r="98"/>
+      <ellipse rx="98" ry="33"/>
+      <ellipse rx="98" ry="65"/>
+      <ellipse rx="33" ry="98"/>
+      <ellipse rx="65" ry="98"/>
+    </g>
+    <text y="32" text-anchor="middle"
+          font-family="Helvetica, Arial Black, sans-serif"
+          font-size="100" font-weight="900"
+          fill="#DC2626" stroke="#FFFFFF" stroke-width="5"
+          paint-order="stroke" letter-spacing="-4">60</text>
+  </g>
+
+  <text x="625" y="282"
+        font-family="Helvetica, Arial Black, sans-serif"
+        font-size="85" font-weight="900"
+        fill="#FFFFFF" letter-spacing="6">DAILY WORLD</text>
+</svg>

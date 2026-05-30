@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2560 1440" width="2560" height="1440">
+  <defs>
+    <radialGradient id="b2bg" cx="50%" cy="50%" r="80%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </radialGradient>
+    <linearGradient id="b2gold" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FDE68A"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+  <rect width="2560" height="1440" fill="url(#b2bg)"/>
+
+  <!-- World map dot grid (simplified continents) -->
+  <g fill="#FFFFFF" opacity="0.22">
+    <!-- North America -->
+    <g transform="translate(500 520)">
+      <circle cx="0" cy="0" r="6"/><circle cx="30" cy="-15" r="6"/><circle cx="60" cy="-5" r="6"/>
+      <circle cx="-25" cy="25" r="6"/><circle cx="20" cy="40" r="6"/><circle cx="55" cy="35" r="6"/>
+      <circle cx="90" cy="20" r="6"/><circle cx="-50" cy="50" r="6"/><circle cx="-20" cy="65" r="6"/>
+      <circle cx="25" cy="80" r="6"/><circle cx="55" cy="95" r="6"/>
+    </g>
+    <!-- South America -->
+    <g transform="translate(700 800)">
+      <circle cx="0" cy="0" r="6"/><circle cx="30" cy="20" r="6"/>
+      <circle cx="10" cy="50" r="6"/><circle cx="40" cy="70" r="6"/>
+      <circle cx="20" cy="100" r="6"/><circle cx="35" cy="140" r="6"/>
+    </g>
+    <!-- Europe -->
+    <g transform="translate(1280 480)">
+      <circle cx="0" cy="0" r="6"/><circle cx="35" cy="-10" r="6"/><circle cx="70" cy="5" r="6"/>
+      <circle cx="-25" cy="25" r="6"/><circle cx="20" cy="35" r="6"/><circle cx="65" cy="40" r="6"/>
+      <circle cx="100" cy="25" r="6"/>
+    </g>
+    <!-- Africa -->
+    <g transform="translate(1340 720)">
+      <circle cx="0" cy="0" r="6"/><circle cx="40" cy="10" r="6"/><circle cx="-20" cy="40" r="6"/>
+      <circle cx="20" cy="55" r="6"/><circle cx="55" cy="70" r="6"/>
+      <circle cx="0" cy="100" r="6"/><circle cx="40" cy="130" r="6"/>
+    </g>
+    <!-- Asia -->
+    <g transform="translate(1700 460)">
+      <circle cx="0" cy="0" r="6"/><circle cx="40" cy="-20" r="6"/><circle cx="80" cy="-10" r="6"/>
+      <circle cx="120" cy="10" r="6"/><circle cx="160" cy="-5" r="6"/><circle cx="200" cy="20" r="6"/>
+      <circle cx="20" cy="40" r="6"/><circle cx="80" cy="50" r="6"/><circle cx="140" cy="60" r="6"/>
+      <circle cx="190" cy="55" r="6"/><circle cx="60" cy="90" r="6"/><circle cx="130" cy="100" r="6"/>
+      <circle cx="190" cy="120" r="6"/>
+    </g>
+    <!-- Oceania -->
+    <g transform="translate(2050 920)">
+      <circle cx="0" cy="0" r="6"/><circle cx="40" cy="-10" r="6"/><circle cx="80" cy="0" r="6"/>
+      <circle cx="20" cy="30" r="6"/><circle cx="60" cy="35" r="6"/>
+    </g>
+  </g>
+
+  <!-- center safe-area block 1546x423 (y 508-931) -->
+
+  <!-- Big title -->
+  <text x="1280" y="700" text-anchor="middle" font-family="Helvetica, Arial Black, sans-serif" font-size="180" font-weight="900" fill="#FFFFFF" letter-spacing="14">DAILY WORLD</text>
+
+  <!-- gold 60 underline -->
+  <text x="1280" y="900" text-anchor="middle" font-family="Helvetica, Arial Black, sans-serif" font-size="220" font-weight="900" fill="url(#b2gold)" letter-spacing="-8">60</text>
+
+  <!-- tagline -->
+  <text x="1280" y="998" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="44" font-weight="500" fill="#FBBF24" letter-spacing="10" opacity="0.9">3 STORIES · 1 WORD · EVERY DAY</text>
+</svg>

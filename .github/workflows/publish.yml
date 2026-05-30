@@ -1,0 +1,143 @@
+name: Daily World 60 — Publish
+
+on:
+  schedule:
+    # 18:30 UTC = 06:30 NZST (next day) — Runs ~30 min after Routine
+    - cron: '30 18 * * *'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Date override (YYYY-MM-DD UTC, default = today)"
+        required: false
+        default: ""
+      dry_run:
+        description: "Skip publish (true/false)"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write   # commit output back to repo
+
+concurrency:
+  group: publish-${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      # Drive
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      DRIVE_FOLDER_NAME: "Daily World 60"
+
+      # Pexels (free, register)
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+
+      # YouTube
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+
+      # X (Twitter) API v2
+      X_API_KEY: ${{ secrets.X_API_KEY }}
+      X_API_SECRET: ${{ secrets.X_API_SECRET }}
+      X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+      X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+
+      # Instagram / TikTok — Playwright cookies (base64 encoded)
+      INSTAGRAM_COOKIES_B64: ${{ secrets.INSTAGRAM_COOKIES_B64 }}
+      TIKTOK_COOKIES_B64: ${{ secrets.TIKTOK_COOKIES_B64 }}
+
+      # Voice
+      EN_VOICE: en-US-AvaNeural
+
+      # Runtime
+      DATE_OVERRIDE: ${{ github.event.inputs.date }}
+      DRY_RUN: ${{ github.event.inputs.dry_run }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Setup Python (for edge-tts)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg + librsvg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg librsvg2-bin
+
+      - name: Install edge-tts
+        run: pip install edge-tts
+
+      - name: Install Node deps
+        run: npm ci
+
+      - name: Install Playwright browsers (Chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Resolve date
+        id: date
+        run: |
+          if [ -n "${{ env.DATE_OVERRIDE }}" ]; then
+            DATE="${{ env.DATE_OVERRIDE }}"
+          else
+            DATE=$(date -u +%Y-%m-%d)
+          fi
+          echo "value=$DATE" >> $GITHUB_OUTPUT
+          mkdir -p output/$DATE
+          echo "Working date: $DATE"
+
+      - name: Step A — Fetch scripts from Google Drive
+        run: npx tsx scripts/fetch-scripts-from-drive.ts ${{ steps.date.outputs.value }}
+
+      - name: Step B — Synthesize audio (edge-tts)
+        run: npx tsx scripts/tts.ts ${{ steps.date.outputs.value }}
+
+      - name: Step C — Fetch B-roll (Pexels)
+        run: npx tsx scripts/broll.ts ${{ steps.date.outputs.value }}
+
+      - name: Step D — Render video (ffmpeg)
+        run: npx tsx scripts/render-video.ts ${{ steps.date.outputs.value }}
+
+      - name: Step E — Generate thumbnail
+        run: npx tsx scripts/generate-thumbnail.ts ${{ steps.date.outputs.value }}
+
+      - name: Step F — Publish to all platforms
+        if: env.DRY_RUN != 'true'
+        run: npx tsx scripts/publish-all.ts ${{ steps.date.outputs.value }}
+
+      - name: Step G — Upload results back to Drive
+        if: always()
+        run: npx tsx scripts/upload-results-to-drive.ts ${{ steps.date.outputs.value }}
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dailyworld60-${{ steps.date.outputs.value }}
+          path: |
+            output/${{ steps.date.outputs.value }}/voice.mp3
+            output/${{ steps.date.outputs.value }}/final.mp4
+            output/${{ steps.date.outputs.value }}/thumbnail.png
+            output/${{ steps.date.outputs.value }}/publish-results.json
+          retention-days: 30
+
+      - name: Commit results to repo
+        if: always()
+        run: |
+          git config user.name "Daily World 60 Bot"
+          git config user.email "bot@dailyworld60"
+          git add output/${{ steps.date.outputs.value }}/publish-results.json || true
+          git commit -m "results ${{ steps.date.outputs.value }}" || true
+          git push || true

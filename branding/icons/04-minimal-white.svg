@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#F8FAFC"/>
+
+  <!-- minimal globe lines -->
+  <g transform="translate(256 256)" stroke="#0F172A" stroke-width="3" fill="none" stroke-linecap="round">
+    <circle r="170" stroke-width="6"/>
+    <line x1="-170" y1="0" x2="170" y2="0"/>
+    <ellipse rx="170" ry="55"/>
+    <ellipse rx="170" ry="110"/>
+    <line x1="0" y1="-170" x2="0" y2="170"/>
+    <ellipse rx="55" ry="170"/>
+    <ellipse rx="110" ry="170"/>
+  </g>
+
+  <!-- 60 in red circle (top-right) -->
+  <circle cx="380" cy="135" r="60" fill="#DC2626"/>
+  <text x="380" y="160" text-anchor="middle" font-family="Helvetica, Arial Black, sans-serif" font-size="56" font-weight="900" fill="#FFFFFF" letter-spacing="-3">60</text>
+
+  <!-- DAILY WORLD bottom -->
+  <text x="256" y="475" text-anchor="middle" font-family="Helvetica, Arial Black, sans-serif" font-size="44" font-weight="900" fill="#0F172A" letter-spacing="4">DAILY WORLD</text>
+</svg>

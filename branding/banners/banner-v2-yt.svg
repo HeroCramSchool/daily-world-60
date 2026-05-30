@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  YouTube 2560x1440
+  Safe area: 1546x423 centered at (1280, 720) → x: 507-2053, y: 508-931
+
+  Layout math:
+  - icon circle radius = 200, diameter = 400
+  - gap icon→text = 100
+  - text "DAILY WORLD" 11 chars × 130px × ~0.62 avg width ≈ 887
+  - total group width = 400 + 100 + 887 = 1387 (well inside 1546 safe area)
+  - group start x = 1280 - 1387/2 = 586
+  - icon center x = 586 + 200 = 786
+  - text start x = 786 + 200 + 100 = 1086
+  - text end x ≈ 1086 + 887 = 1973 (inside safe area 2053)
+
+  Vertical:
+  - icon center y = 720
+  - icon vertical range: 520-920 (within safe 508-931)
+  - text baseline y = 770 (text-anchor middle vertically around 720)
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2560 1440" width="2560" height="1440">
+  <defs>
+    <linearGradient id="bgYT" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FB923C"/>
+      <stop offset="60%" stop-color="#DC2626"/>
+      <stop offset="100%" stop-color="#7F1D1D"/>
+    </linearGradient>
+  </defs>
+  <rect width="2560" height="1440" fill="url(#bgYT)"/>
+
+  <!-- ICON (left) — globe + 60 -->
+  <g transform="translate(786 720)">
+    <circle r="200" fill="#FFFFFF"/>
+    <g stroke="#0F172A" stroke-width="6" fill="none" stroke-linecap="round">
+      <circle r="150"/>
+      <ellipse rx="150" ry="50"/>
+      <ellipse rx="150" ry="100"/>
+      <ellipse rx="50" ry="150"/>
+      <ellipse rx="100" ry="150"/>
+    </g>
+    <text y="48" text-anchor="middle"
+          font-family="Helvetica, Arial Black, sans-serif"
+          font-size="150" font-weight="900"
+          fill="#DC2626" stroke="#FFFFFF" stroke-width="7"
+          paint-order="stroke" letter-spacing="-6">60</text>
+  </g>
+
+  <!-- TEXT (right) — DAILY WORLD only (60 is in the icon) -->
+  <text x="1086" y="770"
+        font-family="Helvetica, Arial Black, sans-serif"
+        font-size="130" font-weight="900"
+        fill="#FFFFFF" letter-spacing="8">DAILY WORLD</text>
+</svg>

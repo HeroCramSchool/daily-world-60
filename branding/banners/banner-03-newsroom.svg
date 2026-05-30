@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2560 1440" width="2560" height="1440">
+  <defs>
+    <linearGradient id="b3bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7F1D1D"/>
+      <stop offset="50%" stop-color="#B91C1C"/>
+      <stop offset="100%" stop-color="#450A0A"/>
+    </linearGradient>
+  </defs>
+  <rect width="2560" height="1440" fill="url(#b3bg)"/>
+
+  <!-- safe-area band (y 508-931) -->
+
+  <!-- top LIVE bar across full width -->
+  <rect x="0" y="540" width="2560" height="80" fill="#0F172A"/>
+  <circle cx="850" cy="580" r="14" fill="#FBBF24">
+    <animate attributeName="opacity" values="1;0.3;1" dur="1.2s" repeatCount="indefinite"/>
+  </circle>
+  <text x="880" y="600" font-family="Helvetica, Arial Black, sans-serif" font-size="42" font-weight="900" fill="#FFFFFF" letter-spacing="8">LIVE</text>
+  <text x="1280" y="600" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#FBBF24" letter-spacing="6">WORLD NEWS · 60 SECONDS · EVERY DAY</text>
+
+  <!-- center big 60 -->
+  <text x="1280" y="850" text-anchor="middle" font-family="Helvetica, Arial Black, sans-serif" font-size="280" font-weight="900" fill="#FFFFFF" letter-spacing="-10">60</text>
+
+  <!-- bottom DAILY WORLD bar -->
+  <rect x="0" y="900" width="2560" height="100" fill="#0F172A"/>
+  <text x="1280" y="970" text-anchor="middle" font-family="Helvetica, Arial Black, sans-serif" font-size="64" font-weight="900" fill="#FFFFFF" letter-spacing="14">DAILY WORLD</text>
+
+  <!-- subtle scanlines / texture overlay -->
+  <g opacity="0.05">
+    <line x1="0" y1="540" x2="2560" y2="540" stroke="#FFFFFF" stroke-width="2"/>
+    <line x1="0" y1="620" x2="2560" y2="620" stroke="#FFFFFF" stroke-width="2"/>
+    <line x1="0" y1="900" x2="2560" y2="900" stroke="#FFFFFF" stroke-width="2"/>
+    <line x1="0" y1="1000" x2="2560" y2="1000" stroke="#FFFFFF" stroke-width="2"/>
+  </g>
+
+  <!-- corner ticker style: 3 country codes -->
+  <g transform="translate(120 1240)">
+    <rect x="0" y="0" width="180" height="50" fill="#FBBF24"/>
+    <text x="90" y="36" text-anchor="middle" font-family="Helvetica, Arial Black, sans-serif" font-size="28" font-weight="900" fill="#0F172A" letter-spacing="6">BREAKING</text>
+  </g>
+  <text x="320" y="1280" font-family="Helvetica, Arial, sans-serif" font-size="28" font-weight="500" fill="#FFFFFF" opacity="0.6" letter-spacing="3">Three global stories. One useful English word. New every day.</text>
+</svg>

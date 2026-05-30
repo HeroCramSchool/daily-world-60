@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FB923C"/>
+      <stop offset="100%" stop-color="#DC2626"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg2)"/>
+
+  <!-- white circle -->
+  <circle cx="256" cy="256" r="160" fill="#FFFFFF"/>
+
+  <!-- globe inside -->
+  <g transform="translate(256 256)" stroke="#0F172A" stroke-width="6" fill="none" stroke-linecap="round">
+    <circle r="120"/>
+    <ellipse rx="120" ry="40"/>
+    <ellipse rx="120" ry="80"/>
+    <ellipse rx="40" ry="120"/>
+    <ellipse rx="80" ry="120"/>
+  </g>
+
+  <!-- 60 overlay -->
+  <text x="256" y="290" text-anchor="middle" font-family="Helvetica, Arial Black, sans-serif" font-size="120" font-weight="900" fill="#DC2626" stroke="#FFFFFF" stroke-width="6" paint-order="stroke" letter-spacing="-6">60</text>
+
+  <!-- top tag -->
+  <text x="256" y="60" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="800" fill="#FFFFFF" letter-spacing="8">DAILY WORLD</text>
+
+  <!-- bottom -->
+  <text x="256" y="475" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#FFFFFF" letter-spacing="4">WORLD NEWS · EVERY DAY</text>
+</svg>

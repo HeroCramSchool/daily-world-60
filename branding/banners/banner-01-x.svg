@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 500" width="1500" height="500">
+  <defs>
+    <linearGradient id="bxbg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FB923C"/>
+      <stop offset="60%" stop-color="#DC2626"/>
+      <stop offset="100%" stop-color="#7F1D1D"/>
+    </linearGradient>
+  </defs>
+  <rect width="1500" height="500" fill="url(#bxbg)"/>
+
+  <!-- Left: globe + 60 -->
+  <g transform="translate(290 250)">
+    <circle r="160" fill="#FFFFFF"/>
+    <g stroke="#0F172A" stroke-width="5" fill="none" stroke-linecap="round">
+      <circle r="120"/>
+      <ellipse rx="120" ry="40"/>
+      <ellipse rx="120" ry="80"/>
+      <ellipse rx="40" ry="120"/>
+      <ellipse rx="80" ry="120"/>
+    </g>
+    <text y="36" text-anchor="middle" font-family="Helvetica, Arial Black, sans-serif" font-size="120" font-weight="900" fill="#DC2626" stroke="#FFFFFF" stroke-width="6" paint-order="stroke" letter-spacing="-6">60</text>
+  </g>
+
+  <!-- Right: channel name -->
+  <text x="510" y="295" font-family="Helvetica, Arial Black, sans-serif" font-size="120" font-weight="900" fill="#FFFFFF" letter-spacing="6">DAILY WORLD 60</text>
+</svg>
