@@ -4,6 +4,7 @@ import { publishYoutube } from "./publishers/youtube.js";
 import { publishX } from "./publishers/x.js";
 import { publishInstagram } from "./publishers/instagram.js";
 import { publishTikTok } from "./publishers/tiktok.js";
+import { driveClient, findFolderId } from "./fetch-scripts-from-drive.js";
 
 /**
  * 投稿パイプライン (v11): 3 ストーリーをそれぞれ 60 秒 1 動画として
@@ -42,6 +43,21 @@ async function main() {
 
   const mmdd = date.slice(5).replace("-", "/");
 
+  // ─── Platform skip flags ───
+  const skipList = (process.env.PUBLISH_SKIP ?? "")
+    .split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+  const shouldSkip = (p: string) => skipList.includes(p);
+  if (skipList.length > 0) console.log(`[publish] PUBLISH_SKIP=${skipList.join(",")}`);
+
+  // ─── 前日重複チェック (Drive 経由) ───
+  const yesterdayHeadlines = await fetchYesterdayHeadlines(date).catch(e => {
+    console.warn(`[publish] yesterday fetch failed (continuing): ${e instanceof Error ? e.message : e}`);
+    return [];
+  });
+  if (yesterdayHeadlines.length > 0) {
+    console.log(`[publish] yesterday had ${yesterdayHeadlines.length} stories, checking dup...`);
+  }
+
   const results: Record<string, unknown> = {
     date,
     perStory: {} as Record<string, unknown>,
@@ -50,6 +66,18 @@ async function main() {
 
   // 3 ストーリーごとに YouTube / Instagram / TikTok 投稿
   for (const story of scriptEn.stories) {
+    // 前日重複なら skip
+    if (isDuplicateOfYesterday(story.headline, yesterdayHeadlines)) {
+      console.log(`[publish] SKIP story ${story.index} (${story.country.code}): duplicate of yesterday headline`);
+      (results.perStory as Record<string, unknown>)[story.country.code.toLowerCase()] = {
+        story: story.index,
+        country: story.country.code,
+        headline: story.headline,
+        skipped: true,
+        reason: "duplicate_of_yesterday",
+      };
+      continue;
+    }
     const code = story.country.code.toLowerCase();
     const videoPath = path.join(dir, `news-${story.index}-${code}.mp4`);
     const ytThumb = path.join(dir, `yt-thumbnail-v-${code}.png`);
@@ -71,17 +99,23 @@ async function main() {
     console.log(`\n[publish] === Story ${story.index} (${code}: ${countryName}) ===`);
 
     // 直列実行 (Cookie 競合・rate limit 対策)
-    const ytRes = await publishYoutube({
-      videoPath, thumbnailPath: ytThumb,
-      title: ytTitle, description: ytDesc, tags: ytTags,
-    });
-    console.log(`[publish] ${code} YouTube:`, ytRes.ok ? "✓" : `✗ ${ytRes.error}`);
+    const ytRes = shouldSkip("youtube")
+      ? { ok: false, skipped: true, reason: "PUBLISH_SKIP" }
+      : await publishYoutube({
+          videoPath, thumbnailPath: ytThumb,
+          title: ytTitle, description: ytDesc, tags: ytTags,
+        });
+    console.log(`[publish] ${code} YouTube:`, "ok" in ytRes && ytRes.ok ? "✓" : "skipped" in ytRes ? "⏭" : `✗ ${(ytRes as { error?: string }).error ?? ""}`);
 
-    const igRes = await publishInstagram({ videoPath, caption: igCaption });
-    console.log(`[publish] ${code} Instagram:`, igRes.ok ? "✓" : `✗ ${igRes.error}`);
+    const igRes = shouldSkip("instagram")
+      ? { ok: false, skipped: true, reason: "PUBLISH_SKIP" }
+      : await publishInstagram({ videoPath, caption: igCaption });
+    console.log(`[publish] ${code} Instagram:`, "ok" in igRes && igRes.ok ? "✓" : "skipped" in igRes ? "⏭" : `✗ ${(igRes as { error?: string }).error ?? ""}`);
 
-    const ttRes = await publishTikTok({ videoPath, caption: ttCaption });
-    console.log(`[publish] ${code} TikTok:`, ttRes.ok ? "✓" : `✗ ${ttRes.error}`);
+    const ttRes = shouldSkip("tiktok")
+      ? { ok: false, skipped: true, reason: "PUBLISH_SKIP" }
+      : await publishTikTok({ videoPath, caption: ttCaption });
+    console.log(`[publish] ${code} TikTok:`, "ok" in ttRes && ttRes.ok ? "✓" : "skipped" in ttRes ? "⏭" : `✗ ${(ttRes as { error?: string }).error ?? ""}`);
 
     (results.perStory as Record<string, unknown>)[code] = {
       story: story.index,
@@ -94,12 +128,15 @@ async function main() {
   }
 
   // X: 3 ツイート 1 スレッド (日本語、テキストのみ)
-  if (scriptJp) {
+  if (scriptJp && !shouldSkip("x")) {
     const thread = buildXThread(scriptJp, scriptEn, mmdd);
     console.log(`\n[publish] === X (${thread.length} tweets) ===`);
     const xRes = await publishX({ thread });
     console.log(`[publish] X:`, xRes.ok ? "✓" : `✗ ${xRes.error}`);
     results.x = xRes;
+  } else if (shouldSkip("x")) {
+    console.log(`[publish] X: skipped (PUBLISH_SKIP)`);
+    results.x = { ok: false, skipped: true, reason: "PUBLISH_SKIP" };
   }
 
   await fs.writeFile(
@@ -173,6 +210,70 @@ function buildXThread(scriptJp: ScriptJp, scriptEn: ScriptEn, mmdd: string): str
     );
   });
   return tweets;
+}
+
+// ─── Yesterday duplication check ───
+async function fetchYesterdayHeadlines(date: string): Promise<string[]> {
+  const t = new Date(`${date}T00:00:00Z`);
+  const y = new Date(t.getTime() - 86400000).toISOString().slice(0, 10);
+  const folderName = process.env.DRIVE_FOLDER_NAME ?? "Daily World 60";
+  const drive = await driveClient();
+  const folderId = process.env.DRIVE_FOLDER_ID ?? (await findFolderId(drive, folderName));
+  if (!folderId) return [];
+  const fileName = `publish-results-${y}.json`;
+  const r = await drive.files.list({
+    q: `'${folderId}' in parents and name = '${fileName}' and trashed = false`,
+    fields: "files(id, name, modifiedTime)",
+    orderBy: "modifiedTime desc",
+    pageSize: 5,
+  });
+  const headlines: string[] = [];
+  for (const f of r.data.files ?? []) {
+    try {
+      const res = await drive.files.get({ fileId: f.id!, alt: "media" }, { responseType: "text" });
+      const parsed = JSON.parse(res.data as unknown as string);
+      // 既出フォーマット (publish-all.ts 出力) と Routine フォーマット 両対応
+      if (parsed.perStory && typeof parsed.perStory === "object") {
+        for (const v of Object.values(parsed.perStory)) {
+          const h = (v as { headline?: string }).headline;
+          if (h) headlines.push(h);
+        }
+      } else if (parsed.scriptEn?.stories) {
+        for (const s of parsed.scriptEn.stories) {
+          if (s.headline) headlines.push(s.headline);
+        }
+      } else if (parsed.stages?.curate?.selected) {
+        for (const s of parsed.stages.curate.selected) {
+          if (s.headline) headlines.push(s.headline);
+        }
+      }
+    } catch { /* skip */ }
+  }
+  return headlines;
+}
+
+function normalize(text: string): Set<string> {
+  return new Set(
+    text.toLowerCase()
+      .replace(/[^\w\s]/g, " ")
+      .split(/\s+/)
+      .filter(w => w.length > 3),
+  );
+}
+
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  const inter = [...a].filter(x => b.has(x)).length;
+  const uni = new Set([...a, ...b]).size;
+  return inter / uni;
+}
+
+function isDuplicateOfYesterday(headline: string, yesterdayHeadlines: string[]): boolean {
+  const cur = normalize(headline);
+  for (const prev of yesterdayHeadlines) {
+    if (jaccard(cur, normalize(prev)) >= 0.5) return true;
+  }
+  return false;
 }
 
 main().catch(e => {

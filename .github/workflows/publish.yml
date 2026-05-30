@@ -19,6 +19,14 @@ on:
         description: "日付上書き (YYYY-MM-DD UTC)"
         required: false
         default: ""
+      skip_youtube:
+        description: "YouTube をスキップ (重複投稿回避)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 permissions:
   contents: write
@@ -55,6 +63,7 @@ jobs:
       # cron 起動 → 常に preview。手動 dispatch → 入力の mode を尊重。
       RUN_MODE: ${{ github.event_name == 'schedule' && 'preview' || github.event.inputs.mode }}
       DATE_OVERRIDE: ${{ github.event.inputs.date }}
+      PUBLISH_SKIP: ${{ github.event.inputs.skip_youtube == 'true' && 'youtube' || '' }}
 
     steps:
       - name: Checkout
@@ -77,10 +86,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install ffmpeg + librsvg
+      - name: Install ffmpeg + librsvg + xvfb (for headed Playwright)
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg librsvg2-bin
+          sudo apt-get install -y ffmpeg librsvg2-bin xvfb
 
       - name: Install edge-tts
         run: pip install edge-tts
@@ -136,9 +145,9 @@ jobs:
         if: env.RUN_MODE == 'publish'
         run: npx tsx scripts/fetch-approved-video.ts ${{ steps.date.outputs.value }}
 
-      - name: Step F2 — Publish to all 4 platforms
+      - name: Step F2 — Publish to all 4 platforms (xvfb-wrapped for headed Playwright)
         if: env.RUN_MODE == 'publish' || env.RUN_MODE == 'full'
-        run: npx tsx scripts/publish-all.ts ${{ steps.date.outputs.value }}
+        run: xvfb-run -a --server-args="-screen 0 1280x1920x24" npx tsx scripts/publish-all.ts ${{ steps.date.outputs.value }}
 
       - name: Step G — Upload final results to Drive (best effort)
         if: always()
