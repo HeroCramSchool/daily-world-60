@@ -287,12 +287,18 @@ function wrap(text: string, maxChars: number, maxLines = 5): string[] {
 function hookSvg(story: Story): string {
   const code = story.country.code.toLowerCase();
   const countryName = story.country.name ?? story.country.code;
-  const headlineLines = wrap(story.headline, 22, 3);
+  // 国名 font: 単語長で動的に
+  const cnFontSize = fitKeywordFontSize(countryName, 900, 130);
+  // Headline: x=60, w=960、Y 1230-1790 (560px) に fit
+  const hlBoxW = 960, hlBoxH = 560, hlBoxY = 1230;
+  const hlFit = fitCaption(story.headline, hlBoxW, hlBoxH,
+                           [72, 64, 58, 52, 48, 44, 40, 36]);
+  const hlTotalH = hlFit.lines.length * hlFit.lineHeight;
+  const hlStartY = hlBoxY + (hlBoxH - hlTotalH) / 2 + hlFit.fontSize;
   let headlineSvg = "";
-  const startY = 1310;
-  headlineLines.forEach((line, i) => {
-    headlineSvg += `\n  <text x="60" y="${startY + i * 100}" font-family="Hiragino Sans" font-weight="900"
-        font-size="80" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
+  hlFit.lines.forEach((line, i) => {
+    headlineSvg += `\n  <text x="60" y="${hlStartY + i * hlFit.lineHeight}" font-family="Hiragino Sans" font-weight="900"
+        font-size="${hlFit.fontSize}" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
   });
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
@@ -303,7 +309,7 @@ function hookSvg(story: Story): string {
   <image href="_assets/${code}.png" x="60" y="280" width="480" height="320"
          preserveAspectRatio="xMidYMid meet"/>
   <text x="60" y="780" font-family="Hiragino Sans" font-weight="900"
-        font-size="110" fill="#FFFFFF" letter-spacing="-2">${escape(countryName.toUpperCase())}</text>
+        font-size="${cnFontSize}" fill="#FFFFFF" letter-spacing="-2">${escape(countryName.toUpperCase())}</text>
   <rect x="60" y="820" width="280" height="10" fill="#F5E63B"/>
   <text x="60" y="950" font-family="Hiragino Sans" font-weight="900"
         font-size="44" fill="#F5E63B" letter-spacing="6">DAILY WORLD 60</text>
@@ -325,11 +331,15 @@ function hookSvg(story: Story): string {
 function captionSvg(story: Story, captionText: string, bgN: 1 | 2 | 3 | 4): string {
   const code = story.country.code.toLowerCase();
   const countryName = story.country.name ?? story.country.code;
-  const headlineLines = wrap(story.headline, 28, 2);
+  // Top headline area: Y 200-460 (260px height、上にコンパクトに) x=60 w=960
+  const hlBoxW = 960, hlBoxH = 260, hlBoxY = 200;
+  const hlFit = fitCaption(story.headline, hlBoxW, hlBoxH,
+                           [52, 46, 42, 38, 34, 30, 28]);
+  const hlStartY = hlBoxY + hlFit.fontSize + 8;
   let headlineSvg = "";
-  headlineLines.forEach((line, i) => {
-    headlineSvg += `\n  <text x="60" y="${230 + i * 70}" font-family="Hiragino Sans" font-weight="900"
-        font-size="54" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
+  hlFit.lines.forEach((line, i) => {
+    headlineSvg += `\n  <text x="60" y="${hlStartY + i * hlFit.lineHeight}" font-family="Hiragino Sans" font-weight="900"
+        font-size="${hlFit.fontSize}" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
   });
   // Caption text: large, bottom-half, white with strong outline-feel via box bg
   // Caption box: Y 1260-1780 (1000x520)。一字一句残し、収まる font-size を動的決定。

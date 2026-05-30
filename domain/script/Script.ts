@@ -69,8 +69,8 @@ export const Script = {
     }
     lines.push(
       `Thanks for watching Daily World 60.`,
-      `If you liked this story, please subscribe so you don't miss tomorrow's news from around the world.`,
-      `See you tomorrow.`,
+      `If you liked this story, please subscribe so you don't miss the next one.`,
+      `See you in the next video.`,
     );
     return lines.join(" ");
   },
