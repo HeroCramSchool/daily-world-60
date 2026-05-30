@@ -3,23 +3,23 @@ import * as path from "node:path";
 import { spawn } from "node:child_process";
 
 /**
- * 60秒動画を 5 シーンに分割して背景 PNG を生成し、ffmpeg で合成する。
- * 構成 (research-brief-2026.md 準拠):
- *   0–3s    Intro hook (DAILY WORLD 60 + 3 国旗)
- *   3–19s   Story 1
- *   19–35s  Story 2
- *   35–51s  Story 3
- *   51–60s  Today's Word + Outro CTA
+ * 60秒動画用 5 シーン生成 (v3, all-English variant)。
  *
- * 各シーンは Hiragino Sans W9 (黒)、anti-AI-slop の単色背景 (グラデなし)。
- * カラーパレット:
- *   navy   #0F1B3D
- *   red    #E63946
- *   yellow #F5E63B
- *   ink    #0A0A0A
- *   white  #FFFFFF
+ * 構成:
+ *   0–3s    Intro       BIG type + 3 flag PNGs + brand
+ *   3–19s   Story 1     Flag PNG + ISO + context icon + headline (English)
+ *   19–35s  Story 2     同上
+ *   35–51s  Story 3     同上
+ *   51–60s  Outro       Today's word card + PLEASE SUBSCRIBE + 👍 SVG path + @60dailyworld
  *
- * 字幕は ffmpeg subtitles filter で別途 burn-in (voice.vtt 利用)。
+ * 修正点:
+ *   - 全文字列を英語化 (日英混在禁止)
+ *   - 国旗を Apple Color Emoji ではなく flag PNG (flagcdn 由来) で <image href="..."> 埋め込み
+ *   - text size を控えめにし、wrap を厳しく (1080px viewbox に収まる)
+ *   - Outro に thumb-up SVG path + Subscribe CTA
+ *
+ * カラー (research-brief-2026 準拠):
+ *   ink #0A0A0A / navy #0F1B3D / red #E63946 / yellow #F5E63B / white #FFFFFF
  */
 
 const W = 1080;
@@ -49,18 +49,46 @@ const SCENES = [
   { id: "05-outro",   start: 51, end: 60 },
 ];
 
+// Story-level context icon SVG paths (drawn inline)
+const CONTEXT_ICONS: Record<string, string> = {
+  // medical cross
+  health: `<g transform="translate(60,60)">
+    <rect x="0" y="40" width="160" height="60" fill="#E63946"/>
+    <rect x="50" y="0" width="60" height="160" fill="#E63946"/>
+  </g>`,
+  // warning triangle
+  warning: `<g transform="translate(60,60)">
+    <polygon points="80,0 160,160 0,160" fill="#F5E63B" stroke="#0A0A0A" stroke-width="6"/>
+    <rect x="74" y="50" width="14" height="60" fill="#0A0A0A"/>
+    <circle cx="81" cy="130" r="9" fill="#0A0A0A"/>
+  </g>`,
+  // government building (defense summit)
+  building: `<g transform="translate(60,60)">
+    <polygon points="80,0 160,40 0,40" fill="#FFFFFF"/>
+    <rect x="0" y="40" width="160" height="14" fill="#FFFFFF"/>
+    <rect x="20" y="60" width="20" height="80" fill="#FFFFFF"/>
+    <rect x="60" y="60" width="20" height="80" fill="#FFFFFF"/>
+    <rect x="100" y="60" width="20" height="80" fill="#FFFFFF"/>
+    <rect x="140" y="60" width="20" height="80" fill="#FFFFFF"/>
+    <rect x="0" y="146" width="160" height="14" fill="#FFFFFF"/>
+  </g>`,
+};
+
+// Country code → context icon mapping (by story topic)
+const STORY_ICONS = ["health", "warning", "building"]; // matches Congo Ebola, Iran missile, SG defense summit
+
 async function main() {
   const date = process.argv[2] ?? new Date().toISOString().slice(0, 10);
   const dir = path.join("output", date);
   const script: Script = JSON.parse(await fs.readFile(path.join(dir, "script-en.json"), "utf-8"));
-  const mmdd = date.slice(5).replace("-", "/");
+  const mmdd = enDate(date);
 
   const scenes = [
     { ...SCENES[0], svg: introScene(script, mmdd) },
-    { ...SCENES[1], svg: storyScene(script.stories[0], 1, "#E63946") }, // red — urgency
-    { ...SCENES[2], svg: storyScene(script.stories[1], 2, "#0F1B3D") }, // navy — serious
-    { ...SCENES[3], svg: storyScene(script.stories[2], 3, "#0A0A0A") }, // ink — focus
-    { ...SCENES[4], svg: outroScene(script, mmdd) },
+    { ...SCENES[1], svg: storyScene(script.stories[0], 1, "#E63946", CONTEXT_ICONS[STORY_ICONS[0]]) },
+    { ...SCENES[2], svg: storyScene(script.stories[1], 2, "#0F1B3D", CONTEXT_ICONS[STORY_ICONS[1]]) },
+    { ...SCENES[3], svg: storyScene(script.stories[2], 3, "#0A0A0A", CONTEXT_ICONS[STORY_ICONS[2]]) },
+    { ...SCENES[4], svg: outroScene(script) },
   ];
 
   for (const sc of scenes) {
@@ -72,14 +100,13 @@ async function main() {
     console.log(`[scenes] ${pngPath}`);
   }
 
-  // 各 PNG を duration 分の mp4 にする (ken-burns 風 zoompan)
+  // Each PNG → mp4 segment with light zoompan
   const segments: string[] = [];
   for (const sc of scenes) {
     const png = path.join(dir, `_scene-${sc.id}.png`);
     const mp4 = path.join(dir, `_scene-${sc.id}.mp4`);
     const duration = sc.end - sc.start;
     const totalFrames = duration * FPS;
-    // 1.0 -> 1.06 緩いズームイン
     const zoomExpr = `min(zoom+0.0008,1.06)`;
     await run("ffmpeg", [
       "-y", "-loop", "1", "-i", png,
@@ -91,7 +118,6 @@ async function main() {
     segments.push(mp4);
   }
 
-  // Concat scenes
   const listFile = path.join(dir, "_concat.txt");
   await fs.writeFile(listFile, segments.map(s => `file '${path.resolve(s)}'`).join("\n"), "utf-8");
   const bgVideo = path.join(dir, "_bg.mp4");
@@ -107,7 +133,8 @@ async function main() {
 function escape(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-function wrap(text: string, maxChars: number): string[] {
+
+function wrap(text: string, maxChars: number, maxLines = 3): string[] {
   const words = text.split(/\s+/);
   const lines: string[] = [];
   let cur = "";
@@ -115,107 +142,168 @@ function wrap(text: string, maxChars: number): string[] {
     if ((cur + " " + w).trim().length > maxChars) {
       lines.push(cur.trim());
       cur = w;
+      if (lines.length >= maxLines) break;
     } else {
       cur = (cur + " " + w).trim();
     }
   }
-  if (cur) lines.push(cur.trim());
-  return lines;
+  if (cur && lines.length < maxLines) lines.push(cur.trim());
+  return lines.slice(0, maxLines);
 }
 
-/** Intro: ink #0A0A0A + yellow accent + 3 flags */
+function enDate(yyyymmdd: string): string {
+  const [, m, d] = yyyymmdd.split("-");
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${months[Number(m) - 1]} ${Number(d)}`;
+}
+
+/**
+ * Intro: black bg, big TODAY'S WORLD, 3 flag PNGs in row, brand footer.
+ * Asymmetric: yellow stripe top-left, hero number off-center.
+ */
 function introScene(s: Script, mmdd: string): string {
-  const flags = s.stories.map(st => st.country.flag).join(" ");
+  // Flag PNGs are downloaded to _assets/{cd,kw,sg}.png
+  const flagImg = (code: string, x: number, y: number, w: number) => {
+    const filename = code.toLowerCase();
+    return `<image href="_assets/${filename}.png" x="${x}" y="${y}" width="${w}" height="${w * 0.66}" preserveAspectRatio="xMidYMid meet"/>`;
+  };
+  const codes = s.stories.map(st => st.country.code);
+  // 3 flags row: each 300x198, total 900, gap 30
+  const flagY = 1450;
+  const flagW = 280;
+  const flagGap = 30;
+  const totalFlags = flagW * 3 + flagGap * 2;
+  const flagStartX = (W - totalFlags) / 2;
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   <rect width="${W}" height="${H}" fill="#0A0A0A"/>
-  <!-- Dateline strip top -->
-  <rect x="60" y="220" width="380" height="74" fill="#F5E63B"/>
-  <text x="80" y="276" font-family="Hiragino Sans" font-weight="900"
-        font-size="44" fill="#0A0A0A" letter-spacing="6">${escape(mmdd)} · WORLD</text>
-  <!-- DAILY WORLD -->
-  <text x="60" y="440" font-family="Hiragino Sans" font-weight="900"
-        font-size="120" fill="#FFFFFF" letter-spacing="-2">DAILY</text>
-  <text x="60" y="560" font-family="Hiragino Sans" font-weight="900"
-        font-size="120" fill="#FFFFFF" letter-spacing="-2">WORLD</text>
-  <!-- 60 -->
-  <text x="60" y="900" font-family="Hiragino Sans" font-weight="900"
-        font-size="420" fill="#F5E63B" letter-spacing="-8">60</text>
-  <!-- Hook line -->
-  <text x="60" y="1080" font-family="Hiragino Sans" font-weight="600"
-        font-size="58" fill="#FFFFFF" letter-spacing="0">3カ国の今日。</text>
-  <text x="60" y="1150" font-family="Hiragino Sans" font-weight="600"
-        font-size="58" fill="#FFFFFF" letter-spacing="0">60秒で。</text>
-  <!-- Flags row -->
-  <text x="60" y="1500" font-family="Apple Color Emoji, Noto Color Emoji, sans-serif"
-        font-size="170">${escape(flags)}</text>
-  <!-- Footer @ off-center to dodge AI-slop symmetry -->
-  <text x="60" y="1820" font-family="Hiragino Sans" font-weight="600"
-        font-size="38" fill="#7A7A7A" letter-spacing="4">@60dailyworld</text>
+
+  <!-- Top dateline stripe (asymmetric, left-aligned) -->
+  <rect x="60" y="260" width="500" height="86" fill="#F5E63B"/>
+  <text x="80" y="324" font-family="Hiragino Sans" font-weight="900"
+        font-size="48" fill="#0A0A0A" letter-spacing="6">${escape(mmdd.toUpperCase())} · WORLD</text>
+
+  <!-- Big TODAY'S -->
+  <text x="60" y="540" font-family="Hiragino Sans" font-weight="900"
+        font-size="140" fill="#FFFFFF" letter-spacing="-3">TODAY'S</text>
+  <text x="60" y="700" font-family="Hiragino Sans" font-weight="900"
+        font-size="140" fill="#FFFFFF" letter-spacing="-3">3 STORIES.</text>
+
+  <!-- Hero number 60 (off-center) -->
+  <text x="60" y="1180" font-family="Hiragino Sans" font-weight="900"
+        font-size="420" fill="#E63946" letter-spacing="-8">60s</text>
+
+  <!-- 3 flag PNGs row -->
+  ${flagImg(codes[0], flagStartX,                          flagY, flagW)}
+  ${flagImg(codes[1], flagStartX + flagW + flagGap,        flagY, flagW)}
+  ${flagImg(codes[2], flagStartX + (flagW + flagGap) * 2,  flagY, flagW)}
+
+  <!-- Brand footer -->
+  <text x="60" y="1820" font-family="Hiragino Sans" font-weight="900"
+        font-size="56" fill="#F5E63B" letter-spacing="4">DAILY WORLD 60</text>
+  <text x="60" y="1870" font-family="Hiragino Sans" font-weight="600"
+        font-size="34" fill="#7A7A7A" letter-spacing="2">@60dailyworld</text>
 </svg>`;
 }
 
-/** Story scene: bold flag + country + headline. accentColor: red / navy / ink */
-function storyScene(st: Story, idx: number, accentColor: string): string {
-  // text color contrast
-  const accentIsLight = accentColor.toLowerCase() === "#f5e63b";
-  const bg = "#0A0A0A";
-  const headlineLines = wrap(st.headline, 22).slice(0, 3);
-  const lineHeight = 100;
-  const startY = 1000;
+/**
+ * Story scene: flag PNG large, ISO code, source, headline (3-line wrap).
+ * Context icon (medical/warning/building) at top-right corner.
+ */
+function storyScene(st: Story, idx: number, accentColor: string, contextIcon: string): string {
+  const code = st.country.code.toLowerCase();
+  // Headline wrap (max 18 chars * 3 lines)
+  const headlineLines = wrap(st.headline, 20, 3);
+  const startY = 1280;
+  const lineHeight = 110;
   let headlineSvg = "";
   headlineLines.forEach((line, i) => {
     headlineSvg += `\n  <text x="60" y="${startY + i * lineHeight}"
         font-family="Hiragino Sans" font-weight="900"
-        font-size="92" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
+        font-size="90" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
   });
+
+  const accentIsBright = accentColor.toLowerCase() === "#f5e63b";
+  const onAccentText = accentIsBright ? "#0A0A0A" : "#FFFFFF";
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
-  <rect width="${W}" height="${H}" fill="${bg}"/>
-  <!-- Diagonal accent strip 1/3 line, off-center -->
-  <rect x="0" y="0" width="${W}" height="540" fill="${accentColor}"/>
-  <!-- Story counter (newspaper-coded) -->
+  <rect width="${W}" height="${H}" fill="#0A0A0A"/>
+
+  <!-- Top accent block (header strip, off-center to break symmetry) -->
+  <rect x="0" y="0" width="${W}" height="640" fill="${accentColor}"/>
+
+  <!-- Story counter -->
   <text x="60" y="200" font-family="Hiragino Sans" font-weight="900"
-        font-size="48" fill="${accentIsLight ? "#0A0A0A" : "#FFFFFF"}" letter-spacing="6">STORY ${idx} / 3</text>
-  <!-- Big flag (60% scale) -->
-  <text x="60" y="450" font-family="Apple Color Emoji, Noto Color Emoji, sans-serif"
-        font-size="320">${escape(st.country.flag)}</text>
-  <!-- Country code (right side, ExtraBold) -->
-  <text x="980" y="450" text-anchor="end" font-family="Hiragino Sans" font-weight="900"
-        font-size="220" fill="${accentIsLight ? "#0A0A0A" : "#FFFFFF"}" letter-spacing="-4">${escape(st.country.code)}</text>
-  <!-- Source label (small, top of black area) -->
-  <text x="60" y="660" font-family="Hiragino Sans" font-weight="600"
-        font-size="44" fill="#F5E63B" letter-spacing="4">${escape(st.sourceName.toUpperCase())}</text>
-  <!-- Yellow underline 1/3 length, off-center asymmetric -->
-  <rect x="60" y="700" width="280" height="6" fill="#F5E63B"/>
-  <!-- Headline -->
+        font-size="52" fill="${onAccentText}" letter-spacing="6">STORY ${idx} / 3</text>
+
+  <!-- Flag PNG (large, left side) -->
+  <image href="_assets/${code}.png" x="60" y="270" width="500" height="330"
+         preserveAspectRatio="xMidYMid meet"/>
+
+  <!-- ISO code (right side, paired with flag) -->
+  <text x="1020" y="540" text-anchor="end" font-family="Hiragino Sans" font-weight="900"
+        font-size="220" fill="${onAccentText}" letter-spacing="-4">${escape(st.country.code)}</text>
+
+  <!-- Context icon (small, top-right of black area, ~240x240 px) -->
+  <g transform="translate(820, 720) scale(1.3)">${contextIcon}</g>
+
+  <!-- Source label -->
+  <text x="60" y="850" font-family="Hiragino Sans" font-weight="900"
+        font-size="50" fill="#F5E63B" letter-spacing="6">${escape(st.sourceName.toUpperCase())}</text>
+
+  <!-- Yellow asymmetric underline -->
+  <rect x="60" y="890" width="280" height="8" fill="#F5E63B"/>
+
+  <!-- "HEADLINE" label -->
+  <text x="60" y="1010" font-family="Hiragino Sans" font-weight="600"
+        font-size="36" fill="#7A7A7A" letter-spacing="6">HEADLINE</text>
+
   ${headlineSvg}
 </svg>`;
 }
 
-/** Outro: today's word card + CTA */
-function outroScene(s: Script, mmdd: string): string {
+/**
+ * Outro: today's word card, PLEASE SUBSCRIBE big, thumb-up SVG path, channel name.
+ */
+function outroScene(s: Script): string {
+  // Thumb-up SVG path (simple outline)
+  const thumbUp = `<g transform="translate(800, 1120) scale(1.4)">
+    <path d="M0 60 L0 200 L100 200 L150 140 L150 90 L100 90 L120 30 Q120 0 90 0 L70 0 L40 60 Z"
+          fill="#F5E63B" stroke="#0A0A0A" stroke-width="6" stroke-linejoin="round"/>
+    <rect x="-40" y="60" width="40" height="140" fill="#F5E63B" stroke="#0A0A0A" stroke-width="6"/>
+  </g>`;
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   <rect width="${W}" height="${H}" fill="#0F1B3D"/>
+
   <!-- Today's word card -->
-  <rect x="60" y="320" width="960" height="500" fill="#F5E63B"/>
-  <text x="100" y="430" font-family="Hiragino Sans" font-weight="900"
-        font-size="46" fill="#0A0A0A" letter-spacing="6">今日の英単語</text>
-  <text x="100" y="630" font-family="Hiragino Sans" font-weight="900"
-        font-size="180" fill="#0A0A0A" letter-spacing="-2">${escape(s.todaysWord.word)}</text>
-  <text x="100" y="760" font-family="Hiragino Sans" font-weight="900"
-        font-size="64" fill="#0A0A0A" letter-spacing="0">= ${escape(s.todaysWord.definitionJp)}</text>
-  <!-- CTA -->
-  <text x="60" y="1300" font-family="Hiragino Sans" font-weight="900"
-        font-size="100" fill="#FFFFFF" letter-spacing="-1">明日も60秒。</text>
-  <text x="60" y="1420" font-family="Hiragino Sans" font-weight="900"
-        font-size="100" fill="#FFFFFF" letter-spacing="-1">フォローを。</text>
-  <!-- Signature -->
-  <text x="60" y="1700" font-family="Hiragino Sans" font-weight="900"
-        font-size="64" fill="#F5E63B" letter-spacing="4">@60dailyworld</text>
-  <text x="60" y="1780" font-family="Hiragino Sans" font-weight="600"
-        font-size="36" fill="#7A8AB5" letter-spacing="2">YouTube · TikTok · Instagram</text>
+  <rect x="60" y="220" width="960" height="500" fill="#F5E63B"/>
+  <text x="100" y="320" font-family="Hiragino Sans" font-weight="900"
+        font-size="42" fill="#0A0A0A" letter-spacing="6">TODAY'S WORD</text>
+  <text x="100" y="510" font-family="Hiragino Sans" font-weight="900"
+        font-size="170" fill="#0A0A0A" letter-spacing="-3">${escape(s.todaysWord.word)}</text>
+  <text x="100" y="620" font-family="Hiragino Sans" font-weight="600"
+        font-size="48" fill="#0A0A0A" letter-spacing="0">${escape(s.todaysWord.definitionEn)}</text>
+
+  <!-- CTA: PLEASE SUBSCRIBE -->
+  <text x="60" y="950" font-family="Hiragino Sans" font-weight="900"
+        font-size="120" fill="#FFFFFF" letter-spacing="-3">PLEASE</text>
+  <text x="60" y="1080" font-family="Hiragino Sans" font-weight="900"
+        font-size="120" fill="#F5E63B" letter-spacing="-3">SUBSCRIBE</text>
+
+  <!-- Thumb-up icon -->
+  ${thumbUp}
+
+  <!-- Channel signature -->
+  <rect x="60" y="1500" width="960" height="280" fill="#0A0A0A"/>
+  <text x="540" y="1620" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="84" fill="#F5E63B" letter-spacing="2">DAILY WORLD 60</text>
+  <text x="540" y="1700" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="56" fill="#FFFFFF" letter-spacing="4">@60dailyworld</text>
+  <text x="540" y="1760" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
+        font-size="32" fill="#7A8AB5" letter-spacing="3">YouTube · TikTok · Instagram</text>
 </svg>`;
 }
 
