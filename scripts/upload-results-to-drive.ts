@@ -15,8 +15,8 @@ async function main() {
   }
 
   const drive = await driveClient();
-  const folderId = await findFolderId(drive, FOLDER_NAME);
-  if (!folderId) throw new Error(`Folder "${FOLDER_NAME}" not found in Drive`);
+  const folderId = process.env.DRIVE_FOLDER_ID ?? (await findFolderId(drive, FOLDER_NAME));
+  if (!folderId) throw new Error(`Folder "${FOLDER_NAME}" not found in Drive (set DRIVE_FOLDER_ID to override)`);
 
   // Upload publish-results-YYYY-MM-DD.json (overwrite if exists)
   const remoteName = `publish-results-${date}.json`;

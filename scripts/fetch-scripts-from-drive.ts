@@ -19,8 +19,8 @@ async function main() {
   await fs.mkdir(outDir, { recursive: true });
 
   const drive = await driveClient();
-  const folderId = await findFolderId(drive, FOLDER_NAME);
-  if (!folderId) throw new Error(`Drive folder "${FOLDER_NAME}" not found`);
+  const folderId = process.env.DRIVE_FOLDER_ID ?? (await findFolderId(drive, FOLDER_NAME));
+  if (!folderId) throw new Error(`Drive folder "${FOLDER_NAME}" not found (set DRIVE_FOLDER_ID to override)`);
 
   const candidateNames = [
     `publish-results-${date}.json`,
@@ -68,12 +68,17 @@ async function main() {
   }
 
   // Routine が publish-results 形式で保存している場合
-  const scriptEn = json.scriptEn ?? json["script-en"] ?? json.script_en;
-  const scriptJp = json.scriptJp ?? json["script-jp"] ?? json.script_jp;
+  const scriptEnRaw = json.scriptEn ?? json["script-en"] ?? json.script_en;
+  const scriptJpRaw = json.scriptJp ?? json["script-jp"] ?? json.script_jp;
 
-  if (!scriptEn) {
+  if (!scriptEnRaw) {
     throw new Error(`No scriptEn in ${fileName}`);
   }
+
+  // Normalize to pipeline schema (domain/script/Script.ts).
+  // Routine outputs sometimes use `country: "CD", flag: "🇨🇩"` (flat) instead of `country: { code, flag }`.
+  const scriptEn = normalizeScript(scriptEnRaw as Record<string, unknown>, date, "en");
+  const scriptJp = scriptJpRaw ? normalizeScript(scriptJpRaw as Record<string, unknown>, date, "jp") : undefined;
 
   await fs.writeFile(
     path.join(outDir, "script-en.json"),
@@ -108,6 +113,61 @@ export async function driveClient(): Promise<drive_v3.Drive> {
   return google.drive({ version: "v3", auth });
 }
 
+// JP raw could be `[{tweetIndex,text}, ...]` (Routine v2 shape) OR `string[]` OR `{stories,...}` (Script object).
+// We support all three; downstream pipeline expects the Script object shape for stories rendering, and a flat thread array for X.
+type RawStory = {
+  index?: number;
+  country?: string | { code?: string; flag?: string };
+  flag?: string;
+  region?: string;
+  headline?: string;
+  summary?: string;
+  sourceName?: string;
+  sourceUrl?: string;
+};
+
+function normalizeScript(
+  raw: Record<string, unknown>,
+  date: string,
+  language: "en" | "jp",
+): Record<string, unknown> {
+  // JP-only: if the entire payload is just an array (tweets), wrap minimally
+  if (Array.isArray(raw)) {
+    return { date, language, hook: "", stories: [], todaysWord: {}, close: "", thread: raw };
+  }
+
+  const stories = Array.isArray(raw.stories) ? (raw.stories as RawStory[]) : [];
+  const normStories = stories.map((s, i) => {
+    let countryCode = "";
+    let countryFlag = "";
+    if (typeof s.country === "string") {
+      countryCode = s.country;
+      countryFlag = s.flag ?? "";
+    } else if (s.country && typeof s.country === "object") {
+      countryCode = s.country.code ?? "";
+      countryFlag = s.country.flag ?? s.flag ?? "";
+    }
+    return {
+      index: s.index ?? i + 1,
+      country: { code: countryCode, flag: countryFlag },
+      headline: s.headline ?? "",
+      summary: s.summary ?? "",
+      sourceName: s.sourceName ?? "",
+      sourceUrl: s.sourceUrl ?? "",
+    };
+  });
+
+  return {
+    date,
+    language,
+    hook: (raw.hook as string) ?? "",
+    stories: normStories,
+    todaysWord: raw.todaysWord ?? {},
+    close: (raw.close as string) ?? "",
+    estimatedSeconds: raw.estimatedSeconds ?? 60,
+  };
+}
+
 export async function findFolderId(
   drive: drive_v3.Drive,
   name: string,
@@ -120,7 +180,12 @@ export async function findFolderId(
   return r.data.files?.[0]?.id ?? undefined;
 }
 
-main().catch(e => {
-  console.error(e);
-  process.exit(1);
-});
+import { fileURLToPath } from "node:url";
+
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+if (isMain) {
+  main().catch(e => {
+    console.error(e);
+    process.exit(1);
+  });
+}
