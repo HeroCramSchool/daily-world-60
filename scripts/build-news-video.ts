@@ -271,14 +271,18 @@ function captionSvg(story: Story, captionText: string, bgN: 1 | 2 | 3 | 4): stri
         font-size="54" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
   });
   // Caption text: large, bottom-half, white with strong outline-feel via box bg
-  const capLines = wrap(captionText, 24, 3);
-  // Caption box: Y 1280-1740 (avoid source footer Y 1820+ and avoid overlap with top headline)
-  const capStartY = 1380;
+  // Caption: wrap で 1000px box に確実に収まる文字数 (20 chars 程度)、font 56pt
+  const capLines = wrap(captionText, 20, 4);
+  // Box Y 1260-1780 (520px)、行高 76、4行なら 304px → 中央寄せで上下 padding 100px
+  const totalCapHeight = capLines.length * 76;
+  const boxY = 1260;
+  const boxH = 520;
+  const capStartY = boxY + (boxH - totalCapHeight) / 2 + 56;
   let capSvg = "";
   capLines.forEach((line, i) => {
-    capSvg += `\n  <text x="540" y="${capStartY + i * 90}" text-anchor="middle"
+    capSvg += `\n  <text x="540" y="${capStartY + i * 76}" text-anchor="middle"
         font-family="Hiragino Sans" font-weight="900"
-        font-size="68" fill="#FFFFFF" letter-spacing="0">${escape(line)}</text>`;
+        font-size="56" fill="#FFFFFF" letter-spacing="0">${escape(line)}</text>`;
   });
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
@@ -300,8 +304,8 @@ function captionSvg(story: Story, captionText: string, bgN: 1 | 2 | 3 | 4): stri
         font-size="40" fill="#F5E63B" letter-spacing="6">${escape(countryName.toUpperCase())}</text>
   ${headlineSvg}
 
-  <!-- Bottom caption box (Y 1280-1780) -->
-  <rect x="40" y="1280" width="1000" height="500" fill="#0A0A0A" fill-opacity="0.80" rx="20"/>
+  <!-- Bottom caption box (Y 1260-1780) -->
+  <rect x="40" y="1260" width="1000" height="520" fill="#0A0A0A" fill-opacity="0.82" rx="20"/>
   ${capSvg}
 
   ${sourceFooter(story)}
@@ -315,28 +319,45 @@ function captionSvg(story: Story, captionText: string, bgN: 1 | 2 | 3 | 4): stri
  */
 function wordSvg(keyword: Keyword | undefined, cueText: string, cueIdx: number, story: Story): string {
   const word = keyword?.word ?? "word";
-  const capLines = wrap(cueText, 26, 3);
+  // cap text を 20 chars × 4 行で wrap、中央寄せ
+  const capLines = wrap(cueText, 20, 4);
+  const boxY = 1140;
+  const boxH = 600;
+  const capStartY = boxY + (boxH - capLines.length * 76) / 2 + 56;
   let capSvg = "";
   capLines.forEach((line, i) => {
-    capSvg += `\n  <text x="540" y="${1180 + i * 75}" text-anchor="middle"
+    capSvg += `\n  <text x="540" y="${capStartY + i * 76}" text-anchor="middle"
         font-family="Hiragino Sans" font-weight="700"
-        font-size="54" fill="#FFFFFF" letter-spacing="0">${escape(line)}</text>`;
+        font-size="56" fill="#FFFFFF" letter-spacing="0">${escape(line)}</text>`;
   });
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   <rect width="${W}" height="${H}" fill="#0F1B3D"/>
-  <rect x="60" y="160" width="960" height="80" fill="#F5E63B"/>
-  <text x="540" y="220" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="44" fill="#0A0A0A" letter-spacing="8">TODAY'S ENGLISH WORD</text>
-  <text x="540" y="780" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="210" fill="#F5E63B" letter-spacing="-4">${escape(word)}</text>
-  <rect x="240" y="880" width="600" height="8" fill="#F5E63B"/>
-  <text x="540" y="1050" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
-        font-size="40" fill="#9CA3AF" letter-spacing="6">${cueIdx === 0 ? "LISTEN" : cueIdx === 1 ? "MEANING" : "USE IT"}</text>
-  <rect x="40" y="1110" width="1000" height="380" fill="#0A0A0A" fill-opacity="0.45" rx="20"/>
+
+  <!-- Top label band -->
+  <rect x="60" y="200" width="960" height="80" fill="#F5E63B"/>
+  <text x="540" y="260" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="38" fill="#0A0A0A" letter-spacing="6">TODAY'S ENGLISH KEYWORD</text>
+
+  <!-- Big keyword (vertically centered upper half) -->
+  <text x="540" y="640" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="200" fill="#F5E63B" letter-spacing="-4">${escape(word)}</text>
+
+  <!-- Divider -->
+  <rect x="290" y="740" width="500" height="8" fill="#F5E63B"/>
+
+  <!-- Section tag -->
+  <text x="540" y="870" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="44" fill="#9CA3AF" letter-spacing="8">${cueIdx === 0 ? "LISTEN" : cueIdx === 1 ? "MEANING" : "USE IT"}</text>
+
+  <!-- Caption box (Y 1140-1740) -->
+  <rect x="40" y="${boxY}" width="1000" height="${boxH}" fill="#0A0A0A" fill-opacity="0.45" rx="20"/>
   ${capSvg}
+
+  <!-- Brand footer just above source footer -->
   <text x="540" y="1780" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
-        font-size="28" fill="#7A8AB5" letter-spacing="3">DAILY WORLD 60 · @60dailyworld</text>
+        font-size="26" fill="#7A8AB5" letter-spacing="3">DAILY WORLD 60 · @60dailyworld</text>
+
   ${sourceFooter(story)}
 </svg>`;
 }

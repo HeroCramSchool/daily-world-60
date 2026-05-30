@@ -43,8 +43,8 @@ async function main() {
 
     await run("edge-tts", [
       "--voice", voice,
-      "--rate", "+5%",
-      "--pitch", "+0Hz",
+      "--rate=-12%",
+      "--pitch=+0Hz",
       "--text", narration,
       "--write-media", mp3,
       "--write-subtitles", vtt,
