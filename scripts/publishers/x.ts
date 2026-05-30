@@ -1,7 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { chromium, type BrowserContext } from "playwright";
+import type { BrowserContext } from "playwright";
 import { decodeCookies } from "./cookie-util.js";
+import { launchStealthContext } from "../auth/captcha/stealth-context.js";
+import { humanClick, humanType, humanRead, sleep } from "../auth/captcha/human-mouse.js";
 
 export interface XPublishInput {
   thread: string[];
@@ -14,14 +16,11 @@ export interface XPublishResult {
   error?: string;
 }
 
+const PROFILE_DIR = path.join(process.env.HOME ?? "", ".config", "dailyworld60", "profile-x-pub");
+
 /**
- * X (Twitter) — Playwright で Web から日本語スレッド投稿。
- *
- * - Cookie は GitHub Secret X_COOKIES_B64 から復元
- * - スレッドはモーダル内で「+ ポストを追加」を repeat
- * - 「すべてポスト」で確定送信
- *
- * 投稿先: @60dailyworld
+ * X (Twitter) で日本語スレッド投稿 @60dailyworld。
+ * Stealth context + 人間風操作 (humanClick / humanType / humanRead)。
  */
 export async function publishX(input: XPublishInput): Promise<XPublishResult> {
   const cookiesB64 = process.env.X_COOKIES_B64;
@@ -30,90 +29,95 @@ export async function publishX(input: XPublishInput): Promise<XPublishResult> {
     return { ok: false, error: "empty thread" };
   }
 
+  await fs.mkdir(PROFILE_DIR, { recursive: true });
   const cookies = decodeCookies(cookiesB64);
 
-  const browser = await chromium.launch({ headless: true });
-  let context: BrowserContext | undefined;
+  let ctx: BrowserContext | undefined;
   try {
-    context = await browser.newContext({
-      viewport: { width: 1280, height: 900 },
-      userAgent:
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36",
-    });
-    await context.addCookies(cookies);
-    const page = await context.newPage();
+    ctx = await launchStealthContext(PROFILE_DIR);
+    await ctx.addCookies(cookies);
+    const page = await ctx.newPage();
 
-    // 1. ホームに移動
     await page.goto("https://x.com/home", { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(3000);
+    await humanRead(2200, 3500);
 
-    // 2. 「ポストする」ボタン
-    const composeBtn = page
-      .locator('a[data-testid="SideNav_NewTweet_Button"], a[href="/compose/post"]')
-      .first();
-    await composeBtn.waitFor({ timeout: 15000 });
-    await composeBtn.click();
-    await page.waitForTimeout(2000);
+    // Step 1: 「ポストする」ボタン
+    const composeSelectors = [
+      'a[data-testid="SideNav_NewTweet_Button"]',
+      'a[href="/compose/post"]',
+      'a[aria-label*="投稿"]',
+      'a[aria-label*="Post"]',
+    ];
+    let opened = false;
+    for (const sel of composeSelectors) {
+      const el = page.locator(sel).first();
+      if (await el.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await humanClick(page, el);
+        opened = true;
+        break;
+      }
+    }
+    if (!opened) {
+      await page.goto("https://x.com/compose/post");
+    }
+    await humanRead(1500, 2500);
 
-    // 3. 1つ目入力 → 「+ もう一つ追加」を repeat
+    // Step 2: 各ツイートを順に入力 + 「+」追加ボタン
     for (let i = 0; i < input.thread.length; i++) {
-      // 現在のスレッド最後尾のテキストエリアを掴む
-      const editors = page.locator('div[data-testid="tweetTextarea_0"], div[data-testid^="tweetTextarea_"]');
-      const editor = editors.nth(i);
-      await editor.waitFor({ timeout: 15000 });
-      await editor.click();
-      await page.waitForTimeout(300);
-      // type で1文字ずつ送る（一気に貼り付けるとイベントが発火しないことがある）
-      await page.keyboard.type(input.thread[i].slice(0, 280), { delay: 5 });
-      await page.waitForTimeout(800);
+      const editor = page.locator(`div[data-testid="tweetTextarea_${i}"]`).first();
+      await editor.waitFor({ timeout: 30_000 });
+      await humanType(page, editor, input.thread[i].slice(0, 280));
+      await humanRead(700, 1200);
 
       if (i < input.thread.length - 1) {
-        // 「+」ボタン: data-testid="addButton"
         const addBtn = page
           .locator('button[data-testid="addButton"], button[aria-label*="追加"], button[aria-label*="Add"]')
           .first();
-        await addBtn.waitFor({ timeout: 10000 });
-        await addBtn.click();
-        await page.waitForTimeout(1000);
+        await addBtn.waitFor({ timeout: 10_000 });
+        await humanClick(page, addBtn);
+        await humanRead(800, 1400);
       }
     }
 
-    // 4. 「すべてポスト」 / "Post all"
-    const postAllBtn = page
-      .locator(
-        [
-          'button[data-testid="tweetButton"]',
-          'button[data-testid="tweetButtonInline"]',
-          'div[role="button"]:has-text("すべてポスト")',
-          'div[role="button"]:has-text("Post all")',
-        ].join(", "),
-      )
-      .first();
-    await postAllBtn.waitFor({ timeout: 15000 });
-    await postAllBtn.click();
+    // Step 3: 「すべてポスト」
+    const postAllSelectors = [
+      'button[data-testid="tweetButton"]',
+      'button[data-testid="tweetButtonInline"]',
+      'div[role="button"]:has-text("すべてポスト")',
+      'div[role="button"]:has-text("Post all")',
+    ];
+    let submitted = false;
+    for (const sel of postAllSelectors) {
+      const el = page.locator(sel).first();
+      if (await el.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await humanClick(page, el);
+        submitted = true;
+        break;
+      }
+    }
+    if (!submitted) {
+      return { ok: false, error: "Post button not found" };
+    }
 
-    // 5. 完了確認: モーダルが閉じる or タイムラインに戻る
     await page
-      .waitForURL(/x\.com\/(home|60dailyworld)/, { timeout: 30000 })
+      .waitForURL(/x\.com\/(home|60dailyworld)/, { timeout: 30_000 })
       .catch(() => {});
-    await page.waitForTimeout(3000);
+    await sleep(3000);
 
     return { ok: true, url: "https://x.com/60dailyworld" };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   } finally {
-    if (context) {
+    if (ctx) {
       try {
-        const newCookies = await context.cookies();
+        const newCookies = await ctx.cookies();
         await fs.writeFile(
           path.join("output", "x-cookies-latest.json"),
           JSON.stringify(newCookies, null, 2),
           "utf-8",
         );
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
+      try { await ctx.close(); } catch { /* ignore */ }
     }
-    await browser.close();
   }
 }
