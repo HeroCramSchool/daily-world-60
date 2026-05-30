@@ -451,16 +451,30 @@ function subscribeSvg(story: Story): string {
   <text x="540" y="580" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
         font-size="140" fill="#F5E63B" letter-spacing="2">SUBSCRIBE</text>
   ${thumbUp}
-  <!-- Channel block (Y 1300-1620, smaller to leave room for source footer) -->
-  <rect x="60" y="1300" width="960" height="320" fill="#0A0A0A"/>
-  <text x="540" y="1410" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="68" fill="#F5E63B" letter-spacing="4">DAILY WORLD 60</text>
-  <text x="540" y="1490" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="46" fill="#FFFFFF" letter-spacing="4">@60dailyworld</text>
-  <text x="540" y="1550" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
-        font-size="28" fill="#7A8AB5" letter-spacing="3">YouTube · TikTok · Instagram</text>
-  <text x="540" y="1600" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
-        font-size="24" fill="#7A8AB5" letter-spacing="3">3 world news every day, in 60 seconds</text>
+  <!-- Channel block (Y 1240-1500) -->
+  <rect x="60" y="1240" width="960" height="260" fill="#0A0A0A"/>
+  <text x="540" y="1330" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="64" fill="#F5E63B" letter-spacing="4">DAILY WORLD 60</text>
+  <text x="540" y="1400" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="44" fill="#FFFFFF" letter-spacing="4">@60dailyworld</text>
+  <text x="540" y="1455" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
+        font-size="26" fill="#7A8AB5" letter-spacing="3">YouTube · TikTok · Instagram</text>
+
+  <!-- Disclaimer (Y 1540-1810, small grey) -->
+  <text x="540" y="1565" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="20" fill="#9CA3AF" letter-spacing="4">DISCLAIMER</text>
+  <text x="540" y="1610" text-anchor="middle" font-family="Hiragino Sans" font-weight="500"
+        font-size="20" fill="#9CA3AF" letter-spacing="0">News summaries are for general information only.</text>
+  <text x="540" y="1640" text-anchor="middle" font-family="Hiragino Sans" font-weight="500"
+        font-size="20" fill="#9CA3AF" letter-spacing="0">Original reporting belongs to the publishers listed below.</text>
+  <text x="540" y="1670" text-anchor="middle" font-family="Hiragino Sans" font-weight="500"
+        font-size="20" fill="#9CA3AF" letter-spacing="0">Please verify details with the original source.</text>
+  <text x="540" y="1700" text-anchor="middle" font-family="Hiragino Sans" font-weight="500"
+        font-size="20" fill="#9CA3AF" letter-spacing="0">AI-assisted voice and video editing.</text>
+  <text x="540" y="1730" text-anchor="middle" font-family="Hiragino Sans" font-weight="500"
+        font-size="20" fill="#9CA3AF" letter-spacing="0">Not affiliated with any government or publisher.</text>
+  <text x="540" y="1770" text-anchor="middle" font-family="Hiragino Sans" font-weight="500"
+        font-size="18" fill="#6B7280" letter-spacing="2">© 2026 Daily World 60 · Fair use of news summaries (US §107 / JP 著作権法32条)</text>
 
   ${sourceFooter(story)}
 </svg>`;
