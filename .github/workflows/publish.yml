@@ -110,21 +110,21 @@ jobs:
         if: env.RUN_MODE != 'publish'
         run: npx tsx scripts/fetch-scripts-from-drive.ts ${{ steps.date.outputs.value }}
 
-      - name: Step B — Synthesize audio
+      - name: Step B — Per-story narrations (voice + vtt)
         if: env.RUN_MODE != 'publish'
-        run: npx tsx scripts/tts.ts ${{ steps.date.outputs.value }}
+        run: npx tsx scripts/tts-per-story.ts ${{ steps.date.outputs.value }}
 
-      - name: Step C — Fetch B-roll
+      - name: Step C — Build 3 news videos (60s each, VTT-synced)
         if: env.RUN_MODE != 'publish'
-        run: npx tsx scripts/broll.ts ${{ steps.date.outputs.value }}
+        run: npx tsx scripts/build-news-video.ts ${{ steps.date.outputs.value }}
 
-      - name: Step D — Render video
+      - name: Step D — Generate social images (5 sizes × 3 stories = 15)
         if: env.RUN_MODE != 'publish'
-        run: npx tsx scripts/render-video.ts ${{ steps.date.outputs.value }}
+        run: npx tsx scripts/generate-social-images.ts ${{ steps.date.outputs.value }}
 
-      - name: Step E — Generate thumbnail
+      - name: Step E — Generate X thread (3 tweets)
         if: env.RUN_MODE != 'publish'
-        run: npx tsx scripts/generate-thumbnail.ts ${{ steps.date.outputs.value }}
+        run: npx tsx scripts/generate-x-thread.ts ${{ steps.date.outputs.value }}
 
       - name: Step F0 — Upload preview to Drive (for review)
         if: env.RUN_MODE == 'preview' || env.RUN_MODE == 'full'
@@ -149,10 +149,14 @@ jobs:
         with:
           name: dailyworld60-${{ steps.date.outputs.value }}
           path: |
-            output/${{ steps.date.outputs.value }}/voice.mp3
-            output/${{ steps.date.outputs.value }}/final.mp4
-            output/${{ steps.date.outputs.value }}/thumbnail.png
+            output/${{ steps.date.outputs.value }}/news-*.mp4
+            output/${{ steps.date.outputs.value }}/yt-thumbnail-*.png
+            output/${{ steps.date.outputs.value }}/ig-*.png
+            output/${{ steps.date.outputs.value }}/tiktok-*.png
+            output/${{ steps.date.outputs.value }}/x-thread.txt
             output/${{ steps.date.outputs.value }}/publish-results.json
+            output/${{ steps.date.outputs.value }}/script-en.json
+            output/${{ steps.date.outputs.value }}/script-jp.json
           retention-days: 30
 
       - name: Commit results
