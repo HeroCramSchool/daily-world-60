@@ -6,102 +6,77 @@ const W = 1080;
 const H = 1920;
 const FPS = 30;
 
+/**
+ * 字幕入り最終動画を組み立てる。
+ * 前提: scripts/build-scenes.ts が _bg.mp4 (60s) を作っている。
+ *       scripts/tts.ts が voice.mp3 + voice.vtt を作っている。
+ *
+ * 字幕スタイル (research-brief-2026.md 準拠):
+ * - FontName: Hiragino Sans (W9 相当の Bold=1)
+ * - FontSize: 14 (libass の PlayResY=288 ベース → 約 96px on 1920 = リサーチの 72pt)
+ * - Outline: 8px hard black, Shadow=2
+ * - MarginV=620 → 字幕は Y≒1200px (下から 1/3 上)
+ * - Alignment=2 (下中央)
+ */
+
 async function main() {
   const date = process.argv[2] ?? new Date().toISOString().slice(0, 10);
   const dir = path.join("output", date);
+  const bg = path.join(dir, "_bg.mp4");
   const audio = path.join(dir, "voice.mp3");
-  const brollDir = path.join(dir, "broll");
+  const subs = path.join(dir, "voice.vtt");
   const out = path.join(dir, "final.mp4");
 
-  // Collect b-roll clips (or fallback to a gradient generated background)
-  let brollFiles: string[] = [];
-  try {
-    const list = await fs.readdir(brollDir);
-    brollFiles = list.filter(f => f.endsWith(".mp4")).sort().map(f => path.join(brollDir, f));
-  } catch {
-    /* no broll dir */
-  }
-
-  let bgInput: string;
-  if (brollFiles.length === 0) {
-    console.warn("[render] no b-roll, generating gradient background");
-    bgInput = path.join(dir, "_bg.mp4");
-    await run("ffmpeg", [
-      "-y", "-f", "lavfi",
-      "-i", `gradients=s=${W}x${H}:duration=60:speed=0.05:c0=0xFB923C:c1=0xDC2626`,
-      "-r", String(FPS), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an",
-      bgInput,
-    ]);
-  } else {
-    const listFile = path.join(dir, "_broll-list.txt");
-    await fs.writeFile(
-      listFile,
-      brollFiles.map(f => `file '${path.resolve(f).replace(/'/g, "'\\''")}'`).join("\n"),
-      "utf-8",
-    );
-    bgInput = path.join(dir, "_broll-concat.mp4");
-    await run("ffmpeg", [
-      "-y", "-f", "concat", "-safe", "0", "-i", listFile,
-      "-vf", `scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H}`,
-      "-r", String(FPS), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an",
-      bgInput,
-    ]);
-    await fs.unlink(listFile).catch(() => {});
-  }
-
-  // Mix audio + loop bg + title overlay (PNG overlay, drawtext not available on some ffmpeg builds)
-  // 注意: -shortest は -stream_loop と相性が悪く無限出力になることがあるため
-  //       audio の長さを明示的に取得して -t で打ち切る。
   const audioDuration = await ffprobeDuration(audio);
-  console.log(`[render] audio duration = ${audioDuration.toFixed(2)}s`);
+  console.log(`[render] audio = ${audioDuration.toFixed(2)}s, bg = 60s`);
 
-  const headerPng = await buildHeaderPng(dir);
+  // libass が無い ffmpeg では字幕 burn-in できないので、SVG で各シーンに headline を
+  // 大きく焼いてある（build-scenes.ts）。字幕はオプション。
 
-  await run("ffmpeg", [
-    "-y",
-    "-stream_loop", "-1", "-i", bgInput,
-    "-i", headerPng,
-    "-i", audio,
-    "-t", audioDuration.toFixed(3),
-    "-filter_complex",
-    "[0:v][1:v]overlay=0:60:format=auto[v]",
-    "-map", "[v]", "-map", "2:a:0",
-    "-c:v", "libx264", "-c:a", "aac", "-b:a", "192k",
-    "-pix_fmt", "yuv420p",
-    out,
-  ]);
-
-  await fs.unlink(headerPng).catch(() => {});
-
-  await fs.unlink(bgInput).catch(() => {});
+  const cwd = path.dirname(subs);
+  await run(
+    "ffmpeg",
+    [
+      "-y",
+      "-i", path.basename(bg),
+      "-i", path.basename(audio),
+      "-map", "0:v:0",
+      "-map", "1:a:0",
+      "-t", audioDuration.toFixed(3),
+      "-c:v", "libx264",
+      "-preset", "medium",
+      "-crf", "20",
+      "-c:a", "aac",
+      "-b:a", "192k",
+      "-pix_fmt", "yuv420p",
+      "-r", String(FPS),
+      path.basename(out),
+    ],
+    cwd,
+  );
 
   const stat = await fs.stat(out);
-  console.log(`[render] ${out} (${stat.size} bytes)`);
+  console.log(`[render] ${out} (${(stat.size / 1024 / 1024).toFixed(2)} MB)`);
+
+  // 中間ファイル掃除
+  const intermediate = [
+    "_bg.mp4",
+    "_scene-01-intro.png", "_scene-02-story1.png",
+    "_scene-03-story2.png", "_scene-04-story3.png", "_scene-05-outro.png",
+    "_scene-01-intro.mp4", "_scene-02-story1.mp4",
+    "_scene-03-story2.mp4", "_scene-04-story3.mp4", "_scene-05-outro.mp4",
+  ];
+  for (const f of intermediate) {
+    await fs.unlink(path.join(dir, f)).catch(() => {});
+  }
 }
 
-function run(cmd: string, args: string[]): Promise<void> {
+function run(cmd: string, args: string[], cwd?: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const proc = spawn(cmd, args, { stdio: ["ignore", "inherit", "inherit"] });
+    const proc = spawn(cmd, args, { stdio: ["ignore", "inherit", "inherit"], cwd });
     proc.on("error", reject);
     proc.on("close", code => (code === 0 ? resolve() : reject(new Error(`${cmd} exit ${code}`))));
   });
-}
-
-async function buildHeaderPng(dir: string): Promise<string> {
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 200" width="1080" height="200">
-  <rect x="120" y="40" width="840" height="120" rx="24" ry="24" fill="rgba(0,0,0,0.7)"/>
-  <text x="540" y="125" text-anchor="middle"
-        font-family="Helvetica, Arial Black, sans-serif"
-        font-size="76" font-weight="900" fill="#FFFFFF"
-        letter-spacing="6">DAILY WORLD 60</text>
-</svg>`;
-  const svgPath = path.join(dir, "_header.svg");
-  const pngPath = path.join(dir, "_header.png");
-  await fs.writeFile(svgPath, svg, "utf-8");
-  await run("rsvg-convert", ["-w", "1080", "-h", "200", svgPath, "-o", pngPath]);
-  await fs.unlink(svgPath).catch(() => {});
-  return pngPath;
 }
 
 function ffprobeDuration(file: string): Promise<number> {

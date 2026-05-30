@@ -8,6 +8,7 @@ async function main() {
   const outDir = path.join("output", date);
   const scriptFile = path.join(outDir, "script-en.json");
   const audioFile = path.join(outDir, "voice.mp3");
+  const subFile = path.join(outDir, "voice.vtt");
 
   const script = JSON.parse(await fs.readFile(scriptFile, "utf-8"));
   const narration = Script.toNarration(script);
@@ -21,10 +22,13 @@ async function main() {
     "--pitch", "+0Hz",
     "--text", narration,
     "--write-media", audioFile,
+    "--write-subtitles", subFile,
   ]);
 
   const stat = await fs.stat(audioFile);
   console.log(`[tts] done: ${audioFile} (${stat.size} bytes)`);
+  const sstat = await fs.stat(subFile);
+  console.log(`[tts] done: ${subFile} (${sstat.size} bytes)`);
 }
 
 function run(cmd: string, args: string[]): Promise<void> {
