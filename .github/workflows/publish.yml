@@ -15,6 +15,11 @@ on:
           - preview      # 動画生成のみ、投稿しない (毎朝の cron と同じ動作)
           - publish      # 既存の preview 成果物を使って実投稿
           - full         # 動画生成 + 投稿 を一気にやる（要注意）
+          - delete       # 指定 videoId を YouTube から削除 (delete_video_ids input 必須)
+      delete_video_ids:
+        description: "削除する YouTube videoId (カンマ区切り、mode=delete 時のみ)"
+        required: false
+        default: ""
       date:
         description: "日付上書き (YYYY-MM-DD UTC)"
         required: false
@@ -151,6 +156,12 @@ jobs:
           xvfb-run -a \
             --server-args="-screen 0 1280x1920x24 -ac +extension RANDR +extension GLX +extension COMPOSITE -noreset -dpi 96" \
             npx tsx scripts/publish-all.ts ${{ steps.date.outputs.value }}
+
+      - name: Step Delete — Remove YouTube videos
+        if: env.RUN_MODE == 'delete'
+        env:
+          DELETE_VIDEO_IDS: ${{ github.event.inputs.delete_video_ids }}
+        run: npx tsx scripts/delete-videos.ts
 
       - name: Step G — Upload final results to Drive (best effort)
         if: always()
