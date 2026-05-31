@@ -6,3 +6,7 @@ output/
 .DS_Store
 dist/
 build/
+
+# Track bg images and flags in _assets/ (videos still ignored)
+!output/*/_assets/
+!output/*/_assets/**
