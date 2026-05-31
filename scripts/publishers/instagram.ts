@@ -85,17 +85,51 @@ export async function publishInstagram(
     }
     await humanRead(1500, 2500);
 
-    // 「投稿」or「Reel」(動画なので Reel が望ましいが、UI 変動を許容)
-    const postBtn = page.getByRole("button", { name: /reel|投稿|post/i }).first();
-    if (await postBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await humanClick(page, postBtn);
-      await humanRead(1200, 2000);
+    // Step 2: Modal で「コンピュータから選択 / Select from computer」ボタンクリック → file input が trigger
+    // (2026 IG UI で input[type="file"] は modal 表示時に hidden で生成、Select ボタンを押すと visible になる)
+    const selectFromComputer = [
+      'button:has-text("コンピュータから選択")',
+      'button:has-text("Select from computer")',
+      'button:has-text("コンピュータからアップロード")',
+      'button:has-text("Select From Computer")',
+      'div[role="button"]:has-text("コンピュータから選択")',
+      'div[role="button"]:has-text("Select from computer")',
+      'button:has-text("選択")',
+      'button:has-text("Select")',
+    ];
+
+    // setInputFiles は file chooser を trigger する必要があるので、Promise.race で button click 同時に
+    let fileInputUsed = false;
+    for (const sel of selectFromComputer) {
+      const el = page.locator(sel).first();
+      if (await el.isVisible({ timeout: 3000 }).catch(() => false)) {
+        console.log(`[ig] select-from-computer via: ${sel}`);
+        // ファイルチューザを開いて setInputFiles で path 渡す
+        const [fileChooser] = await Promise.all([
+          page.waitForEvent("filechooser", { timeout: 15_000 }).catch(() => null),
+          humanClick(page, el),
+        ]);
+        if (fileChooser) {
+          await fileChooser.setFiles(path.resolve(input.videoPath));
+          fileInputUsed = true;
+          break;
+        }
+        // Fallback: file input が DOM にあれば直接
+        const fi = page.locator('input[type="file"], input[accept*="video"]').first();
+        if (await fi.count() > 0) {
+          await fi.setInputFiles(path.resolve(input.videoPath));
+          fileInputUsed = true;
+          break;
+        }
+      }
     }
 
-    // Step 2: file upload
-    const fileInput = page.locator('input[type="file"]').first();
-    await fileInput.waitFor({ state: "attached", timeout: 30_000 });
-    await fileInput.setInputFiles(path.resolve(input.videoPath));
+    if (!fileInputUsed) {
+      // 最終フォールバック: 直接 input を探す (hidden 含む)
+      const fi = page.locator('input[type="file"], input[accept*="video"]').first();
+      await fi.waitFor({ state: "attached", timeout: 30_000 });
+      await fi.setInputFiles(path.resolve(input.videoPath));
+    }
     await humanRead(3500, 5500);
 
     // Step 3: Next x2 (crop → edit)

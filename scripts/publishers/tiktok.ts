@@ -36,14 +36,33 @@ export async function publishTikTok(
     const page = await ctx.newPage();
 
     await page.goto("https://www.tiktok.com/tiktokstudio/upload", { waitUntil: "domcontentloaded" });
-    await humanRead(3000, 4500);
+    // 初回起動オーバーヘッド対策: ページが完全に初期化されるまで長めに待つ
+    await humanRead(6000, 9000);
+    await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
 
     // CAPTCHA が出ていれば挑戦
     await tryAutoSolveCaptcha(page);
+    await humanRead(2000, 3000);
 
-    // Step 1: file upload
-    const fileInput = page.locator('input[type="file"]').first();
-    await fileInput.waitFor({ state: "attached", timeout: 30_000 });
+    // Step 1: file upload (selector を拡張 + 待ち時間 60s)
+    const fileInputSelectors = [
+      'input[type="file"]',
+      'input[accept*="video"]',
+      'input[accept*="mp4"]',
+    ];
+    let fileInput = null;
+    for (const sel of fileInputSelectors) {
+      const el = page.locator(sel).first();
+      try {
+        await el.waitFor({ state: "attached", timeout: 60_000 });
+        fileInput = el;
+        console.log(`[tiktok] file input found via: ${sel}`);
+        break;
+      } catch { /* try next */ }
+    }
+    if (!fileInput) {
+      return { ok: false, error: "file input not found" };
+    }
     await fileInput.setInputFiles(path.resolve(input.videoPath));
     await humanRead(8000, 12_000); // 動画処理の長め待ち
 

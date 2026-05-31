@@ -38,73 +38,52 @@ export async function publishX(input: XPublishInput): Promise<XPublishResult> {
     await ctx.addCookies(cookies);
     const page = await ctx.newPage();
 
-    await page.goto("https://x.com/home", { waitUntil: "domcontentloaded" });
-    await humanRead(2200, 3500);
-
-    // Step 1: 「ポストする」ボタン
-    const composeSelectors = [
-      'a[data-testid="SideNav_NewTweet_Button"]',
-      'a[href="/compose/post"]',
-      'a[aria-label*="投稿"]',
-      'a[aria-label*="Post"]',
-    ];
-    let opened = false;
-    for (const sel of composeSelectors) {
-      const el = page.locator(sel).first();
-      if (await el.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await humanClick(page, el);
-        opened = true;
-        break;
-      }
-    }
-    if (!opened) {
-      await page.goto("https://x.com/compose/post");
-    }
-    await humanRead(1500, 2500);
-
-    // Step 2: 各ツイートを順に入力 + 「+」追加ボタン
+    // 3 ツイートを個別に投稿 (スレッド「+」ボタンが新 UI で不安定なため)
+    const postedCount: number[] = [];
     for (let i = 0; i < input.thread.length; i++) {
-      const editor = page.locator(`div[data-testid="tweetTextarea_${i}"]`).first();
-      await editor.waitFor({ timeout: 30_000 });
+      await page.goto("https://x.com/compose/post", { waitUntil: "domcontentloaded" });
+      await humanRead(2000, 3200);
+
+      const editor = page.locator('div[data-testid="tweetTextarea_0"]').first();
+      try {
+        await editor.waitFor({ timeout: 30_000 });
+      } catch {
+        console.log(`[x] tweet ${i+1}: editor not found, skipping`);
+        continue;
+      }
       await humanType(page, editor, input.thread[i].slice(0, 280));
       await humanRead(700, 1200);
 
-      if (i < input.thread.length - 1) {
-        const addBtn = page
-          .locator('button[data-testid="addButton"], button[aria-label*="追加"], button[aria-label*="Add"]')
-          .first();
-        await addBtn.waitFor({ timeout: 10_000 });
-        await humanClick(page, addBtn);
-        await humanRead(800, 1400);
+      const postSelectors = [
+        'button[data-testid="tweetButton"]',
+        'button[data-testid="tweetButtonInline"]',
+        'div[role="button"][data-testid="tweetButton"]',
+        'div[role="button"]:has-text("ポストする")',
+        'div[role="button"]:has-text("Post")',
+      ];
+      let posted = false;
+      for (const sel of postSelectors) {
+        const el = page.locator(sel).first();
+        if (await el.isVisible({ timeout: 4000 }).catch(() => false)) {
+          await humanClick(page, el);
+          posted = true;
+          break;
+        }
+      }
+      if (posted) {
+        await sleep(5000); // 投稿完了 + rate limit 待ち
+        postedCount.push(i + 1);
+        console.log(`[x] tweet ${i+1}/${input.thread.length} ✓`);
+      } else {
+        console.log(`[x] tweet ${i+1}: post button not found`);
       }
     }
 
-    // Step 3: 「すべてポスト」
-    const postAllSelectors = [
-      'button[data-testid="tweetButton"]',
-      'button[data-testid="tweetButtonInline"]',
-      'div[role="button"]:has-text("すべてポスト")',
-      'div[role="button"]:has-text("Post all")',
-    ];
-    let submitted = false;
-    for (const sel of postAllSelectors) {
-      const el = page.locator(sel).first();
-      if (await el.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await humanClick(page, el);
-        submitted = true;
-        break;
-      }
-    }
-    if (!submitted) {
-      return { ok: false, error: "Post button not found" };
+    if (postedCount.length === 0) {
+      return { ok: false, error: "no tweets posted" };
     }
 
-    await page
-      .waitForURL(/x\.com\/(home|60dailyworld)/, { timeout: 30_000 })
-      .catch(() => {});
-    await sleep(3000);
-
-    return { ok: true, url: "https://x.com/60dailyworld" };
+    return { ok: true, url: "https://x.com/60dailyworld", tweetIds: postedCount.map(String) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   } finally {
