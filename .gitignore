@@ -10,3 +10,7 @@ build/
 # Track bg images and flags in _assets/ (videos still ignored)
 !output/*/_assets/
 !output/*/_assets/**
+
+
+# Track publish-results.json for same-day duplicate prevention
+!output/*/publish-results.json
