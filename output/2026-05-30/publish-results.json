@@ -1,0 +1,70 @@
+{
+  "date": "2026-05-30",
+  "perStory": {
+    "cd": {
+      "story": 1,
+      "country": "CD",
+      "headline": "Ebola surpasses 1,000 cases as Uganda seals border",
+      "youtube": {
+        "ok": false,
+        "skipped": true,
+        "reason": "PUBLISH_SKIP"
+      },
+      "instagram": {
+        "ok": false,
+        "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator('input[type=\"file\"], input[accept*=\"video\"]').first()\n"
+      },
+      "tiktok": {
+        "ok": false,
+        "error": "file input not found"
+      }
+    },
+    "kw": {
+      "story": 2,
+      "country": "KW",
+      "headline": "Iran fires missiles at US military base in Kuwait",
+      "youtube": {
+        "ok": false,
+        "skipped": true,
+        "reason": "PUBLISH_SKIP"
+      },
+      "instagram": {
+        "ok": false,
+        "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator('input[type=\"file\"], input[accept*=\"video\"]').first()\n"
+      },
+      "tiktok": {
+        "ok": true,
+        "url": "https://www.tiktok.com/@60dailyworld"
+      }
+    },
+    "sg": {
+      "story": 3,
+      "country": "SG",
+      "headline": "Asia's top defense summit opens in Singapore today",
+      "youtube": {
+        "ok": false,
+        "skipped": true,
+        "reason": "PUBLISH_SKIP"
+      },
+      "instagram": {
+        "ok": false,
+        "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator('input[type=\"file\"], input[accept*=\"video\"]').first()\n"
+      },
+      "tiktok": {
+        "ok": true,
+        "url": "https://www.tiktok.com/@60dailyworld"
+      }
+    }
+  },
+  "x": {
+    "ok": true,
+    "url": "https://x.com/60dailyworld",
+    "tweetIds": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5"
+    ]
+  }
+}
