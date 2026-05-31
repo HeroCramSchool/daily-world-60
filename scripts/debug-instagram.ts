@@ -26,6 +26,21 @@ async function main() {
   await page.goto("https://www.instagram.com/", { waitUntil: "domcontentloaded" });
   await sleep(5000);
 
+  // notification dismiss
+  const dismiss = [
+    'button:has-text("後で")', 'button:has-text("あとで")',
+    'button:has-text("Not Now")', 'button:has-text("Not now")',
+  ];
+  for (const sel of dismiss) {
+    const el = page.locator(sel).first();
+    if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
+      console.log(`  dismiss via: ${sel}`);
+      await humanClick(page, el);
+      await sleep(2500);
+      break;
+    }
+  }
+
   // 左サイドバーの「+」アイコン候補を列挙
   console.log("\n=== sidebar SVG aria-label ===");
   const svgs = await page.locator("svg[aria-label]").all();
@@ -36,16 +51,46 @@ async function main() {
     console.log(`  [${i}] vis=${visible} aria="${aria || ""}"`);
   }
 
-  // 「新しい投稿作成」role=link をクリック (2026 UI)
   console.log("\n→ click '新しい投稿作成' link");
   const newPostBtn = page.locator('a[role="link"]:has-text("新しい投稿作成"), a[role="link"]:has-text("Create new post")').first();
   if (await newPostBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
     await humanClick(page, newPostBtn);
-    await sleep(3500);
-    console.log("  clicked");
+    await sleep(5000);
+    console.log("  clicked, waited 5s");
   } else {
     console.log("  not found");
   }
+
+  // click 後の DOM dump (dropdown / modal がどう出ているか)
+  await fs.writeFile("/tmp/ig-debug-after-create-click.html", await page.content(), "utf-8");
+  await page.screenshot({ path: "/tmp/ig-debug-after-create-click.png", fullPage: false });
+  console.log("  saved /tmp/ig-debug-after-create-click.{html,png}");
+
+  // dropdown menu 候補を見る
+  console.log("\n=== dropdown / modal visible items after create click ===");
+  // dialog / menu role
+  for (const role of ['dialog', 'menu', 'menuitem']) {
+    const els = await page.locator(`[role="${role}"]`).all();
+    console.log(`  role=${role}: ${els.length} found`);
+    for (const el of els.slice(0, 10)) {
+      const text = ((await el.textContent().catch(() => "")) ?? "").trim().slice(0, 80);
+      const visible = await el.isVisible().catch(() => false);
+      console.log(`    vis=${visible} "${text}"`);
+    }
+  }
+  // text 検索: '投稿', 'リール', 'Post', 'Reel', 'Story', 'Live', '選択', 'コンピュータ'
+  console.log("\n=== text searches ===");
+  for (const text of ['投稿', 'リール', 'Reel', 'Post', 'Story', 'Live', '選択', 'コンピュータ', 'computer', 'Select']) {
+    const els = await page.locator(`text="${text}"`).all();
+    let visibleN = 0;
+    for (const el of els) {
+      if (await el.isVisible().catch(() => false)) visibleN++;
+    }
+    if (visibleN > 0) console.log(`  "${text}": ${visibleN} visible / ${els.length} total`);
+  }
+  const fileInputCount = await page.locator('input[type="file"]').count();
+  const fileInputVideo = await page.locator('input[accept*="video"]').count();
+  console.log(`\n  input[type=file]: ${fileInputCount}, input[accept*=video]: ${fileInputVideo}`);
 
   // dropdown menu (Post / Reels / Story / Live)
   console.log("\n=== after click: visible buttons / role=link ===");

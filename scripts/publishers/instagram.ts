@@ -114,6 +114,38 @@ export async function publishInstagram(
     }
     await humanRead(2500, 3800);
 
+    // Step 1.5: サブメニューから「リール」or「投稿」を選択 (60 秒動画なのでリール優先)
+    const submenuOpts = [
+      'a[role="link"]:has-text("リール")',
+      'a[role="link"]:has-text("Reels")',
+      'a[role="link"]:has-text("投稿")',
+      'a[role="link"]:has-text("Post")',
+      'div[role="link"]:has-text("リール")',
+      'div[role="link"]:has-text("Reels")',
+      'div[role="link"]:has-text("投稿")',
+      'div[role="link"]:has-text("Post")',
+      'span:has-text("リール"):not(:has-text("動画"))',
+      'span:has-text("Reels")',
+      'span:has-text("投稿")',
+    ];
+    let clickedSubmenu = false;
+    for (const sel of submenuOpts) {
+      const els = await page.locator(sel).all();
+      for (const el of els) {
+        if (await el.isVisible({ timeout: 1500 }).catch(() => false)) {
+          await humanClick(page, el);
+          clickedSubmenu = true;
+          console.log(`[ig] submenu (リール/投稿) clicked via: ${sel}`);
+          break;
+        }
+      }
+      if (clickedSubmenu) break;
+    }
+    if (!clickedSubmenu) {
+      console.log("[ig] submenu not found, assuming modal opens directly");
+    }
+    await humanRead(3000, 4500);
+
     // Step 2: Modal で「コンピュータから選択 / Select from computer」ボタンクリック → file input が trigger
     // (2026 IG UI で input[type="file"] は modal 表示時に hidden で生成、Select ボタンを押すと visible になる)
     const selectFromComputer = [

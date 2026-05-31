@@ -102,6 +102,8 @@ async function main() {
     const ttCaption = buildSocialCaption(story);
 
     console.log(`\n[publish] === Story ${story.index} (${code}: ${countryName}) ===`);
+    // 各 publisher 起動前に warm-up wait (初回 Chrome 起動オーバーヘッド対策)
+    await new Promise(r => setTimeout(r, 5000));
 
     // 直列実行 (Cookie 競合・rate limit 対策)
     const ytRes = shouldSkip("youtube")
