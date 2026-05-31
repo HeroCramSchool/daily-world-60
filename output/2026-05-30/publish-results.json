@@ -34,6 +34,8 @@
       },
       "tiktok": {
         "ok": true,
+        "skipped": true,
+        "reason": "already_posted_today",
         "url": "https://www.tiktok.com/@60dailyworld"
       }
     },
@@ -52,12 +54,16 @@
       },
       "tiktok": {
         "ok": true,
+        "skipped": true,
+        "reason": "already_posted_today",
         "url": "https://www.tiktok.com/@60dailyworld"
       }
     }
   },
   "x": {
     "ok": true,
+    "skipped": true,
+    "reason": "already_posted_today",
     "url": "https://x.com/60dailyworld",
     "tweetIds": [
       "1",
