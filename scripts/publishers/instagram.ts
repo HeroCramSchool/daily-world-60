@@ -40,31 +40,64 @@ export async function publishInstagram(
     const page = await ctx.newPage();
 
     await page.goto("https://www.instagram.com/", { waitUntil: "domcontentloaded" });
-    await humanRead(2200, 3500);
+    await humanRead(3500, 5000);
+    await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
 
-    // Step 1: 「+ Create / 作成」ボタン (2026 UI 対応で selector 拡張)
+    // 「お知らせをオンにする」ダイアログの dismiss (2026 IG UI で最初に出る)
+    const dismissNotif = [
+      'button:has-text("あとで")',
+      'button:has-text("後で")',
+      'button:has-text("Not Now")',
+      'button:has-text("Not now")',
+      'div[role="button"]:has-text("あとで")',
+      'div[role="button"]:has-text("Not Now")',
+    ];
+    for (const sel of dismissNotif) {
+      const el = page.locator(sel).first();
+      if (await el.isVisible({ timeout: 3000 }).catch(() => false)) {
+        console.log(`[ig] notification dialog dismissed via: ${sel}`);
+        await humanClick(page, el);
+        await humanRead(1500, 2500);
+        break;
+      }
+    }
+
+    // Cookie 通知 dialog dismiss も (出る場合)
+    const dismissCookie = [
+      'button:has-text("必須クッキーのみ許可")',
+      'button:has-text("Decline optional cookies")',
+      'button:has-text("Allow all cookies")',
+      'button:has-text("すべて許可")',
+    ];
+    for (const sel of dismissCookie) {
+      const el = page.locator(sel).first();
+      if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
+        console.log(`[ig] cookie dialog dismissed via: ${sel}`);
+        await humanClick(page, el);
+        await humanRead(1500, 2000);
+        break;
+      }
+    }
+
+    // Step 1: 左サイドバーの「新しい投稿作成」(2026 IG UI) をクリック
+    // /create/select/ は 2026 で廃止 → サイドバーリンクから modal 表示
     const createSelectors = [
-      // 直接 URL に飛ぶのが最も確実 (新しい UI でも /create/select/ は維持されている)
-      'a[href="/create/select/"]',
-      'a[href*="/create/"]',
-      // SVG aria-label (日英)
+      // 2026 新 UI: 「新しい投稿作成」テキストを含む role=link
+      'a[role="link"]:has-text("新しい投稿作成")',
+      'a[role="link"]:has-text("Create new post")',
+      'a[role="link"]:has-text("作成")',
+      'a[role="link"]:has-text("Create")',
+      // SVG aria-label fallback
+      'svg[aria-label="新しい投稿作成"]',
       'svg[aria-label="新規投稿"]',
       'svg[aria-label="New post"]',
       'svg[aria-label="作成"]',
       'svg[aria-label="Create"]',
-      // role link + svg
-      'a[role="link"]:has(svg[aria-label*="新規"])',
-      'a[role="link"]:has(svg[aria-label*="作成"])',
-      'a[role="link"]:has(svg[aria-label*="New"])',
-      'a[role="link"]:has(svg[aria-label*="Create"])',
-      // menuitem
+      // 古い menuitem
       'div[role="menuitem"]:has-text("投稿")',
       'div[role="menuitem"]:has-text("作成")',
       'div[role="menuitem"]:has-text("Post")',
       'div[role="menuitem"]:has-text("Create")',
-      // span (新 UI)
-      'span:has-text("Create")',
-      'span:has-text("作成")',
     ];
     let clickedCreate = false;
     for (const sel of createSelectors) {
@@ -77,13 +110,9 @@ export async function publishInstagram(
       }
     }
     if (!clickedCreate) {
-      // Fallback: 直接 /create/select/ に飛ぶ
-      console.log("[ig] selectors all failed → navigating directly to /create/select/");
-      await page.goto("https://www.instagram.com/create/select/", { waitUntil: "domcontentloaded" });
-      await humanRead(2000, 3000);
-      clickedCreate = true;
+      return { ok: false, error: "create button not found (sidebar 新しい投稿作成)" };
     }
-    await humanRead(1500, 2500);
+    await humanRead(2500, 3800);
 
     // Step 2: Modal で「コンピュータから選択 / Select from computer」ボタンクリック → file input が trigger
     // (2026 IG UI で input[type="file"] は modal 表示時に hidden で生成、Select ボタンを押すと visible になる)
