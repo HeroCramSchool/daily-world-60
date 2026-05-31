@@ -98,7 +98,9 @@ async function buildOne(dir: string, story: Story) {
   // Body cues: 各 cue を 1 scene 化
   bodyCues.forEach((cue, i) => {
     const dur = cue.end - cue.start;
-    const bgN = ((i) % 4) + 1; // 1..4 cycle
+    // Hook は bg-1 を使うので body は bg-2 から cycle (2, 3, 4, 1, 2, ...)
+    // → hook と隣接 body cue が同じ画像にならない
+    const bgN = ((i + 1) % 4) + 1;
     scenes.push({
       id: `02-cap${(i + 1).toString().padStart(2, "0")}`,
       dur,
@@ -282,13 +284,11 @@ function wrap(text: string, maxChars: number, maxLines = 5): string[] {
   return lines.slice(0, maxLines);
 }
 
-/** Hook: 国旗 + 国名 + headline (only here flag shows large). */
+/** Hook: 背景画像 + 国旗 + 国名 + headline (only here flag shows large). */
 function hookSvg(story: Story): string {
   const code = story.country.code.toLowerCase();
   const countryName = story.country.name ?? story.country.code;
-  // 国名 font: 単語長で動的に
   const cnFontSize = fitKeywordFontSize(countryName, 900, 130);
-  // Headline: x=60, w=960、Y 1230-1790 (560px) に fit (max 56pt)
   const hlBoxW = 960, hlBoxH = 560, hlBoxY = 1230;
   const hlFit = fitCaption(story.headline, hlBoxW, hlBoxH,
                            [56, 50, 46, 42, 38, 34, 30, 26]);
@@ -301,7 +301,18 @@ function hookSvg(story: Story): string {
   });
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
-  <rect width="${W}" height="${H}" fill="#0A0A0A"/>
+  <defs>
+    <linearGradient id="hookDarken" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#0A0A0A" stop-opacity="0.65"/>
+      <stop offset="40%" stop-color="#0A0A0A" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#0A0A0A" stop-opacity="0.92"/>
+    </linearGradient>
+  </defs>
+  <!-- Background photo for Hook scene -->
+  <image href="_assets/bg-${code}-1.jpg" x="0" y="0" width="${W}" height="${H}"
+         preserveAspectRatio="xMidYMid slice"/>
+  <rect width="${W}" height="${H}" fill="url(#hookDarken)"/>
+
   <rect x="0" y="0" width="${W}" height="60" fill="#F5E63B"/>
   <text x="60" y="200" font-family="Hiragino Sans" font-weight="900"
         font-size="60" fill="#F5E63B" letter-spacing="8">TODAY'S NEWS</text>
@@ -315,7 +326,7 @@ function hookSvg(story: Story): string {
   <text x="60" y="1000" font-family="Hiragino Sans" font-weight="600"
         font-size="28" fill="#9CA3AF" letter-spacing="3">@60dailyworld</text>
   <text x="60" y="1180" font-family="Hiragino Sans" font-weight="600"
-        font-size="36" fill="#9CA3AF" letter-spacing="6">HEADLINE</text>
+        font-size="36" fill="#E5E7EB" letter-spacing="6">HEADLINE</text>
   ${headlineSvg}
   ${sourceFooter(story)}
 </svg>`;
