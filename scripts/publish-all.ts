@@ -63,6 +63,16 @@ async function main() {
     console.log(`[publish] yesterday had ${yesterdayHeadlines.length} stories, checking dup...`);
   }
 
+  // ─── 当日既投稿チェック (再 trigger 時の重複防止) ───
+  interface PrevResults { perStory?: Record<string, Record<string, { ok?: boolean; url?: string; videoId?: string }>>; x?: { ok?: boolean }; }
+  let prevResults: PrevResults = {};
+  try {
+    prevResults = JSON.parse(await fs.readFile(path.join(dir, "publish-results.json"), "utf-8"));
+    console.log(`[publish] previous publish-results.json found, skipping already-posted entries`);
+  } catch {
+    // first run for this date
+  }
+
   const results: Record<string, unknown> = {
     date,
     perStory: {} as Record<string, unknown>,
@@ -105,24 +115,43 @@ async function main() {
     // 各 publisher 起動前に warm-up wait (初回 Chrome 起動オーバーヘッド対策)
     await new Promise(r => setTimeout(r, 5000));
 
+    const prevStory = prevResults.perStory?.[code] ?? {};
+    const alreadyPosted = (plat: string): boolean =>
+      Boolean(prevStory[plat]?.ok && (prevStory[plat]?.url || prevStory[plat]?.videoId));
+
     // 直列実行 (Cookie 競合・rate limit 対策)
-    const ytRes = shouldSkip("youtube")
-      ? { ok: false, skipped: true, reason: "PUBLISH_SKIP" }
-      : await publishYoutube({
-          videoPath, thumbnailPath: ytThumb,
-          title: ytTitle, description: ytDesc, tags: ytTags,
-        });
-    console.log(`[publish] ${code} YouTube:`, "ok" in ytRes && ytRes.ok ? "✓" : "skipped" in ytRes ? "⏭" : `✗ ${(ytRes as { error?: string }).error ?? ""}`);
+    let ytRes: unknown;
+    if (shouldSkip("youtube")) {
+      ytRes = { ok: false, skipped: true, reason: "PUBLISH_SKIP" };
+    } else if (alreadyPosted("youtube")) {
+      ytRes = { ok: true, skipped: true, reason: "already_posted_today", ...prevStory.youtube };
+    } else {
+      ytRes = await publishYoutube({
+        videoPath, thumbnailPath: ytThumb,
+        title: ytTitle, description: ytDesc, tags: ytTags,
+      });
+    }
+    console.log(`[publish] ${code} YouTube:`, isOk(ytRes) ? "✓" : isSkipped(ytRes) ? "⏭" : `✗ ${getErr(ytRes)}`);
 
-    const igRes = shouldSkip("instagram")
-      ? { ok: false, skipped: true, reason: "PUBLISH_SKIP" }
-      : await publishInstagram({ videoPath, caption: igCaption });
-    console.log(`[publish] ${code} Instagram:`, "ok" in igRes && igRes.ok ? "✓" : "skipped" in igRes ? "⏭" : `✗ ${(igRes as { error?: string }).error ?? ""}`);
+    let igRes: unknown;
+    if (shouldSkip("instagram")) {
+      igRes = { ok: false, skipped: true, reason: "PUBLISH_SKIP" };
+    } else if (alreadyPosted("instagram")) {
+      igRes = { ok: true, skipped: true, reason: "already_posted_today", ...prevStory.instagram };
+    } else {
+      igRes = await publishInstagram({ videoPath, caption: igCaption });
+    }
+    console.log(`[publish] ${code} Instagram:`, isOk(igRes) ? "✓" : isSkipped(igRes) ? "⏭" : `✗ ${getErr(igRes)}`);
 
-    const ttRes = shouldSkip("tiktok")
-      ? { ok: false, skipped: true, reason: "PUBLISH_SKIP" }
-      : await publishTikTok({ videoPath, caption: ttCaption });
-    console.log(`[publish] ${code} TikTok:`, "ok" in ttRes && ttRes.ok ? "✓" : "skipped" in ttRes ? "⏭" : `✗ ${(ttRes as { error?: string }).error ?? ""}`);
+    let ttRes: unknown;
+    if (shouldSkip("tiktok")) {
+      ttRes = { ok: false, skipped: true, reason: "PUBLISH_SKIP" };
+    } else if (alreadyPosted("tiktok")) {
+      ttRes = { ok: true, skipped: true, reason: "already_posted_today", ...prevStory.tiktok };
+    } else {
+      ttRes = await publishTikTok({ videoPath, caption: ttCaption });
+    }
+    console.log(`[publish] ${code} TikTok:`, isOk(ttRes) ? "✓" : isSkipped(ttRes) ? "⏭" : `✗ ${getErr(ttRes)}`);
 
     (results.perStory as Record<string, unknown>)[code] = {
       story: story.index,
@@ -135,15 +164,18 @@ async function main() {
   }
 
   // X: 3 ツイート 1 スレッド (日本語、テキストのみ)
-  if (scriptJp && !shouldSkip("x")) {
+  if (shouldSkip("x")) {
+    console.log(`[publish] X: skipped (PUBLISH_SKIP)`);
+    results.x = { ok: false, skipped: true, reason: "PUBLISH_SKIP" };
+  } else if (prevResults.x?.ok) {
+    console.log(`[publish] X: already posted today, skipping`);
+    results.x = { ok: true, skipped: true, reason: "already_posted_today", ...prevResults.x };
+  } else if (scriptJp) {
     const thread = buildXThread(scriptJp, scriptEn, mmdd);
     console.log(`\n[publish] === X (${thread.length} tweets) ===`);
     const xRes = await publishX({ thread });
     console.log(`[publish] X:`, xRes.ok ? "✓" : `✗ ${xRes.error}`);
     results.x = xRes;
-  } else if (shouldSkip("x")) {
-    console.log(`[publish] X: skipped (PUBLISH_SKIP)`);
-    results.x = { ok: false, skipped: true, reason: "PUBLISH_SKIP" };
   }
 
   await fs.writeFile(
@@ -200,9 +232,20 @@ function buildSocialCaption(story: Story): string {
 }
 
 function buildXThread(scriptJp: ScriptJp, scriptEn: ScriptEn, mmdd: string): string[] {
-  // Routine v2 出力は scriptJp.thread に直接ツイート配列が入ってる
+  // Routine v2 出力は scriptJp.thread に直接ツイート配列。
+  // 各 story tweet (index 1-3) に sourceUrl を末尾 append。
+  // tweet index 0 = intro, 1-3 = stories, 4+ = today's word / cta
   if (Array.isArray(scriptJp.thread) && scriptJp.thread.length > 0) {
-    return scriptJp.thread.map(t => t.text).filter(Boolean);
+    return scriptJp.thread.map((t, i) => {
+      let text = t.text;
+      const storyIdx = i - 1; // tweet 1-3 → story 0-2
+      const story = scriptEn.stories[storyIdx];
+      if (storyIdx >= 0 && storyIdx < scriptEn.stories.length && story?.sourceUrl) {
+        // X の URL は t.co で 23 字相当固定。append しても CJK 多い tweet は 140 内に収まる
+        text = text + "\n" + story.sourceUrl;
+      }
+      return text;
+    }).filter(Boolean);
   }
   // フォールバック: stories から組み立て (古いフォーマット用)
   const tweets: string[] = [];
@@ -213,7 +256,7 @@ function buildXThread(scriptJp: ScriptJp, scriptEn: ScriptEn, mmdd: string): str
   scriptJp.stories.forEach((jpStory, i) => {
     const enStory = scriptEn.stories[i];
     const keyword = enStory?.keyword?.word;
-    const summary = jpStory.summary.length > 70 ? jpStory.summary.slice(0, 69) + "…" : jpStory.summary;
+    const summary = jpStory.summary.length > 60 ? jpStory.summary.slice(0, 59) + "…" : jpStory.summary;
     tweets.push(
       `🌍 ${mmdd} ${i + 1}/3\n` +
       `${jpStory.country.flag} ${jpStory.headline}\n` +
@@ -222,10 +265,25 @@ function buildXThread(scriptJp: ScriptJp, scriptEn: ScriptEn, mmdd: string): str
       `\n` +
       `今日の英単語: ${keyword ?? "—"}\n` +
       `出典: ${jpStory.sourceName}\n` +
-      `#DailyWorld60 #世界ニュース`,
+      (enStory?.sourceUrl ? `${enStory.sourceUrl}\n` : "") +
+      `#DailyWorld60`,
     );
   });
   return tweets;
+}
+
+// ─── Result helpers ───
+function isOk(r: unknown): boolean {
+  return typeof r === "object" && r !== null && "ok" in r && (r as { ok?: boolean }).ok === true;
+}
+function isSkipped(r: unknown): boolean {
+  return typeof r === "object" && r !== null && "skipped" in r && (r as { skipped?: boolean }).skipped === true;
+}
+function getErr(r: unknown): string {
+  if (typeof r === "object" && r !== null && "error" in r) {
+    return String((r as { error?: unknown }).error ?? "").slice(0, 120);
+  }
+  return "";
 }
 
 // ─── Yesterday duplication check ───
