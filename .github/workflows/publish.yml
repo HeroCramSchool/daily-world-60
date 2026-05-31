@@ -121,23 +121,23 @@ jobs:
 
       # --- Generation phase (preview / full) ---
       - name: Step A — Fetch scripts from Drive
-        if: env.RUN_MODE != 'publish'
+        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
         run: npx tsx scripts/fetch-scripts-from-drive.ts ${{ steps.date.outputs.value }}
 
       - name: Step B — Per-story narrations (voice + vtt)
-        if: env.RUN_MODE != 'publish'
+        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
         run: npx tsx scripts/tts-per-story.ts ${{ steps.date.outputs.value }}
 
       - name: Step C — Build 3 news videos (60s each, VTT-synced)
-        if: env.RUN_MODE != 'publish'
+        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
         run: npx tsx scripts/build-news-video.ts ${{ steps.date.outputs.value }}
 
       - name: Step D — Generate social images (5 sizes × 3 stories = 15)
-        if: env.RUN_MODE != 'publish'
+        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
         run: npx tsx scripts/generate-social-images.ts ${{ steps.date.outputs.value }}
 
       - name: Step E — Generate X thread (3 tweets)
-        if: env.RUN_MODE != 'publish'
+        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
         run: npx tsx scripts/generate-x-thread.ts ${{ steps.date.outputs.value }}
 
       - name: Step F0 — Upload preview to Drive (best effort)
