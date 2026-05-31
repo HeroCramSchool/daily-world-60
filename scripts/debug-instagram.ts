@@ -55,10 +55,42 @@ async function main() {
   const newPostBtn = page.locator('a[role="link"]:has-text("新しい投稿作成"), a[role="link"]:has-text("Create new post")').first();
   if (await newPostBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
     await humanClick(page, newPostBtn);
-    await sleep(5000);
-    console.log("  clicked, waited 5s");
+    await sleep(3000);
+    console.log("  clicked");
   } else {
     console.log("  not found");
+  }
+
+  // 「リール」 submenu click
+  console.log("\n→ click 'リール' submenu");
+  const reelBtn = page.locator('a[role="link"]:has-text("リール"), a[role="link"]:has-text("Reels")').first();
+  if (await reelBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await humanClick(page, reelBtn);
+    await sleep(6000);
+    console.log("  clicked + waited 6s");
+  } else {
+    console.log("  not found");
+  }
+
+  console.log(`\n  url after reel click: ${page.url()}`);
+  await fs.writeFile("/tmp/ig-debug-after-reel.html", await page.content(), "utf-8");
+  await page.screenshot({ path: "/tmp/ig-debug-after-reel.png", fullPage: false });
+  console.log("  saved /tmp/ig-debug-after-reel.{html,png}");
+
+  // file input チェック + 全 visible button text
+  const fiCount = await page.locator('input[type="file"]').count();
+  const fiVideo = await page.locator('input[accept*="video"]').count();
+  console.log(`  input[type=file]: ${fiCount}, input[accept*=video]: ${fiVideo}`);
+
+  console.log("\n=== visible buttons after reel ===");
+  const btnsAfter = await page.locator('button, div[role="button"]').all();
+  for (let i = 0; i < Math.min(btnsAfter.length, 25); i++) {
+    const el = btnsAfter[i];
+    const text = ((await el.textContent().catch(() => "")) ?? "").trim();
+    const vis = await el.isVisible().catch(() => false);
+    if (text && vis && text.length < 50) {
+      console.log(`  "${text}"`);
+    }
   }
 
   // click 後の DOM dump (dropdown / modal がどう出ているか)

@@ -114,19 +114,23 @@ export async function publishInstagram(
     }
     await humanRead(2500, 3800);
 
-    // Step 1.5: サブメニューから「リール」or「投稿」を選択 (60 秒動画なのでリール優先)
+    // Step 1.5: サブメニューから「リール」or「投稿」を選択
+    // 注意: サイドバー左側に「リール動画」(/reels/ feed タブ) という別 link がある。
+    //       text-is() の完全一致で「リール動画」を除外。
+    //       create submenu の link は href="#"
     const submenuOpts = [
-      'a[role="link"]:has-text("リール")',
-      'a[role="link"]:has-text("Reels")',
-      'a[role="link"]:has-text("投稿")',
-      'a[role="link"]:has-text("Post")',
-      'div[role="link"]:has-text("リール")',
-      'div[role="link"]:has-text("Reels")',
-      'div[role="link"]:has-text("投稿")',
-      'div[role="link"]:has-text("Post")',
-      'span:has-text("リール"):not(:has-text("動画"))',
-      'span:has-text("Reels")',
-      'span:has-text("投稿")',
+      // 1) 完全一致 "リール" (text-is, "リール動画" は除外)
+      'a[role="link"]:text-is("リール")',
+      'a[role="link"][href="#"]:has-text("リール"):not(:has-text("動画"))',
+      // 2) 「投稿」フォールバック
+      'a[role="link"]:text-is("投稿")',
+      'a[role="link"][href="#"]:has-text("投稿"):not(:has-text("いいね"))',
+      // 3) 英語フォールバック
+      'a[role="link"]:text-is("Reels")',
+      'a[role="link"]:text-is("Post")',
+      // 4) span (深い構造)
+      'span:text-is("リール")',
+      'span:text-is("投稿")',
     ];
     let clickedSubmenu = false;
     for (const sel of submenuOpts) {
@@ -135,16 +139,24 @@ export async function publishInstagram(
         if (await el.isVisible({ timeout: 1500 }).catch(() => false)) {
           await humanClick(page, el);
           clickedSubmenu = true;
-          console.log(`[ig] submenu (リール/投稿) clicked via: ${sel}`);
+          console.log(`[ig] submenu clicked via: ${sel}`);
           break;
         }
       }
       if (clickedSubmenu) break;
     }
     if (!clickedSubmenu) {
-      console.log("[ig] submenu not found, assuming modal opens directly");
+      return { ok: false, error: "submenu (リール/投稿) not found" };
     }
-    await humanRead(3000, 4500);
+    // navigate event を待つ (create flow に進むはず)
+    await page.waitForLoadState("domcontentloaded", { timeout: 10_000 }).catch(() => {});
+    await humanRead(4000, 6000);
+    console.log(`[ig] after submenu click, url=${page.url()}`);
+
+    // /reels/{id}/ など feed タブに飛ばされてしまった場合は abort
+    if (/\/reels\/[A-Za-z0-9_-]+\//.test(page.url())) {
+      return { ok: false, error: "navigated to Reels feed instead of create flow" };
+    }
 
     // Step 2: Modal で「コンピュータから選択 / Select from computer」ボタンクリック → file input が trigger
     // (2026 IG UI で input[type="file"] は modal 表示時に hidden で生成、Select ボタンを押すと visible になる)
