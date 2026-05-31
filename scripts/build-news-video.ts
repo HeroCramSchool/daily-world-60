@@ -98,13 +98,13 @@ async function buildOne(dir: string, story: Story) {
   // Body cues: 各 cue を 1 scene 化
   bodyCues.forEach((cue, i) => {
     const dur = cue.end - cue.start;
-    // Hook は bg-1 を使うので body は bg-2 から cycle (2, 3, 4, 1, 2, ...)
-    // → hook と隣接 body cue が同じ画像にならない
-    const bgN = ((i + 1) % 4) + 1;
+    // Hook は bg-1。body は bg-2..6 を cycle (5 種類)。
+    // body cue が 5 個以下なら全 unique、6 個以降は bg-2 から再 cycle。
+    const bgN = (i % 5) + 2;
     scenes.push({
       id: `02-cap${(i + 1).toString().padStart(2, "0")}`,
       dur,
-      svg: captionSvg(story, cue.text, bgN as 1 | 2 | 3 | 4),
+      svg: captionSvg(story, cue.text, bgN),
     });
   });
 
@@ -338,7 +338,7 @@ function hookSvg(story: Story): string {
  *   - top: country chip + headline (compact, 国旗なし)
  *   - bottom: caption text (current cue text)
  */
-function captionSvg(story: Story, captionText: string, bgN: 1 | 2 | 3 | 4): string {
+function captionSvg(story: Story, captionText: string, bgN: number): string {
   const code = story.country.code.toLowerCase();
   const countryName = story.country.name ?? story.country.code;
   // Top headline area: Y 200-460 (260px height、上にコンパクトに) x=60 w=960
