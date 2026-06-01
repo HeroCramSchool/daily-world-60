@@ -35,30 +35,40 @@ export async function publishTikTok(
     await ctx.addCookies(cookies);
     const page = await ctx.newPage();
 
-    await page.goto("https://www.tiktok.com/tiktokstudio/upload", { waitUntil: "domcontentloaded" });
-    // 初回起動オーバーヘッド対策: ページが完全に初期化されるまで長めに待つ
-    await humanRead(6000, 9000);
-    await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+    // 初回 (cold profile) は TikTok Studio へ直行すると file input が現れないことがある
+    // (story1 だけ "file input not found" になる症状)。先に home を踏んでセッションを温め、
+    // upload ページは「失敗したら reload して再試行」する。
+    await page.goto("https://www.tiktok.com/", { waitUntil: "domcontentloaded" }).catch(() => {});
+    await humanRead(3000, 5000);
 
-    // CAPTCHA が出ていれば挑戦
-    await tryAutoSolveCaptcha(page);
-    await humanRead(2000, 3000);
-
-    // Step 1: file upload (selector を拡張 + 待ち時間 60s)
+    // Step 1: file upload (selector を拡張 + cold-start 用に reload 再試行)
     const fileInputSelectors = [
       'input[type="file"]',
       'input[accept*="video"]',
       'input[accept*="mp4"]',
     ];
+    const findFileInput = async (timeoutMs: number) => {
+      for (const sel of fileInputSelectors) {
+        const el = page.locator(sel).first();
+        try {
+          await el.waitFor({ state: "attached", timeout: timeoutMs });
+          console.log(`[tiktok] file input found via: ${sel}`);
+          return el;
+        } catch { /* try next */ }
+      }
+      return null;
+    };
+
     let fileInput = null;
-    for (const sel of fileInputSelectors) {
-      const el = page.locator(sel).first();
-      try {
-        await el.waitFor({ state: "attached", timeout: 60_000 });
-        fileInput = el;
-        console.log(`[tiktok] file input found via: ${sel}`);
-        break;
-      } catch { /* try next */ }
+    for (let attempt = 1; attempt <= 2 && !fileInput; attempt++) {
+      await page.goto("https://www.tiktok.com/tiktokstudio/upload", { waitUntil: "domcontentloaded" });
+      // ページが完全に初期化されるまで長めに待つ
+      await humanRead(6000, 9000);
+      await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+      await tryAutoSolveCaptcha(page);
+      await humanRead(2000, 3000);
+      fileInput = await findFileInput(attempt === 1 ? 40_000 : 60_000);
+      if (!fileInput) console.log(`[tiktok] file input not found (attempt ${attempt}/2), reloading...`);
     }
     if (!fileInput) {
       return { ok: false, error: "file input not found" };
