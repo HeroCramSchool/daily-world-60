@@ -114,49 +114,62 @@ export async function publishInstagram(
     }
     await humanRead(2500, 3800);
 
-    // Step 1.5: サブメニューから「リール」or「投稿」を選択
-    // 注意: サイドバー左側に「リール動画」(/reels/ feed タブ) という別 link がある。
-    //       text-is() の完全一致で「リール動画」を除外。
-    //       create submenu の link は href="#"
-    const submenuOpts = [
-      // 1) 完全一致 "リール" (text-is, "リール動画" は除外)
-      'a[role="link"]:text-is("リール")',
-      'a[role="link"][href="#"]:has-text("リール"):not(:has-text("動画"))',
-      // 2) 「投稿」フォールバック
-      'a[role="link"]:text-is("投稿")',
-      'a[role="link"][href="#"]:has-text("投稿"):not(:has-text("いいね"))',
-      // 3) 英語フォールバック
-      'a[role="link"]:text-is("Reels")',
-      'a[role="link"]:text-is("Post")',
-      // 4) span (深い構造)
-      'span:text-is("リール")',
-      'span:text-is("投稿")',
+    // Step 1.5: create サブメニューから「投稿」(or「リール」) を選び、
+    //           アップロードモーダル (file input / コンピュータから選択) が出るまで検証する。
+    //
+    // 既知の落とし穴: create ボタンの accessible name「新しい投稿作成」は部分文字列に
+    //   「投稿」を含むため、:has-text("投稿") だと create ボタンを再クリックしてしまい
+    //   モーダルが開かない。→ getByRole の exact 名一致で厳密に項目だけを狙い、
+    //   かつ「クリック後にモーダルが本当に開いたか」を必ず確認して、開かなければ次候補に進む。
+    //   (IG の投稿作成は URL を変えないモーダルなので、URL では成否を判定しない。)
+    const uploadModalReady = async (): Promise<boolean> => {
+      const fi = page.locator('input[type="file"], input[accept*="video"]').first();
+      if (await fi.count() > 0) return true;
+      const btn = page
+        .locator(
+          'button:has-text("コンピュータから選択"), div[role="button"]:has-text("コンピュータから選択"), button:has-text("Select from computer")',
+        )
+        .first();
+      return await btn.isVisible({ timeout: 800 }).catch(() => false);
+    };
+
+    const submenuCandidates: Array<() => import("playwright").Locator> = [
+      () => page.getByRole("link", { name: "投稿", exact: true }),
+      () => page.getByRole("button", { name: "投稿", exact: true }),
+      () => page.getByRole("link", { name: "リール", exact: true }),
+      () => page.getByRole("button", { name: "リール", exact: true }),
+      () => page.locator('[role="menuitem"]:text-is("投稿"), [role="menuitem"]:text-is("リール")'),
+      () => page.getByRole("link", { name: "Post", exact: true }),
+      () => page.getByRole("link", { name: "Reel", exact: true }),
     ];
-    let clickedSubmenu = false;
-    for (const sel of submenuOpts) {
-      const els = await page.locator(sel).all();
-      for (const el of els) {
-        if (await el.isVisible({ timeout: 1500 }).catch(() => false)) {
-          await humanClick(page, el);
-          clickedSubmenu = true;
-          console.log(`[ig] submenu clicked via: ${sel}`);
-          break;
+
+    let modalOpen = await uploadModalReady();
+    for (let attempt = 0; attempt < submenuCandidates.length && !modalOpen; attempt++) {
+      const loc = submenuCandidates[attempt]().first();
+      if (!(await loc.isVisible({ timeout: 1500 }).catch(() => false))) continue;
+      await humanClick(page, loc);
+      console.log(`[ig] submenu candidate ${attempt} clicked`);
+      for (let t = 0; t < 12 && !modalOpen; t++) {
+        await sleep(500);
+        modalOpen = await uploadModalReady();
+      }
+      console.log(`[ig] after candidate ${attempt}: uploadModalReady=${modalOpen}, url=${page.url()}`);
+      if (!modalOpen) {
+        // モーダルが開かなかった → create メニューを開き直して次候補へ
+        const createBtn = page
+          .locator('a[role="link"]:has-text("新しい投稿作成"), a[role="link"]:has-text("Create new post")')
+          .first();
+        if (await createBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+          await humanClick(page, createBtn);
+          await humanRead(1500, 2500);
         }
       }
-      if (clickedSubmenu) break;
     }
-    if (!clickedSubmenu) {
-      return { ok: false, error: "submenu (リール/投稿) not found" };
-    }
-    // navigate event を待つ (create flow に進むはず)
-    await page.waitForLoadState("domcontentloaded", { timeout: 10_000 }).catch(() => {});
-    await humanRead(4000, 6000);
-    console.log(`[ig] after submenu click, url=${page.url()}`);
 
-    // /reels/{id}/ など feed タブに飛ばされてしまった場合は abort
-    if (/\/reels\/[A-Za-z0-9_-]+\//.test(page.url())) {
-      return { ok: false, error: "navigated to Reels feed instead of create flow" };
+    if (!modalOpen) {
+      return { ok: false, error: "upload modal did not open after submenu (投稿/リール)" };
     }
+    await humanRead(1500, 2500);
 
     // Step 2: Modal で「コンピュータから選択 / Select from computer」ボタンクリック → file input が trigger
     // (2026 IG UI で input[type="file"] は modal 表示時に hidden で生成、Select ボタンを押すと visible になる)

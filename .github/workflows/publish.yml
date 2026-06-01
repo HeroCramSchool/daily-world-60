@@ -32,6 +32,10 @@ on:
         options:
           - "false"
           - "true"
+      publish_skip:
+        description: "スキップするプラットフォーム (カンマ区切り: youtube,instagram,tiktok,x)。指定時 skip_youtube より優先"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -68,7 +72,7 @@ jobs:
       # cron 起動 → 常に preview。手動 dispatch → 入力の mode を尊重。
       RUN_MODE: ${{ github.event_name == 'schedule' && 'preview' || github.event.inputs.mode }}
       DATE_OVERRIDE: ${{ github.event.inputs.date }}
-      PUBLISH_SKIP: ${{ github.event.inputs.skip_youtube == 'true' && 'youtube' || '' }}
+      PUBLISH_SKIP: ${{ github.event.inputs.publish_skip != '' && github.event.inputs.publish_skip || (github.event.inputs.skip_youtube == 'true' && 'youtube' || '') }}
 
     steps:
       - name: Checkout
@@ -127,6 +131,10 @@ jobs:
       - name: Step B — Per-story narrations (voice + vtt)
         if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
         run: npx tsx scripts/tts-per-story.ts ${{ steps.date.outputs.value }}
+
+      - name: Step B2 — Fetch background images (Wikimedia Commons)
+        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
+        run: npx tsx scripts/fetch-broll.ts ${{ steps.date.outputs.value }}
 
       - name: Step C — Build 3 news videos (60s each, VTT-synced)
         if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
