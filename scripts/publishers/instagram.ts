@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { BrowserContext } from "playwright";
+import type { BrowserContext, Page } from "playwright";
 import { decodeCookies } from "./cookie-util.js";
 import { launchStealthContext } from "../auth/captcha/stealth-context.js";
 import { humanClick, humanType, humanRead, sleep } from "../auth/captcha/human-mouse.js";
@@ -34,10 +34,11 @@ export async function publishInstagram(
   const cookies = decodeCookies(cookiesB64);
 
   let ctx: BrowserContext | undefined;
+  let page: Page | undefined;
   try {
     ctx = await launchStealthContext(PROFILE_DIR);
     await ctx.addCookies(cookies);
-    const page = await ctx.newPage();
+    page = await ctx.newPage();
 
     await page.goto("https://www.instagram.com/", { waitUntil: "domcontentloaded" });
     await humanRead(3500, 5000);
@@ -77,6 +78,16 @@ export async function publishInstagram(
         await humanRead(1500, 2000);
         break;
       }
+    }
+
+    // セッション/チェックポイント検証: cookie 失効や challenge を、後段の
+    // file-input timeout と誤診しないよう、ここで明示的に検出して即返す。
+    const curUrl = page.url();
+    if (/\/challenge\//.test(curUrl) || /\/accounts\/suspended/.test(curUrl)) {
+      return { ok: false, error: `IG checkpoint/challenge detected (${curUrl}) — 手動確認が必要` };
+    }
+    if (/\/accounts\/login/.test(curUrl)) {
+      return { ok: false, error: "IG session invalid (login へ redirect) — cookie 再取得が必要" };
     }
 
     // Step 1: 左サイドバーの「新しい投稿作成」(2026 IG UI) をクリック
@@ -227,6 +238,14 @@ export async function publishInstagram(
 
     return { ok: true, url: "https://www.instagram.com/60dailyworld/" };
   } catch (e) {
+    if (page) {
+      try {
+        const base = path.basename(input.videoPath).replace(/\.[^.]+$/, "");
+        const shot = path.join(path.dirname(input.videoPath) || "output", `ig-fail-${base}.png`);
+        await page.screenshot({ path: shot });
+        console.log(`[ig] failure screenshot → ${shot}`);
+      } catch { /* ignore */ }
+    }
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   } finally {
     if (ctx) {

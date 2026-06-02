@@ -2,8 +2,11 @@ name: Daily World 60 — Publish
 
 on:
   schedule:
-    # 18:30 UTC = 06:30 NZST — cron は「動画生成のみ」(投稿しない)
+    # 18:30 UTC = 06:30 NZST — preview のみ (生成だけ、投稿しない)
     - cron: '30 18 * * *'
+    # 20:00 UTC = 08:00 NZST — auto-publish (full: 生成 + 投稿)。Routine + preview の後。
+    # YouTube は既定でスキップ (下の PUBLISH_SKIP)。停止したい場合はこの cron 行を消す。
+    - cron: '0 20 * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -69,15 +72,22 @@ jobs:
 
       EN_VOICE: en-US-AvaNeural
 
-      # cron 起動 → 常に preview。手動 dispatch → 入力の mode を尊重。
-      RUN_MODE: ${{ github.event_name == 'schedule' && 'preview' || github.event.inputs.mode }}
+      # スケジュール起動: 20:00 UTC の cron は full(生成+投稿)、18:30 UTC は preview。
+      # 手動 dispatch は入力の mode を尊重。
+      RUN_MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 20 * * *' && 'full' || 'preview') || github.event.inputs.mode }}
       DATE_OVERRIDE: ${{ github.event.inputs.date }}
-      PUBLISH_SKIP: ${{ github.event.inputs.publish_skip != '' && github.event.inputs.publish_skip || (github.event.inputs.skip_youtube == 'true' && 'youtube' || '') }}
+      # 手動 dispatch の publish_skip 最優先 → skip_youtube → スケジュールの auto-publish は
+      # YouTube を既定スキップ(チャンネルの電話認証が未済のため)。
+      PUBLISH_SKIP: ${{ github.event.inputs.publish_skip != '' && github.event.inputs.publish_skip || (github.event.inputs.skip_youtube == 'true' && 'youtube' || (github.event_name == 'schedule' && 'youtube' || '')) }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 注意: この GCP 認証は全 run(preview/full)の必須前提。GCP プロジェクト
+      #       (daily-world-60) が停止していると token 交換が失敗し、ジョブ全体がここで
+      #       中断する。Drive から台本を取得できないため continue-on-error にはしない。
+      #       復旧手順は docs/SECRETS-SETUP.md の「GCP プロジェクト復旧」を参照。
       - name: Authenticate to Google Cloud (WIF, keyless)
         uses: google-github-actions/auth@v2
         with:

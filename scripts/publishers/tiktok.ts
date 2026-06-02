@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { BrowserContext } from "playwright";
+import type { BrowserContext, Page } from "playwright";
 import { decodeCookies } from "./cookie-util.js";
 import { launchStealthContext } from "../auth/captcha/stealth-context.js";
 import { humanClick, humanType, humanRead, sleep } from "../auth/captcha/human-mouse.js";
@@ -30,16 +30,23 @@ export async function publishTikTok(
   const cookies = decodeCookies(cookiesB64);
 
   let ctx: BrowserContext | undefined;
+  let page: Page | undefined;
   try {
     ctx = await launchStealthContext(PROFILE_DIR);
     await ctx.addCookies(cookies);
-    const page = await ctx.newPage();
+    page = await ctx.newPage();
 
     // 初回 (cold profile) は TikTok Studio へ直行すると file input が現れないことがある
     // (story1 だけ "file input not found" になる症状)。先に home を踏んでセッションを温め、
     // upload ページは「失敗したら reload して再試行」する。
     await page.goto("https://www.tiktok.com/", { waitUntil: "domcontentloaded" }).catch(() => {});
     await humanRead(3000, 5000);
+
+    // セッション検証: cookie 失効で login へ飛ばされたら、file-input timeout と
+    // 誤診せず即返す。
+    if (/\/login/.test(page.url())) {
+      return { ok: false, error: "TikTok session invalid (login へ redirect) — cookie 再取得が必要" };
+    }
 
     // Step 1: file upload (selector を拡張 + cold-start 用に reload 再試行)
     const fileInputSelectors = [
@@ -60,7 +67,8 @@ export async function publishTikTok(
     };
 
     let fileInput = null;
-    for (let attempt = 1; attempt <= 2 && !fileInput; attempt++) {
+    const MAX_ATTEMPTS = 3; // cold-start で file input が出ないことがあるため多めに再試行
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS && !fileInput; attempt++) {
       await page.goto("https://www.tiktok.com/tiktokstudio/upload", { waitUntil: "domcontentloaded" });
       // ページが完全に初期化されるまで長めに待つ
       await humanRead(6000, 9000);
@@ -68,7 +76,7 @@ export async function publishTikTok(
       await tryAutoSolveCaptcha(page);
       await humanRead(2000, 3000);
       fileInput = await findFileInput(attempt === 1 ? 40_000 : 60_000);
-      if (!fileInput) console.log(`[tiktok] file input not found (attempt ${attempt}/2), reloading...`);
+      if (!fileInput) console.log(`[tiktok] file input not found (attempt ${attempt}/${MAX_ATTEMPTS}), reloading...`);
     }
     if (!fileInput) {
       return { ok: false, error: "file input not found" };
@@ -132,6 +140,14 @@ export async function publishTikTok(
 
     return { ok: true, url: "https://www.tiktok.com/@60dailyworld" };
   } catch (e) {
+    if (page) {
+      try {
+        const base = path.basename(input.videoPath).replace(/\.[^.]+$/, "");
+        const shot = path.join(path.dirname(input.videoPath) || "output", `tiktok-fail-${base}.png`);
+        await page.screenshot({ path: shot });
+        console.log(`[tiktok] failure screenshot → ${shot}`);
+      } catch { /* ignore */ }
+    }
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   } finally {
     if (ctx) {
