@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { spawn } from "node:child_process";
 
 /**
- * 1 ストーリー単独 60秒動画を構築する (v7: 字幕同期 + 国旗なし body)。
+ * 1 ストーリー単独動画を構築する (v8: 尺=音声長に動的化, 字幕同期 + 国旗なし body)。
  *
  * シーン構成:
  *   Hook       : 0 → "comes from" cue 終了 (≈4s)
@@ -14,7 +14,7 @@ import { spawn } from "node:child_process";
  *                  → 上部に headline (compact) を常時 (国旗なし)
  *   Word card  : keyword cue → subscribe cue 開始
  *                  → 単語大字 + 定義中央寄せ
- *   Subscribe  : subscribe cue → 60s
+ *   Subscribe  : outro cue ("thanks for watching") → 音声末尾 (≈5s)
  *                  → PLEASE SUBSCRIBE + 👍 + チャンネル名
  *
  * 入力:
@@ -26,7 +26,6 @@ import { spawn } from "node:child_process";
 const W = 1080;
 const H = 1920;
 const FPS = 30;
-const TOTAL_DURATION = 60;
 
 interface Country { code: string; flag: string; name?: string; }
 interface Keyword { word: string; definitionEn: string; }
@@ -63,11 +62,14 @@ async function buildOne(dir: string, story: Story) {
 
   const cues = await parseVtt(vtt);
   const audioDuration = await ffprobeDuration(audio);
+  // 動画尺は音声長に合わせる (60秒固定をやめる)。本文が長い回でも末尾が切れない。
+  const total = audioDuration + 0.4;
 
   // Key cue indices
   const countryCueIdx = cues.findIndex(c => /comes from|news from/i.test(c.text));
   const wordCueIdx = cues.findIndex(c => /english keyword|english word|keyword from today's news|word of the day/i.test(c.text));
-  const subscribeCueIdx = cues.findIndex(c => /subscribe/i.test(c.text));
+  // outro の先頭 ("thanks for watching") から subscribe シーンにして、音声 outro 全体と尺を一致させる。
+  const subscribeCueIdx = cues.findIndex(c => /thanks for watching|subscribe/i.test(c.text));
 
   const tHookEnd = countryCueIdx >= 0 ? cues[countryCueIdx].end : 4;
   const tWordStart = wordCueIdx >= 0 ? cues[wordCueIdx].start : Math.max(audioDuration - 12, 30);
@@ -76,7 +78,12 @@ async function buildOne(dir: string, story: Story) {
   // ─── Caption scenes (body) ───
   // 各 cue (after country, before word) を 1 scene にする
   const bodyStartIdx = countryCueIdx + 1;
-  const bodyEndIdx = wordCueIdx;
+  // キーワード区間が無い回 (wordCueIdx<0) は subscribe 直前までを body にする。
+  // wordCueIdx をそのまま渡すと slice(_, -1) になり outro まで body に飲み込み、
+  // subscribe シーンが極小になってしまう (音声と画像がズレる原因)。
+  const bodyEndIdx = wordCueIdx >= 0 ? wordCueIdx
+    : subscribeCueIdx >= 0 ? subscribeCueIdx
+    : cues.length;
   const bodyCues = cues.slice(bodyStartIdx, bodyEndIdx);
 
   // ─── Word scenes ───
@@ -120,14 +127,14 @@ async function buildOne(dir: string, story: Story) {
 
   // Subscribe: 残り全部
   const usedSoFar = scenes.reduce((acc, s) => acc + s.dur, 0);
-  const subscribeDur = Math.max(2, TOTAL_DURATION - usedSoFar);
+  const subscribeDur = Math.max(2, total - usedSoFar);
   scenes.push({
     id: "04-subscribe",
     dur: subscribeDur,
     svg: subscribeSvg(story),
   });
 
-  console.log(`[news] ${code} (story ${story.index}): audio=${audioDuration.toFixed(1)}s, total=${TOTAL_DURATION}s, scenes=${scenes.length}`);
+  console.log(`[news] ${code} (story ${story.index}): audio=${audioDuration.toFixed(1)}s, total=${total.toFixed(1)}s, subscribe=${subscribeDur.toFixed(1)}s, scenes=${scenes.length}`);
   console.log(`[news]   hook end=${tHookEnd.toFixed(2)} word start=${tWordStart.toFixed(2)} subscribe=${tSubscribeStart.toFixed(2)}`);
 
   // ─── Render scenes ───
@@ -161,7 +168,7 @@ async function buildOne(dir: string, story: Story) {
     "-i", bgVideo,
     "-i", audio,
     "-map", "0:v:0", "-map", "1:a:0",
-    "-t", String(TOTAL_DURATION),
+    "-t", total.toFixed(2),
     "-c:v", "libx264", "-preset", "medium", "-crf", "20",
     "-c:a", "aac", "-b:a", "192k",
     "-pix_fmt", "yuv420p",
