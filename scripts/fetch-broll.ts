@@ -77,6 +77,22 @@ const STOPWORDS = new Set([
   "today", "year", "years", "day", "days", "week", "month",
 ]);
 
+// 文頭で大文字になるだけの一般語 (固有名詞ではない)。単語エンティティから除外する。
+const COMMON_CAP_FALSE = new Set([
+  "january", "february", "march", "april", "may", "june", "july", "august",
+  "september", "october", "november", "december",
+  "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+  "analysts", "officials", "experts", "critics", "leaders", "authorities",
+  "leftist", "rightist", "many", "some", "several", "other", "others", "both",
+  "this", "that", "these", "those", "however", "meanwhile", "according",
+  "after", "before", "during", "following", "two", "three", "four", "five",
+  "north", "south", "east", "west", "northern", "southern", "eastern", "western",
+  "president", "government", "people", "police", "military", "army",
+]);
+
+// 背景に不向きな「一般的すぎる被写体」: 野生動物・植物・収集物・標本など。フォールバック時に下位へ。
+const OFFTOPIC_RE = /\b(bird|toucan|parrot|owl|eagle|insect|ant|beetle|butterfly|moth|bee|wasp|spider|amber|flower|orchid|fungus|mushroom|frog|lizard|snake|fish|wildlife|fauna|flora|botanical|specimen|stamp|banknote|coin|postage|moth|larva|caterpillar|shell|fossil|mineral)\b/i;
+
 const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
 const USER_AGENT = "DailyWorld60/1.0 (news shorts pipeline; contact info@hero-english.net)";
 
@@ -101,23 +117,32 @@ async function main() {
     const code = story.country.code.toLowerCase();
     const countryName = story.country.name ?? COUNTRY_NAMES[story.country.code.toUpperCase()] ?? story.country.code;
 
-    const queries = buildQueries(countryName, story.headline);
+    const queries = buildQueries(countryName, story.headline, story.summary);
     console.log(`[broll] ${code} (${countryName}) queries: ${queries.join(" | ")}`);
 
-    const picked: CommonsImage[] = [];
-    const seen = new Set<string>();
+    const results: CommonsImage[][] = [];
     for (const q of queries) {
-      if (picked.length >= BG_COUNT) break;
-      const imgs = await searchCommons(q).catch(e => {
+      results.push(await searchCommons(q).catch(e => {
         console.warn(`[broll] search failed for "${q}": ${e instanceof Error ? e.message : e}`);
         return [] as CommonsImage[];
-      });
-      for (const img of imgs) {
+      }));
+    }
+    // 1巡目は各クエリ最大3枚で被写体を散らし、足りなければ2巡目で上限なく補充する。
+    const picked: CommonsImage[] = [];
+    const seen = new Set<string>();
+    for (const cap of [3, BG_COUNT]) {
+      for (const imgs of results) {
+        let perQ = 0;
+        for (const img of imgs) {
+          if (picked.length >= BG_COUNT || perQ >= cap) break;
+          if (seen.has(img.title)) continue;
+          seen.add(img.title);
+          picked.push(img);
+          perQ++;
+        }
         if (picked.length >= BG_COUNT) break;
-        if (seen.has(img.title)) continue;
-        seen.add(img.title);
-        picked.push(img);
       }
+      if (picked.length >= BG_COUNT) break;
     }
 
     creditLines.push(`## Story ${story.index} — ${countryName}: ${story.headline}`);
@@ -176,26 +201,52 @@ async function main() {
   console.log(`[broll] done → ${assets}`);
 }
 
-/** 見出し + 国名から Commons 検索クエリを構築する (記事関連の写真を狙う)。 */
-function buildQueries(countryName: string, headline: string): string[] {
-  const words = headline.replace(/[^\w\s]/g, " ").split(/\s+/).filter(Boolean);
-  const lower = words.map(w => w.toLowerCase());
+/** 見出し + 要約 + 国名から Commons 検索クエリを構築する (記事関連の写真を狙う)。
+ *  見出しだけでなく要約も使い、複数語の固有名詞 (地名・人名・組織名) を優先する。
+ *  並びは「具体的 → 一般的」: 固有名詞 > トピック > 内容語 > 国名のみ。 */
+function buildQueries(countryName: string, headline: string, summary: string): string[] {
+  const text = `${headline}. ${summary}`;
 
-  // 固有名詞 (国名以外の大文字始まり、先頭語は除外して誤検出を避ける)
-  const proper = words
-    .slice(1)
-    .filter(w => /^[A-Z][a-zA-Z]{2,}/.test(w) && w.toLowerCase() !== countryName.toLowerCase());
-  // トピック語
-  const topics = lower.filter(w => TOPIC_TERMS.includes(w));
-  // その他の意味語
-  const content = lower.filter(w => w.length > 3 && !STOPWORDS.has(w) && !TOPIC_TERMS.includes(w));
+  // 連続する大文字始まりの語 (+ of/the/and 等の接続語) を1つの固有名詞として束ねる。
+  // 例: "World Health Organization", "Strait of Hormuz", "Donald Trump"
+  // "of/the/de/..." は1つの固有名詞内の連結語 (Strait of Hormuz, Bank of America)。
+  // "and" は別々の固有名詞を繋いでしまう (US and Iran) ので連結語に入れない。
+  const connectors = new Set(["of", "the", "de", "al", "el", "da"]);
+  const entities: string[] = [];
+  let cur: string[] = [];
+  const flush = () => { if (cur.length) entities.push(cur.join(" ")); cur = []; };
+  for (const tok of text.split(/\s+/)) {
+    const w = tok.replace(/[^\p{L}\p{N}'-]/gu, "");   // 記号除去 (アクセント付き文字は保持)
+    const endsClause = /[.,;:!?)]$/.test(tok);         // 文/節の切れ目で固有名詞を分断
+    if (w && /^\p{Lu}/u.test(w)) cur.push(w);
+    else if (w && connectors.has(w.toLowerCase()) && cur.length) cur.push(w.toLowerCase());
+    else flush();
+    if (endsClause) flush();
+  }
+  flush();
+
+  // 先頭の冠詞・末尾の接続語を落とし、国名/短すぎ/一般語を除外、重複除去。
+  // 複数語の固有名詞 (人名・地名・組織名) を優先し、その中で具体的(=長い)順。
+  const cleaned = [...new Set(entities.map(e =>
+    e.replace(/^(the|a|an)\s+/i, "").replace(/\s+(of|the|and|for)$/i, "").trim()))]
+    .filter(e => e.length > 2)
+    .filter(e => e.toLowerCase() !== countryName.toLowerCase() && !countryName.toLowerCase().includes(e.toLowerCase()))
+    .filter(e => /\s/.test(e) || !COMMON_CAP_FALSE.has(e.toLowerCase()))  // 単語は一般語(月/曜日/方角等)を除外
+    .sort((a, b) => (b.split(" ").length - a.split(" ").length) || (b.length - a.length));
+
+  const lower = text.toLowerCase();
+  const topics = TOPIC_TERMS.filter(t => new RegExp(`\\b${t}\\b`).test(lower));
+  const content = lower.replace(/[^\w\s]/g, " ").split(/\s+/)
+    .filter(w => w.length > 4 && !STOPWORDS.has(w) && !TOPIC_TERMS.includes(w));
 
   const q: string[] = [];
-  if (proper.length) q.push(`${countryName} ${proper.slice(0, 2).join(" ")}`);
-  if (topics.length) q.push(`${countryName} ${topics[0]}`);
-  if (content.length) q.push(`${countryName} ${content[0]}`);
+  for (const e of cleaned.slice(0, 3)) {
+    q.push(`${countryName} ${e}`);
+    if (/\s/.test(e)) q.push(e); // 複数語の固有名詞は単体でも (地名/人名そのものを狙う)
+  }
+  if (topics[0]) q.push(`${countryName} ${topics[0]}`);
+  if (content[0]) q.push(`${countryName} ${content[0]}`);
   q.push(countryName);
-  // 重複除去
   return [...new Set(q.map(s => s.trim()).filter(Boolean))];
 }
 
@@ -207,7 +258,7 @@ async function searchCommons(query: string): Promise<CommonsImage[]> {
     generator: "search",
     gsrsearch: `${query} filetype:bitmap`,
     gsrnamespace: "6",
-    gsrlimit: "12",
+    gsrlimit: "16",
     prop: "imageinfo",
     iiprop: "url|extmetadata|mime|size",
     iiurlwidth: "1280",
@@ -217,6 +268,7 @@ async function searchCommons(query: string): Promise<CommonsImage[]> {
   const json = await res.json() as {
     query?: { pages?: Record<string, {
       title: string;
+      index?: number;
       imageinfo?: Array<{
         thumburl?: string; url?: string; descriptionurl?: string;
         mime?: string; width?: number; height?: number;
@@ -225,16 +277,19 @@ async function searchCommons(query: string): Promise<CommonsImage[]> {
     }> };
   };
   const pages = json.query?.pages ? Object.values(json.query.pages) : [];
-  const out: Array<CommonsImage & { area: number; isJpeg: boolean }> = [];
+  const out: Array<CommonsImage & { rank: number }> = [];
   for (const p of pages) {
     const ii = p.imageinfo?.[0];
     if (!ii) continue;
-    if (!ii.mime || !/image\/(jpeg|png)/.test(ii.mime)) continue;
+    if (!ii.mime || !/image\/jpeg/.test(ii.mime)) continue; // 写真のみ採用。PNG(図表/地図/ロゴ/インフォグラフィック)は背景に不向きなので除外
     if ((ii.width ?? 0) < 800) continue;
     const title = p.title.replace(/^File:/, "");
     // 背景に不向きな素材を除外: 国旗/ロゴ/地図/紋章アイコン類 + チャート/図表/文書スキャン類
     if (/\b(flag|logo|icon|coat of arms|seal|emblem|locator)\b/i.test(title)) continue;
-    if (/\b(map|chart|diagram|graph|infographic|statistics|expectancy|decree|document|results table)\b/i.test(title)) continue;
+    if (/\b(map|chart|diagram|graph|infographic|statistics|expectancy|decree|document)\b/i.test(title)) continue;
+    // 選挙結果/世論調査/地形図など「関連はするが背景写真に不向き」な図表類も除外。
+    if (/\b(results?|encuestas?|runoff|exit poll|tally|topographic)\b/i.test(title)) continue;
+    if (/opentopomap|openstreetmap|topo\s?map/i.test(title)) continue;
     if (/указ|диаграмм|карта/i.test(title)) continue; // ロシア語: 法令/図表/地図
     const md = ii.extmetadata ?? {};
     out.push({
@@ -243,13 +298,14 @@ async function searchCommons(query: string): Promise<CommonsImage[]> {
       descUrl: ii.descriptionurl ?? `https://commons.wikimedia.org/wiki/${encodeURIComponent(p.title)}`,
       license: md.LicenseShortName?.value ?? "",
       artist: md.Artist?.value ?? "",
-      area: (ii.width ?? 0) * (ii.height ?? 0),
-      isJpeg: /jpeg/.test(ii.mime),
+      // 検索結果の関連度ランク (小さいほど関連)。一般的すぎる被写体
+      // (野生動物/植物/収集物) には大きなペナルティで下位へ。
+      rank: (p.index ?? 999) + (OFFTOPIC_RE.test(title) ? 30 : 0),
     });
   }
-  // 写真(jpeg)を優先し、その中で解像度の高い順。検索 relevance はおおむね保たれる。
-  out.sort((a, b) => (Number(b.isJpeg) - Number(a.isJpeg)) || (b.area - a.area));
-  return out.filter(i => i.thumbUrl).map(({ area, isJpeg, ...rest }) => { void area; void isJpeg; return rest; });
+  // Commons の検索関連度を尊重する。面積(解像度)順に並べ替えない — 関連性が壊れ一般風景が選ばれるため。
+  out.sort((a, b) => a.rank - b.rank);
+  return out.filter(i => i.thumbUrl).map(({ rank, ...rest }) => { void rank; return rest; });
 }
 
 /** 画像をダウンロードして 1080x1920 cover crop で保存。 */
