@@ -78,7 +78,12 @@ async function buildOne(dir: string, story: Story) {
   // ─── Caption scenes (body) ───
   // 各 cue (after country, before word) を 1 scene にする
   const bodyStartIdx = countryCueIdx + 1;
-  const bodyEndIdx = wordCueIdx;
+  // キーワード区間が無い回 (wordCueIdx<0) は subscribe 直前までを body にする。
+  // wordCueIdx をそのまま渡すと slice(_, -1) になり outro まで body に飲み込み、
+  // subscribe シーンが極小になってしまう (音声と画像がズレる原因)。
+  const bodyEndIdx = wordCueIdx >= 0 ? wordCueIdx
+    : subscribeCueIdx >= 0 ? subscribeCueIdx
+    : cues.length;
   const bodyCues = cues.slice(bodyStartIdx, bodyEndIdx);
 
   // ─── Word scenes ───
