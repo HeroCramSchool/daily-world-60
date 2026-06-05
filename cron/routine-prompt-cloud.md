@@ -41,7 +41,7 @@ Use Skills in your reasoning: `content-strategy`, `tiktok-research`, `social`, `
 ### English (CEFR B1, ESL-friendly)
 
 - `hook`: 1 sentence, 8–12 words. Set the stage.
-- For each of 3 stories: `headline` (≤12 words, present tense), `summary` (25–35 words, B1, active voice, short clauses).
+- For each of 3 stories: `headline` (≤12 words, present tense), `summary` (**35–45 words**, B1, active voice, short clauses). Pack in more substance than a one-line blurb: cover **what happened + one concrete detail (a number, name, place, or cause) + why it matters / what's next**. Still ESL-friendly — short clauses, no jargon. (Keeps each clip ~60s.)
 - `todaysWord`: pick one word from the 3 stories that an ESL learner should know. Provide `definitionEn` (12–20 words) and `definitionJp`.
 - `close`: 1 sentence CTA, ≤12 words. E.g. "That's your world in sixty. Follow for tomorrow."
 
@@ -72,7 +72,7 @@ Use the Drive connector to **create or overwrite** `publish-results-YYYY-MM-DD.j
         "index": 1,
         "country": { "code": "CD", "flag": "🇨🇩" },
         "headline": "WHO chief visits Congo as Ebola cases pass 1,200",
-        "summary": "The World Health Organization director arrived in Kinshasa Friday to push for emergency funding. Cases have doubled in three weeks.",
+        "summary": "The World Health Organization director arrived in Kinshasa on Friday to push donors for 50 million dollars in emergency funding. Cases have doubled in three weeks, passing 1,200. Aid groups warn the outbreak could reach three neighboring countries within a month.",
         "sourceName": "NPR",
         "sourceUrl": "https://www.npr.org/..."
       },
@@ -99,7 +99,7 @@ Use the Drive connector to **create or overwrite** `publish-results-YYYY-MM-DD.j
       "definitionJp": "停戦合意"
     },
     "close": "That's your world in sixty. Follow for tomorrow.",
-    "estimatedSeconds": 58
+    "estimatedSeconds": 68
   },
   "scriptJp": {
     "date": "YYYY-MM-DD",
