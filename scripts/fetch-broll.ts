@@ -308,13 +308,27 @@ async function searchCommons(query: string): Promise<CommonsImage[]> {
   return out.filter(i => i.thumbUrl).map(({ rank, ...rest }) => { void rank; return rest; });
 }
 
-/** 画像をダウンロードして 1080x1920 cover crop で保存。 */
+/**
+ * 画像を 1080x1920 に保存する。写真を切らずに**全体**を見せるため、
+ * 自身のブラー版を背景に敷き、写真全体 (contain) を中央に重ねる。
+ * → 縦長フレームを埋めつつ被写体が途切れない (横長写真でも全体が映る)。
+ */
 async function downloadAndCrop(url: string, dest: string): Promise<void> {
   const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
   if (!res.ok) throw new Error(`download HTTP ${res.status}`);
   const buf = Buffer.from(await res.arrayBuffer());
-  await sharp(buf)
-    .resize(W, H, { fit: "cover", position: "attention" })
+  // 背景: 同じ写真を cover で広げてブラー＋減光 (余白を自然に埋める)。
+  const bg = await sharp(buf)
+    .resize(W, H, { fit: "cover", position: "centre" })
+    .blur(48)
+    .modulate({ brightness: 0.6 })
+    .toBuffer();
+  // 前景: 写真全体をフレーム内に収める (cover ではなく inside = 切らない)。
+  const fg = await sharp(buf)
+    .resize(W, H, { fit: "inside" })
+    .toBuffer();
+  await sharp(bg)
+    .composite([{ input: fg, gravity: "centre" }])
     .jpeg({ quality: 86 })
     .toFile(dest);
 }

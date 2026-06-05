@@ -53,7 +53,7 @@ export const Script = {
     const kw = s.keyword;
     const lines = [
       `Hi, and welcome to Daily World 60.`,
-      `Our story today comes from ${countryName}.`,
+      `Here's today's news from ${countryName}.`,
       `${s.headline}.`,
       `Here's what's happening.`,
       s.summary,
@@ -67,9 +67,9 @@ export const Script = {
         `You'll hear this word often in world news, so try using it in your own English.`,
       );
     }
+    // Outro は ~5秒に収める (字幕の subscribe シーンと尺を合わせる)。
     lines.push(
-      `Thanks for watching Daily World 60.`,
-      `If you liked this story, please subscribe so you don't miss the next one.`,
+      `Thanks for watching, and please subscribe.`,
       `See you in the next video.`,
     );
     return lines.join(" ");
