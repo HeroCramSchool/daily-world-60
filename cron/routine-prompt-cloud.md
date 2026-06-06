@@ -60,6 +60,10 @@ Use the Drive connector to **create or overwrite** `publish-results-YYYY-MM-DD.j
 
 ### Required schema (this exact shape — the pipeline parses it):
 
+**サムネ用2項目（各storyに必ず付ける・横サムネのFacts&Stats型が使用）**:
+- `thumbHook`: 英語 **2-3語・ALL CAPS** の好奇心フック（例 `EBOLA SURGE` / `TINY GIANT`）。フル文章にしない。答えは動画・タイトルで回収。
+- `thumbStat`: そのstoryの **キーとなる1つの数字/割合**（例 `1,200` `98%` `#1` `7,000`）。数字が無いストーリーは `""`。
+
 ```json
 {
   "date": "YYYY-MM-DD",
@@ -74,7 +78,9 @@ Use the Drive connector to **create or overwrite** `publish-results-YYYY-MM-DD.j
         "headline": "WHO chief visits Congo as Ebola cases pass 1,200",
         "summary": "The World Health Organization director arrived in Kinshasa on Friday to push donors for 50 million dollars in emergency funding. Cases have doubled in three weeks, passing 1,200. Aid groups warn the outbreak could reach three neighboring countries within a month.",
         "sourceName": "NPR",
-        "sourceUrl": "https://www.npr.org/..."
+        "sourceUrl": "https://www.npr.org/...",
+        "thumbHook": "EBOLA SURGE",
+        "thumbStat": "1,200"
       },
       {
         "index": 2,

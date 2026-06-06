@@ -124,6 +124,8 @@ type RawStory = {
   summary?: string;
   sourceName?: string;
   sourceUrl?: string;
+  thumbHook?: string;
+  thumbStat?: string;
 };
 
 function normalizeScript(
@@ -154,6 +156,8 @@ function normalizeScript(
       summary: s.summary ?? "",
       sourceName: s.sourceName ?? "",
       sourceUrl: s.sourceUrl ?? "",
+      thumbHook: s.thumbHook ?? "",
+      thumbStat: s.thumbStat ?? "",
     };
   });
 

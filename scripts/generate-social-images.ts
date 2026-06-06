@@ -26,6 +26,8 @@ interface Story {
   sourceName: string;
   sourceUrl: string;
   keyword?: { word: string; definitionEn: string };
+  thumbHook?: string;
+  thumbStat?: string;
 }
 interface ScriptJson { date: string; stories: Story[]; }
 
@@ -172,16 +174,21 @@ function vertical(s: Story, mmdd: string, code: string, bgN: number): string {
 function ytHorizontal(s: Story, mmdd: string, code: string, bgN: number): string {
   const W = 1280, H = 720;
   const cn = (s.country.name ?? s.country.code).toUpperCase();
-  const cnFs = fitKeywordFontSize(cn, 480, 70);
+  const cnFs = fitKeywordFontSize(cn, 360, 56);
 
-  const hlFit = fitCaption(s.headline, 1200, 280,
-                           [50, 46, 42, 38, 34, 30, 26]);
-  const hlStartY = 380;
-  let hlSvg = "";
-  hlFit.lines.forEach((line, i) => {
-    hlSvg += `\n  <text x="40" y="${hlStartY + i * hlFit.lineHeight}" font-family="Hiragino Sans" font-weight="900"
-        font-size="${hlFit.fontSize}" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
-  });
+  // Facts & Stats 型: 国旗(左) + 巨大な1数字(右上) + 英2-3語フック(右下)。
+  // thumbStat が無ければフックを主役にフォールバック。フル文章は載せない。
+  const stat = (s.thumbStat ?? "").trim();
+  const hook = (s.thumbHook && s.thumbHook.trim() ? s.thumbHook : s.headline).toUpperCase().trim();
+  const hasStat = stat.length > 0;
+  const statFs = hasStat ? fitKeywordFontSize(stat, 720, 240) : 0;
+  const hookFs = hasStat ? fitKeywordFontSize(hook, 820, 104) : fitKeywordFontSize(hook, 1180, 150);
+  const statSvg = hasStat
+    ? `\n  <text x="1240" y="320" text-anchor="end" font-family="Hiragino Sans" font-weight="900"
+        font-size="${statFs}" fill="#F5E63B" letter-spacing="-4">${escape(stat)}</text>`
+    : "";
+  const hookSvg = `\n  <text x="${hasStat ? 1240 : 40}" y="${hasStat ? 470 : 560}" text-anchor="${hasStat ? "end" : "start"}" font-family="Hiragino Sans" font-weight="900"
+        font-size="${hookFs}" fill="#FFFFFF" letter-spacing="-2">${escape(hook)}</text>`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
@@ -195,16 +202,15 @@ function ytHorizontal(s: Story, mmdd: string, code: string, bgN: number): string
   <text x="40" y="46" font-family="Hiragino Sans" font-weight="900"
         font-size="32" fill="#0A0A0A" letter-spacing="6">${escape(mmdd)} · WORLD</text>
 
-  <!-- TODAY'S NEWS + 国旗 + 国名 -->
-  <text x="40" y="160" font-family="Hiragino Sans" font-weight="900"
-        font-size="62" fill="#F5E63B" letter-spacing="-2">TODAY'S NEWS</text>
-  <image href="_assets/${code}.png" x="40" y="200" width="200" height="135"
+  <!-- 国旗 + 国名 (左) -->
+  <image href="_assets/${code}.png" x="40" y="110" width="320" height="216"
          preserveAspectRatio="xMidYMid meet"/>
-  <text x="270" y="320" font-family="Hiragino Sans" font-weight="900"
+  <text x="40" y="400" font-family="Hiragino Sans" font-weight="900"
         font-size="${cnFs}" fill="#FFFFFF" letter-spacing="-2">${escape(cn)}</text>
 
-  <!-- Headline -->
-  ${hlSvg}
+  <!-- Facts & Stats: 巨大数字 + フック -->
+  ${statSvg}
+  ${hookSvg}
 
   <!-- Footer -->
   <rect x="0" y="660" width="${W}" height="60" fill="#0A0A0A" fill-opacity="0.92"/>
