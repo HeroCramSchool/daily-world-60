@@ -1,6 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
+import sharp from "sharp";
 
 /**
  * Weekly long-form deep-dive renderer (horizontal 1920x1080, 8-12 min).
@@ -43,16 +44,20 @@ async function main() {
 
   const segs: { file: string; dur: number; label: string }[] = [];
 
-  // Intro
-  segs.push({ label: "Intro", ...(await buildSegment(dir, "00-intro", lf.hook, (cue) => titleSceneSvg(lf, cue))) });
+  // Intro (greeting + framing + hook)
+  const introText = `Welcome back to Daily World 60. This is our weekly deep dive — where we slow down, take one big story, and unpack what really happened and why it matters. ${lf.hook} Let's get into it.`;
+  segs.push({ label: "Intro", ...(await buildSegment(dir, "00-intro", introText, (cue) => titleSceneSvg(lf, cue))) });
 
-  // Sections
+  // Sections (背景に Wikimedia 画像 = b-roll)
   for (let i = 0; i < lf.sections.length; i++) {
     const s = lf.sections[i];
     const id = `s${(i + 1).toString().padStart(2, "0")}`;
     const srcName = s.sources?.[0]?.name ?? "";
+    const q = s.imageQuery ?? s.heading;
+    const cands = [q, q.split(/\s+/).slice(0, 2).join(" "), lf.topic, (lf.topic ?? "").split(/\s+/).slice(0, 2).join(" ")];
+    const bgB64 = await fetchSectionBg(cands, path.join(dir, `_lfbg-img-${id}.jpg`)).catch(() => null);
     segs.push({ label: s.heading, ...(await buildSegment(dir, id, s.narration, (cue) =>
-      sectionSceneSvg(s.heading, i + 1, lf.sections.length, cue, srcName))) });
+      sectionSceneSvg(s.heading, i + 1, lf.sections.length, cue, srcName, bgB64))) });
   }
 
   // Outro
@@ -75,7 +80,7 @@ async function main() {
 
   // BGM mix (low volume under narration) — reuse the same news bed
   const out = path.join(dir, "longform.mp4");
-  const bgmFile = process.env.BGM_PATH ?? path.join("assets", "news-bed.mp3");
+  const bgmFile = process.env.BGM_PATH ?? path.join("assets", "news-bed-longform.mp3");
   const hasBgm = await fs.access(bgmFile).then(() => true).catch(() => false);
   const bgmVol = process.env.BGM_VOLUME ?? "0.08";
   if (hasBgm) {
@@ -195,10 +200,15 @@ function titleSceneSvg(lf: Longform, cue: string): string {
 </svg>`;
 }
 
-function sectionSceneSvg(heading: string, num: number, total: number, cue: string, source: string): string {
+function sectionSceneSvg(heading: string, num: number, total: number, cue: string, source: string, bgB64?: string | null): string {
+  const bg = bgB64
+    ? `<image x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" xlink:href="data:image/jpeg;base64,${bgB64}"/>
+  <rect width="${W}" height="${H}" fill="#0B1220" opacity="0.62"/>
+  <rect width="${W}" height="8" fill="#F5E63B"/><rect y="${H - 8}" width="${W}" height="8" fill="#F5E63B"/>`
+    : BG;
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
-  ${BG}
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+  ${bg}
   <rect x="90" y="90" width="84" height="84" rx="14" fill="#F5E63B"/>
   <text x="132" y="150" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
         font-size="46" fill="#0B1220">${num}</text>
@@ -232,6 +242,51 @@ function outroSceneSvg(lf: Longform, cue: string): string {
 }
 
 // ─────────── helpers ───────────
+
+const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
+const UA = "DailyWorld60/1.0 (longform b-roll)";
+
+/** Wikimedia Commons から query に合う横向き写真を 1 枚取得し、1920x1080 cover にして base64 を返す。 */
+async function searchOneBg(query: string, dest: string): Promise<string | null> {
+  const params = new URLSearchParams({
+    action: "query", format: "json", generator: "search",
+    gsrsearch: `${query} filetype:bitmap`, gsrnamespace: "6", gsrlimit: "12",
+    prop: "imageinfo", iiprop: "url|mime|size", iiurlwidth: "1920",
+  });
+  const res = await fetch(`${COMMONS_API}?${params}`, { headers: { "User-Agent": UA } });
+  if (!res.ok) return null;
+  const json = await res.json() as { query?: { pages?: Record<string, {
+    title: string; index?: number;
+    imageinfo?: Array<{ thumburl?: string; url?: string; mime?: string; width?: number }>;
+  }> } };
+  const pages = json.query?.pages ? Object.values(json.query.pages) : [];
+  const cands = pages
+    .map(p => ({ p, ii: p.imageinfo?.[0] }))
+    .filter(x => !!x.ii && /image\/jpeg/.test(x.ii!.mime ?? "") && (x.ii!.width ?? 0) >= 1000)
+    .filter(x => !/\b(flag|logo|icon|coat of arms|seal|emblem|map|chart|diagram|locator|infographic)\b/i.test(x.p.title))
+    .sort((a, b) => (a.p.index ?? 999) - (b.p.index ?? 999));
+  const url = cands[0]?.ii?.thumburl ?? cands[0]?.ii?.url;
+  if (!url) { console.log(`[longform] bg: "${query}" -> none`); return null; }
+  const img = await fetch(url, { headers: { "User-Agent": UA } });
+  if (!img.ok) return null;
+  const buf = Buffer.from(await img.arrayBuffer());
+  await sharp(buf).resize(W, H, { fit: "cover", position: "centre" }).jpeg({ quality: 80 }).toFile(dest);
+  console.log(`[longform] bg: "${query}" -> ${cands[0]!.p.title}`);
+  return (await fs.readFile(dest)).toString("base64");
+}
+
+/** 複数の候補クエリを順に試し、最初に画像が取れたものを返す (具体→2語→topic の順)。 */
+async function fetchSectionBg(queries: string[], dest: string): Promise<string | null> {
+  const seen = new Set<string>();
+  for (const q of queries) {
+    const t = (q ?? "").trim();
+    if (!t || seen.has(t.toLowerCase())) continue;
+    seen.add(t.toLowerCase());
+    const r = await searchOneBg(t, dest).catch(() => null);
+    if (r) return r;
+  }
+  return null;
+}
 
 async function parseVtt(file: string): Promise<VttCue[]> {
   // edge-tts は SRT 風 (cue番号 / タイムスタンプ / 本文)。タイムスタンプ行を見つけ、
