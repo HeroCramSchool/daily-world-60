@@ -54,14 +54,23 @@ async function main() {
   const shouldSkip = (p: string) => skipList.includes(p);
   if (skipList.length > 0) console.log(`[publish] PUBLISH_SKIP=${skipList.join(",")}`);
 
-  // ─── 前日重複チェック (Drive 経由) ───
+  // ─── 重複防止: 投稿済み台帳(posted-ledger.json, 直近14日) + 前日 publish-results と照合 ───
+  // 台帳には実際に投稿した見出しが日付付きで蓄積される(手動投稿分も seed 可能)。
+  const ledger = await loadLedger().catch(e => {
+    console.warn(`[publish] ledger load failed (continuing): ${e instanceof Error ? e.message : e}`);
+    return { entries: [] as LedgerEntry[], fileId: undefined as string | undefined };
+  });
   const yesterdayHeadlines = await fetchYesterdayHeadlines(date).catch(e => {
     console.warn(`[publish] yesterday fetch failed (continuing): ${e instanceof Error ? e.message : e}`);
     return [];
   });
-  if (yesterdayHeadlines.length > 0) {
-    console.log(`[publish] yesterday had ${yesterdayHeadlines.length} stories, checking dup...`);
-  }
+  const cutoff14 = new Date(`${date}T00:00:00Z`).getTime() - LEDGER_DAYS * 86400000;
+  const ledgerRecent = ledger.entries.filter(e => {
+    const t = new Date(`${e.date}T00:00:00Z`).getTime();
+    return !Number.isFinite(t) || t >= cutoff14;
+  });
+  const newlyPosted: LedgerEntry[] = [];
+  console.log(`[publish] dedup: ledger=${ledgerRecent.length} (last ${LEDGER_DAYS}d), yesterday=${yesterdayHeadlines.length}`);
 
   // ─── 当日既投稿チェック (再 trigger 時の重複防止) ───
   interface PrevResults { perStory?: Record<string, Record<string, { ok?: boolean; url?: string; videoId?: string }>>; x?: { ok?: boolean }; }
@@ -81,15 +90,15 @@ async function main() {
 
   // 3 ストーリーごとに YouTube / Instagram / TikTok 投稿
   for (const story of scriptEn.stories) {
-    // 前日重複なら skip
-    if (isDuplicateOfYesterday(story.headline, yesterdayHeadlines)) {
-      console.log(`[publish] SKIP story ${story.index} (${story.country.code}): duplicate of yesterday headline`);
+    // 過去に投稿済み(重複)なら skip
+    if (isDuplicate(story.headline, story.country.code, date, ledgerRecent, yesterdayHeadlines)) {
+      console.log(`[publish] SKIP story ${story.index} (${story.country.code}): duplicate of recently posted headline`);
       (results.perStory as Record<string, unknown>)[story.country.code.toLowerCase()] = {
         story: story.index,
         country: story.country.code,
         headline: story.headline,
         skipped: true,
-        reason: "duplicate_of_yesterday",
+        reason: "duplicate_recent",
       };
       continue;
     }
@@ -132,6 +141,7 @@ async function main() {
       });
     }
     console.log(`[publish] ${code} YouTube:`, isOk(ytRes) ? "✓" : isSkipped(ytRes) ? "⏭" : `✗ ${getErr(ytRes)}`);
+    if (isOk(ytRes) && !isSkipped(ytRes)) newlyPosted.push({ date, code, headline: story.headline });
 
     let igRes: unknown;
     if (shouldSkip("instagram")) {
@@ -185,6 +195,12 @@ async function main() {
   );
 
   console.log(`\n[publish] Done. Results → ${path.join(dir, "publish-results.json")}`);
+
+  // ─── 投稿済み台帳に今回分を追記 (best-effort、次バッチ/翌日の重複防止用) ───
+  if (newlyPosted.length > 0) {
+    await saveLedger(ledger.fileId, ledger.entries, newlyPosted, date)
+      .catch(e => console.warn(`[publish] ledger save failed: ${e instanceof Error ? e.message : e}`));
+  }
 }
 
 function buildYoutubeDescription(story: Story, date: string): string {
@@ -342,12 +358,72 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   return inter / uni;
 }
 
-function isDuplicateOfYesterday(headline: string, yesterdayHeadlines: string[]): boolean {
+// 重複判定: (1) 国問わず強いテキスト一致(>=0.45) (2) 同一国×中程度一致(>=0.3, 直近3日)
+//   → 継続ニュース(同じ国の同じ出来事)の言い換えも捕捉する
+function isDuplicate(headline: string, code: string, date: string, ledgerRecent: LedgerEntry[], yesterdayHeadlines: string[]): boolean {
   const cur = normalize(headline);
-  for (const prev of yesterdayHeadlines) {
-    if (jaccard(cur, normalize(prev)) >= 0.5) return true;
+  for (const h of [...ledgerRecent.map(e => e.headline), ...yesterdayHeadlines]) {
+    if (jaccard(cur, normalize(h)) >= 0.45) return true;
+  }
+  const cutoff3 = new Date(`${date}T00:00:00Z`).getTime() - 3 * 86400000;
+  for (const e of ledgerRecent) {
+    if ((e.code ?? "").toLowerCase() !== code.toLowerCase()) continue;
+    const t = new Date(`${e.date}T00:00:00Z`).getTime();
+    if (Number.isFinite(t) && t < cutoff3) continue;
+    if (jaccard(cur, normalize(e.headline)) >= 0.3) return true;
   }
   return false;
+}
+
+// ─── 投稿済み台帳 (posted-ledger.json): 実際に投稿した見出しを永続化し、
+//     翌日・別バッチ・手動投稿分も含めて重複を防ぐ ───
+const LEDGER_NAME = "posted-ledger.json";
+const LEDGER_DAYS = 14;
+interface LedgerEntry { date: string; code: string; headline: string; }
+
+async function loadLedger(): Promise<{ entries: LedgerEntry[]; fileId?: string }> {
+  const folderName = process.env.DRIVE_FOLDER_NAME ?? "Daily World 60";
+  const drive = await driveClient();
+  const folderId = process.env.DRIVE_FOLDER_ID ?? (await findFolderId(drive, folderName));
+  if (!folderId) return { entries: [] };
+  const r = await drive.files.list({
+    q: `'${folderId}' in parents and name = '${LEDGER_NAME}' and trashed = false`,
+    fields: "files(id, modifiedTime)",
+    orderBy: "modifiedTime desc",
+    pageSize: 1,
+  });
+  const f = r.data.files?.[0];
+  if (!f?.id) return { entries: [] };
+  try {
+    const res = await drive.files.get({ fileId: f.id, alt: "media" }, { responseType: "text" });
+    const parsed = JSON.parse(res.data as unknown as string);
+    return { entries: Array.isArray(parsed?.entries) ? parsed.entries : [], fileId: f.id };
+  } catch {
+    return { entries: [], fileId: f.id };
+  }
+}
+
+async function saveLedger(fileId: string | undefined, existing: LedgerEntry[], added: LedgerEntry[], date: string): Promise<void> {
+  const folderName = process.env.DRIVE_FOLDER_NAME ?? "Daily World 60";
+  const drive = await driveClient();
+  const folderId = process.env.DRIVE_FOLDER_ID ?? (await findFolderId(drive, folderName));
+  if (!folderId) return;
+  // 直近 LEDGER_DAYS*4 日より古いエントリは剪定 (ファイル肥大化防止)
+  const cutoff = new Date(`${date}T00:00:00Z`).getTime() - LEDGER_DAYS * 4 * 86400000;
+  const merged = [...existing, ...added].filter(e => {
+    const t = new Date(`${e.date}T00:00:00Z`).getTime();
+    return !Number.isFinite(t) || t >= cutoff;
+  });
+  const body = JSON.stringify({ entries: merged }, null, 2);
+  if (fileId) {
+    await drive.files.update({ fileId, media: { mimeType: "application/json", body } });
+  } else {
+    await drive.files.create({
+      requestBody: { name: LEDGER_NAME, parents: [folderId] },
+      media: { mimeType: "application/json", body },
+    });
+  }
+  console.log(`[publish] ledger updated: +${added.length} (total ${merged.length})`);
 }
 
 main().catch(e => {
