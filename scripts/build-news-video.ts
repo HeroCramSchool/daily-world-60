@@ -163,18 +163,42 @@ async function buildOne(dir: string, story: Story) {
   await run("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", listFile, "-c", "copy", bgVideo]);
   await fs.unlink(listFile).catch(() => {});
 
-  await run("ffmpeg", [
-    "-y",
-    "-i", bgVideo,
-    "-i", audio,
-    "-map", "0:v:0", "-map", "1:a:0",
-    "-t", total.toFixed(2),
-    "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-    "-c:a", "aac", "-b:a", "192k",
-    "-pix_fmt", "yuv420p",
-    "-r", String(FPS),
-    out,
-  ]);
+  // BGM (news bed) をナレーションの下に低音量でミックス。
+  // assets/news-bed.mp3 (または BGM_PATH) が無ければ BGM なしで従来どおり。
+  const bgmFile = process.env.BGM_PATH ?? path.join("assets", "news-bed.mp3");
+  const hasBgm = await fs.access(bgmFile).then(() => true).catch(() => false);
+  const bgmVol = process.env.BGM_VOLUME ?? "0.10";
+
+  const muxArgs = hasBgm
+    ? [
+        "-y",
+        "-i", bgVideo,
+        "-i", audio,
+        "-stream_loop", "-1", "-i", bgmFile,
+        "-filter_complex",
+        `[1:a]volume=1.0[vo];[2:a]volume=${bgmVol}[bg];[vo][bg]amix=inputs=2:duration=first:normalize=0[mix]`,
+        "-map", "0:v:0", "-map", "[mix]",
+        "-t", total.toFixed(2),
+        "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+        "-c:a", "aac", "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        "-r", String(FPS),
+        out,
+      ]
+    : [
+        "-y",
+        "-i", bgVideo,
+        "-i", audio,
+        "-map", "0:v:0", "-map", "1:a:0",
+        "-t", total.toFixed(2),
+        "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+        "-c:a", "aac", "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        "-r", String(FPS),
+        out,
+      ];
+  if (hasBgm) console.log(`[news] ${code}: mixing BGM (${bgmFile}, vol ${bgmVol})`);
+  await run("ffmpeg", muxArgs);
 
   // Cleanup
   for (const s of segments) await fs.unlink(s).catch(() => {});
