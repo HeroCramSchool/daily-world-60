@@ -475,7 +475,7 @@ function subscribeSvg(story: Story): string {
   <text x="540" y="1400" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
         font-size="44" fill="#FFFFFF" letter-spacing="4">@60dailyworld</text>
   <text x="540" y="1455" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
-        font-size="26" fill="#7A8AB5" letter-spacing="3">YouTube · TikTok · Instagram</text>
+        font-size="26" fill="#7A8AB5" letter-spacing="3">YouTube</text>
 
   <!-- Disclaimer (Y 1540-1810, small grey) -->
   <text x="540" y="1565" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"

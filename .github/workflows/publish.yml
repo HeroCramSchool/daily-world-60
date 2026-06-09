@@ -5,8 +5,8 @@ on:
     # 18:30 UTC = 06:30 NZST — preview のみ (生成だけ、投稿しない)
     - cron: '30 18 * * *'
     # 20:00 UTC = 08:00 NZST — auto-publish (full: 生成 + 投稿)。Routine + preview の後。
-    # Instagram は既定スキップ (CI のデータセンター IP で毎回失敗するためローカル投稿に回す)。
-    # YouTube/TikTok/X を自動投稿 (YouTube は自動サムネ)。停止したい場合はこの cron 行を消す。
+    # YouTube のみ自動投稿 (YouTube は自動サムネ)。IG/TikTok/X は既定スキップ(YouTube集中方針 2026-06-09)。
+    # 停止したい場合はこの cron 行を消す。
     - cron: '0 20 * * *'
   workflow_dispatch:
     inputs:
@@ -78,8 +78,8 @@ jobs:
       RUN_MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 20 * * *' && 'full' || 'preview') || github.event.inputs.mode }}
       DATE_OVERRIDE: ${{ github.event.inputs.date }}
       # 手動 dispatch の publish_skip 最優先 → skip_youtube → スケジュールの auto-publish は
-      # Instagram を既定スキップ(CI の IP で毎回失敗するためローカルの実 Chrome で投稿)。
-      PUBLISH_SKIP: ${{ github.event.inputs.publish_skip != '' && github.event.inputs.publish_skip || (github.event.inputs.skip_youtube == 'true' && 'youtube' || (github.event_name == 'schedule' && 'instagram' || '')) }}
+      # YouTube のみ投稿。IG/TikTok/X は既定スキップ(YouTube集中方針 2026-06-09)。
+      PUBLISH_SKIP: ${{ github.event.inputs.publish_skip != '' && github.event.inputs.publish_skip || (github.event.inputs.skip_youtube == 'true' && 'youtube' || (github.event_name == 'schedule' && 'instagram,tiktok,x' || '')) }}
 
     steps:
       - name: Checkout
