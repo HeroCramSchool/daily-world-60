@@ -227,6 +227,8 @@ function buildYoutubeDescription(story: Story, date: string): string {
     "Educational summary · Fair use (US §107 / JP 著作権法32条)",
     "AI-assisted voice and video editing.",
     "",
+    'Music: "Investigations" by Kevin MacLeod (incompetech.com) — licensed under CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/',
+    "",
     `#WorldNews #DailyNews #60Seconds #Shorts #${story.country.code} #${story.sourceName.replace(/\s+/g, "")}`,
   );
   return lines.join("\n");
