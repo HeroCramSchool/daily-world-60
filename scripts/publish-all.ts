@@ -54,6 +54,12 @@ async function main() {
   const shouldSkip = (p: string) => skipList.includes(p);
   if (skipList.length > 0) console.log(`[publish] PUBLISH_SKIP=${skipList.join(",")}`);
 
+  // ─── 強制再投稿フラグ (差し替え再アップ用、一回限り) ───
+  // FORCE_REPUBLISH=true のときだけ重複防止(台帳/前日/当日既投稿)を無視する。
+  // 既定 false なので通常運用の重複防止はそのまま維持される。
+  const forceRepublish = (process.env.FORCE_REPUBLISH ?? "").toLowerCase() === "true";
+  if (forceRepublish) console.log(`[publish] FORCE_REPUBLISH=true — bypassing dedup ledger + already-posted checks (one-off re-upload)`);
+
   // ─── 重複防止: 投稿済み台帳(posted-ledger.json, 直近14日) + 前日 publish-results と照合 ───
   // 台帳には実際に投稿した見出しが日付付きで蓄積される(手動投稿分も seed 可能)。
   const ledger = await loadLedger().catch(e => {
@@ -90,8 +96,8 @@ async function main() {
 
   // 3 ストーリーごとに YouTube / Instagram / TikTok 投稿
   for (const story of scriptEn.stories) {
-    // 過去に投稿済み(重複)なら skip
-    if (isDuplicate(story.headline, story.country.code, date, ledgerRecent, yesterdayHeadlines)) {
+    // 過去に投稿済み(重複)なら skip (FORCE_REPUBLISH 時は無視)
+    if (!forceRepublish && isDuplicate(story.headline, story.country.code, date, ledgerRecent, yesterdayHeadlines)) {
       console.log(`[publish] SKIP story ${story.index} (${story.country.code}): duplicate of recently posted headline`);
       (results.perStory as Record<string, unknown>)[story.country.code.toLowerCase()] = {
         story: story.index,
@@ -126,7 +132,7 @@ async function main() {
 
     const prevStory = prevResults.perStory?.[code] ?? {};
     const alreadyPosted = (plat: string): boolean =>
-      Boolean(prevStory[plat]?.ok && (prevStory[plat]?.url || prevStory[plat]?.videoId));
+      !forceRepublish && Boolean(prevStory[plat]?.ok && (prevStory[plat]?.url || prevStory[plat]?.videoId));
 
     // 直列実行 (Cookie 競合・rate limit 対策)
     let ytRes: unknown;
@@ -177,7 +183,7 @@ async function main() {
   if (shouldSkip("x")) {
     console.log(`[publish] X: skipped (PUBLISH_SKIP)`);
     results.x = { ok: false, skipped: true, reason: "PUBLISH_SKIP" };
-  } else if (prevResults.x?.ok) {
+  } else if (!forceRepublish && prevResults.x?.ok) {
     console.log(`[publish] X: already posted today, skipping`);
     results.x = { ok: true, skipped: true, reason: "already_posted_today", ...prevResults.x };
   } else if (scriptJp) {
@@ -226,8 +232,6 @@ function buildYoutubeDescription(story: Story, date: string): string {
     "",
     "Educational summary · Fair use (US §107 / JP 著作権法32条)",
     "AI-assisted voice and video editing.",
-    "",
-    'Music: "Investigations" by Kevin MacLeod (incompetech.com) — licensed under CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/',
     "",
     `#WorldNews #DailyNews #60Seconds #Shorts #${story.country.code} #${story.sourceName.replace(/\s+/g, "")}`,
   );
