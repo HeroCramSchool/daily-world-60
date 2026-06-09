@@ -2,12 +2,15 @@ name: Daily World 60 — Publish
 
 on:
   schedule:
-    # 18:30 UTC = 06:30 NZST — preview のみ (生成だけ、投稿しない)
-    - cron: '30 18 * * *'
-    # 20:00 UTC = 08:00 NZST — auto-publish (full: 生成 + 投稿)。Routine + preview の後。
-    # YouTube のみ自動投稿 (YouTube は自動サムネ)。IG/TikTok/X は既定スキップ(YouTube集中方針 2026-06-09)。
-    # 停止したい場合はこの cron 行を消す。
+    # 朝昼夜 3 バッチ × 3 本 = 1 日 9 本 (YouTube のみ。IG/TikTok/X は既定スキップ)。
+    # Routine(18:07 UTC) が publish-results-{date}.json に 9 ストーリー出力 → 各 cron が BATCH で 3 本ずつ。
+    # GH cron は数時間遅延しうる (NZ 時刻は目安)。停止は該当 cron 行を消す。
+    # batch1: 20:00 UTC = 08:00 NZST 朝 (当日 Routine 分)
     - cron: '0 20 * * *'
+    # batch2: 02:00 UTC = 14:00 NZST 昼 (前日 Routine 分 → date-1)
+    - cron: '0 2 * * *'
+    # batch3: 08:00 UTC = 20:00 NZST 夜 (前日 Routine 分 → date-1)
+    - cron: '0 8 * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -26,6 +29,10 @@ on:
         default: ""
       date:
         description: "日付上書き (YYYY-MM-DD UTC)"
+        required: false
+        default: ""
+      batch:
+        description: "バッチ番号 (1=朝/2=昼/3=夜。9本台本を3本ずつ。空=全ストーリー)"
         required: false
         default: ""
       skip_youtube:
@@ -73,9 +80,8 @@ jobs:
 
       EN_VOICE: en-US-AvaNeural
 
-      # スケジュール起動: 20:00 UTC の cron は full(生成+投稿)、18:30 UTC は preview。
-      # 手動 dispatch は入力の mode を尊重。
-      RUN_MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 20 * * *' && 'full' || 'preview') || github.event.inputs.mode }}
+      # スケジュール起動 (朝昼夜 3 cron) は全て full(生成+投稿)。手動 dispatch は入力の mode を尊重。
+      RUN_MODE: ${{ github.event_name == 'schedule' && 'full' || github.event.inputs.mode }}
       DATE_OVERRIDE: ${{ github.event.inputs.date }}
       # 手動 dispatch の publish_skip 最優先 → skip_youtube → スケジュールの auto-publish は
       # YouTube のみ投稿。IG/TikTok/X は既定スキップ(YouTube集中方針 2026-06-09)。
@@ -121,60 +127,75 @@ jobs:
         if: env.RUN_MODE != 'preview'
         run: npx playwright install --with-deps chromium
 
-      - name: Resolve date
+      - name: Resolve date & batch
         id: date
+        env:
+          SCHED: ${{ github.event.schedule }}
+          IN_DATE: ${{ github.event.inputs.date }}
+          IN_BATCH: ${{ github.event.inputs.batch }}
         run: |
-          if [ -n "${{ env.DATE_OVERRIDE }}" ]; then
-            DATE="${{ env.DATE_OVERRIDE }}"
+          if [ -n "$SCHED" ]; then
+            # 朝昼夜 3 cron → batch と日付オフセット。batch2/3 は前日 Routine 分。
+            case "$SCHED" in
+              "0 20 * * *") BATCH=1; OFF=0 ;;
+              "0 2 * * *")  BATCH=2; OFF=1 ;;
+              "0 8 * * *")  BATCH=3; OFF=1 ;;
+              *)            BATCH=1; OFF=0 ;;
+            esac
+            DATE=$(date -u -d "-${OFF} day" +%Y-%m-%d)
           else
-            DATE=$(date -u +%Y-%m-%d)
+            if [ -n "$IN_DATE" ]; then DATE="$IN_DATE"; else DATE=$(date -u +%Y-%m-%d); fi
+            BATCH="$IN_BATCH"
           fi
-          echo "value=$DATE" >> $GITHUB_OUTPUT
-          mkdir -p output/$DATE
-          echo "Working date: $DATE"
-          echo "Run mode:     ${{ env.RUN_MODE }}"
+          if [ -n "$BATCH" ]; then WORK="${DATE}-b${BATCH}"; else WORK="$DATE"; fi
+          echo "realdate=$DATE" >> $GITHUB_OUTPUT
+          echo "work=$WORK"     >> $GITHUB_OUTPUT
+          echo "OUT_DIR=output/$WORK" >> $GITHUB_ENV
+          [ -n "$BATCH" ] && echo "BATCH=$BATCH" >> $GITHUB_ENV
+          mkdir -p "output/$WORK"
+          echo "Real date: $DATE | batch: ${BATCH:-none} | WORK: $WORK | mode: ${{ env.RUN_MODE }}"
 
       # --- Generation phase (preview / full) ---
       - name: Step A — Fetch scripts from Drive
         if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
-        run: npx tsx scripts/fetch-scripts-from-drive.ts ${{ steps.date.outputs.value }}
+        run: npx tsx scripts/fetch-scripts-from-drive.ts ${{ steps.date.outputs.realdate }}
 
       - name: Step B — Per-story narrations (voice + vtt)
         if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
-        run: npx tsx scripts/tts-per-story.ts ${{ steps.date.outputs.value }}
+        run: npx tsx scripts/tts-per-story.ts ${{ steps.date.outputs.realdate }}
 
       - name: Step B2 — Fetch background images (Wikimedia Commons)
         if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
-        run: npx tsx scripts/fetch-broll.ts ${{ steps.date.outputs.value }}
+        run: npx tsx scripts/fetch-broll.ts ${{ steps.date.outputs.realdate }}
 
       - name: Step C — Build 3 news videos (60s each, VTT-synced)
         if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
-        run: npx tsx scripts/build-news-video.ts ${{ steps.date.outputs.value }}
+        run: npx tsx scripts/build-news-video.ts ${{ steps.date.outputs.realdate }}
 
       - name: Step D — Generate social images (5 sizes × 3 stories = 15)
         if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
-        run: npx tsx scripts/generate-social-images.ts ${{ steps.date.outputs.value }}
+        run: npx tsx scripts/generate-social-images.ts ${{ steps.date.outputs.realdate }}
 
       - name: Step E — Generate X thread (3 tweets)
         if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
-        run: npx tsx scripts/generate-x-thread.ts ${{ steps.date.outputs.value }}
+        run: npx tsx scripts/generate-x-thread.ts ${{ steps.date.outputs.realdate }}
 
       - name: Step F0 — Upload preview to Drive (best effort)
         if: env.RUN_MODE == 'preview' || env.RUN_MODE == 'full'
         continue-on-error: true
-        run: npx tsx scripts/upload-results-to-drive.ts ${{ steps.date.outputs.value }}
+        run: npx tsx scripts/upload-results-to-drive.ts ${{ steps.date.outputs.realdate }}
 
       # --- Publish phase (publish / full) ---
       - name: Step F1 — Download approved video from Drive
         if: env.RUN_MODE == 'publish'
-        run: npx tsx scripts/fetch-approved-video.ts ${{ steps.date.outputs.value }}
+        run: npx tsx scripts/fetch-approved-video.ts ${{ steps.date.outputs.realdate }}
 
       - name: Step F2 — Publish to all 4 platforms (xvfb-wrapped, hardened flags)
         if: env.RUN_MODE == 'publish' || env.RUN_MODE == 'full'
         run: |
           xvfb-run -a \
             --server-args="-screen 0 1280x1920x24 -ac +extension RANDR +extension GLX +extension COMPOSITE -noreset -dpi 96" \
-            npx tsx scripts/publish-all.ts ${{ steps.date.outputs.value }}
+            npx tsx scripts/publish-all.ts ${{ steps.date.outputs.realdate }}
 
       - name: Step Delete — Remove YouTube videos
         if: env.RUN_MODE == 'delete'
@@ -185,22 +206,22 @@ jobs:
       - name: Step G — Upload final results to Drive (best effort)
         if: always()
         continue-on-error: true
-        run: npx tsx scripts/upload-results-to-drive.ts ${{ steps.date.outputs.value }}
+        run: npx tsx scripts/upload-results-to-drive.ts ${{ steps.date.outputs.realdate }}
 
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: dailyworld60-${{ steps.date.outputs.value }}
+          name: dailyworld60-${{ steps.date.outputs.work }}
           path: |
-            output/${{ steps.date.outputs.value }}/news-*.mp4
-            output/${{ steps.date.outputs.value }}/yt-thumbnail-*.png
-            output/${{ steps.date.outputs.value }}/ig-*.png
-            output/${{ steps.date.outputs.value }}/tiktok-*.png
-            output/${{ steps.date.outputs.value }}/x-thread.txt
-            output/${{ steps.date.outputs.value }}/publish-results.json
-            output/${{ steps.date.outputs.value }}/script-en.json
-            output/${{ steps.date.outputs.value }}/script-jp.json
+            output/${{ steps.date.outputs.work }}/news-*.mp4
+            output/${{ steps.date.outputs.work }}/yt-thumbnail-*.png
+            output/${{ steps.date.outputs.work }}/ig-*.png
+            output/${{ steps.date.outputs.work }}/tiktok-*.png
+            output/${{ steps.date.outputs.work }}/x-thread.txt
+            output/${{ steps.date.outputs.work }}/publish-results.json
+            output/${{ steps.date.outputs.work }}/script-en.json
+            output/${{ steps.date.outputs.work }}/script-jp.json
           retention-days: 30
 
       - name: Commit results
@@ -208,6 +229,6 @@ jobs:
         run: |
           git config user.name "Daily World 60 Bot"
           git config user.email "bot@dailyworld60"
-          git add output/${{ steps.date.outputs.value }}/publish-results.json 2>/dev/null || true
-          git commit -m "results ${{ steps.date.outputs.value }} [${{ env.RUN_MODE }}]" || true
+          git add output/${{ steps.date.outputs.work }}/publish-results.json 2>/dev/null || true
+          git commit -m "results ${{ steps.date.outputs.work }} [${{ env.RUN_MODE }}]" || true
           git push || true

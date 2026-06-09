@@ -15,7 +15,7 @@ const FOLDER_NAME = process.env.DRIVE_FOLDER_NAME ?? "Daily World 60";
 
 async function main() {
   const date = process.argv[2] ?? new Date().toISOString().slice(0, 10);
-  const outDir = path.join("output", date);
+  const outDir = process.env.OUT_DIR ?? path.join("output", date);
   await fs.mkdir(outDir, { recursive: true });
 
   const drive = await driveClient();
@@ -79,6 +79,24 @@ async function main() {
   // Routine outputs sometimes use `country: "CD", flag: "🇨🇩"` (flat) instead of `country: { code, flag }`.
   const scriptEn = normalizeScript(scriptEnRaw as Record<string, unknown>, date, "en");
   const scriptJp = scriptJpRaw ? normalizeScript(scriptJpRaw as Record<string, unknown>, date, "jp") : undefined;
+
+  // ─── Batch slice: Routine の 9 ストーリー出力を朝昼夜 3 本ずつに分割 (BATCH=1/2/3) ───
+  // OUT_DIR / BATCH は publish.yml が設定。未設定(batch=0)なら全ストーリーをそのまま使う(後方互換)。
+  const batch = process.env.BATCH ? Number(process.env.BATCH) : 0;
+  if (batch >= 1) {
+    const start = (batch - 1) * 3;
+    const sliceInPlace = (s: Record<string, unknown> | undefined): number => {
+      if (!s || !Array.isArray(s.stories)) return 0;
+      s.stories = (s.stories as Record<string, unknown>[])
+        .slice(start, start + 3)
+        .map((st, i) => ({ ...st, index: i + 1 }));
+      return (s.stories as unknown[]).length;
+    };
+    const kept = sliceInPlace(scriptEn as Record<string, unknown>);
+    sliceInPlace(scriptJp as Record<string, unknown> | undefined);
+    console.log(`[drive] BATCH=${batch}: kept ${kept} stories (offset ${start})`);
+    if (kept === 0) console.warn(`[drive] BATCH=${batch}: empty batch — source needs >= ${start + 1} stories`);
+  }
 
   await fs.writeFile(
     path.join(outDir, "script-en.json"),

@@ -18,7 +18,7 @@ const FOLDER_NAME = process.env.DRIVE_FOLDER_NAME ?? "Daily World 60";
 
 async function main() {
   const date = process.argv[2] ?? new Date().toISOString().slice(0, 10);
-  const outDir = path.join("output", date);
+  const outDir = process.env.OUT_DIR ?? path.join("output", date);
   fs.mkdirSync(outDir, { recursive: true });
 
   const drive = await driveClient();

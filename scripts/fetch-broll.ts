@@ -98,7 +98,7 @@ const USER_AGENT = "DailyWorld60/1.0 (news shorts pipeline; contact info@hero-en
 
 async function main() {
   const date = process.argv[2] ?? new Date().toISOString().slice(0, 10);
-  const dir = path.join("output", date);
+  const dir = process.env.OUT_DIR ?? path.join("output", date);
   const assets = path.join(dir, "_assets");
   await fs.mkdir(assets, { recursive: true });
 

@@ -31,7 +31,7 @@ interface ScriptJson { date: string; stories: Story[]; }
 
 async function main() {
   const date = process.argv[2] ?? new Date().toISOString().slice(0, 10);
-  const dir = path.join("output", date);
+  const dir = process.env.OUT_DIR ?? path.join("output", date);
   const script: ScriptJson = JSON.parse(await fs.readFile(path.join(dir, "script-en.json"), "utf-8"));
   const mmdd = enDate(date);
 

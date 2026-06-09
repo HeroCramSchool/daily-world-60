@@ -6,7 +6,7 @@ const FOLDER_NAME = process.env.DRIVE_FOLDER_NAME ?? "Daily World 60";
 
 async function main() {
   const date = process.argv[2] ?? new Date().toISOString().slice(0, 10);
-  const dir = path.join("output", date);
+  const dir = process.env.OUT_DIR ?? path.join("output", date);
   const resultsFile = path.join(dir, "publish-results.json");
 
   if (!fs.existsSync(resultsFile)) {
@@ -19,7 +19,7 @@ async function main() {
   if (!folderId) throw new Error(`Folder "${FOLDER_NAME}" not found in Drive (set DRIVE_FOLDER_ID to override)`);
 
   // Upload publish-results-YYYY-MM-DD.json (overwrite if exists)
-  const remoteName = `publish-results-${date}.json`;
+  const remoteName = `publish-results-${path.basename(dir)}.json`;
   const existing = await drive.files.list({
     q: `'${folderId}' in parents and name = '${remoteName}' and trashed = false`,
     fields: "files(id)",

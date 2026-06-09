@@ -33,7 +33,7 @@ interface ScriptJsonJp {
 // CD/KW/SG 用の日本語要約（既に script-jp.json にあるもの）
 async function main() {
   const date = process.argv[2] ?? new Date().toISOString().slice(0, 10);
-  const dir = path.join("output", date);
+  const dir = process.env.OUT_DIR ?? path.join("output", date);
   const en: ScriptJsonEn = JSON.parse(await fs.readFile(path.join(dir, "script-en.json"), "utf-8"));
   const jp: ScriptJsonJp = JSON.parse(await fs.readFile(path.join(dir, "script-jp.json"), "utf-8"));
   const mmdd = date.slice(5).replace("-", "/");
