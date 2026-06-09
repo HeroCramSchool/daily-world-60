@@ -41,31 +41,35 @@ async function main() {
 
   console.log(`[longform] "${lf.title}" — ${lf.sections.length} sections`);
 
-  const segments: string[] = [];
+  const segs: { file: string; dur: number; label: string }[] = [];
 
   // Intro
-  segments.push(await buildSegment(dir, "00-intro", lf.hook, (cue) => titleSceneSvg(lf, cue)));
+  segs.push({ label: "Intro", ...(await buildSegment(dir, "00-intro", lf.hook, (cue) => titleSceneSvg(lf, cue))) });
 
   // Sections
   for (let i = 0; i < lf.sections.length; i++) {
     const s = lf.sections[i];
     const id = `s${(i + 1).toString().padStart(2, "0")}`;
     const srcName = s.sources?.[0]?.name ?? "";
-    segments.push(
-      await buildSegment(dir, id, s.narration, (cue) =>
-        sectionSceneSvg(s.heading, i + 1, lf.sections.length, cue, srcName)),
-    );
+    segs.push({ label: s.heading, ...(await buildSegment(dir, id, s.narration, (cue) =>
+      sectionSceneSvg(s.heading, i + 1, lf.sections.length, cue, srcName))) });
   }
 
   // Outro
   const outroText =
     (lf.todaysWord ? `Today's word: ${lf.todaysWord.word}. ${lf.todaysWord.definitionEn} ` : "") + lf.close;
-  segments.push(await buildSegment(dir, "99-outro", outroText, (cue) => outroSceneSvg(lf, cue)));
+  segs.push({ label: "Subscribe", ...(await buildSegment(dir, "99-outro", outroText, (cue) => outroSceneSvg(lf, cue))) });
+
+  // Chapters (YouTube timestamps): 各セグメントの開始秒を記録
+  let acc = 0;
+  const chapters = segs.map(s => { const c = { heading: s.label, start: Math.round(acc) }; acc += s.dur; return c; });
+  await fs.writeFile(path.join(dir, "longform-chapters.json"),
+    JSON.stringify({ title: lf.title, chapters, totalSeconds: Math.round(acc) }, null, 2), "utf-8");
 
   // Concat all segments (each carries its own narration audio)
   const master = path.join(dir, "_lf-master.mp4");
   const listFile = path.join(dir, "_lf-concat.txt");
-  await fs.writeFile(listFile, segments.map(s => `file '${path.resolve(s)}'`).join("\n"), "utf-8");
+  await fs.writeFile(listFile, segs.map(s => `file '${path.resolve(s.file)}'`).join("\n"), "utf-8");
   await run("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", listFile, "-c", "copy", master]);
   await fs.unlink(listFile).catch(() => {});
 
@@ -87,7 +91,7 @@ async function main() {
   }
 
   // cleanup
-  for (const s of segments) await fs.unlink(s).catch(() => {});
+  for (const s of segs) await fs.unlink(s.file).catch(() => {});
   await fs.unlink(master).catch(() => {});
 
   const stat = await fs.stat(out);
@@ -101,7 +105,7 @@ async function buildSegment(
   id: string,
   text: string,
   sceneSvg: (cueText: string, i: number) => string,
-): Promise<string> {
+): Promise<{ file: string; dur: number }> {
   const mp3 = path.join(dir, `_lfa-${id}.mp3`);
   const vtt = path.join(dir, `_lfa-${id}.vtt`);
   await run("edge-tts", [
@@ -151,7 +155,7 @@ async function buildSegment(
   await fs.unlink(mp3).catch(() => {});
   await fs.unlink(vtt).catch(() => {});
   console.log(`[longform] segment ${id}: ${cues.length} cues, ${total.toFixed(1)}s`);
-  return seg;
+  return { file: seg, dur: total };
 }
 
 // ─────────── SVG scenes (1920x1080) ───────────

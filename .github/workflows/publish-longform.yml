@@ -1,0 +1,98 @@
+name: Daily World 60 — Weekly Deep Dive
+
+# 週次の長尺(横16:9・8-12分)深掘り動画を 生成→YouTube長尺投稿。
+# 入力: Drive の longform-YYYY-MM-DD.json (週次 Routine `trig_01Twko5e...` が Sun 19:00 UTC に生成)。
+#
+# ⚠️ 公開は不可逆。**まず workflow_dispatch で1回テスト**し、動画/概要欄を確認してから
+#    下の schedule(cron) のコメントを外して自動化すること。
+on:
+  # schedule:
+  #   # Sunday 21:00 UTC = Monday 09:00 NZST (Routine の Sun 19:00 UTC の後)
+  #   - cron: '0 21 * * 0'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "日付上書き (YYYY-MM-DD UTC, 空=当日)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: longform-${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  longform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DRIVE_FOLDER_NAME: "Daily World 60"
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      EN_VOICE: en-US-AvaNeural
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF, keyless)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg + librsvg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg librsvg2-bin
+
+      - name: Install edge-tts
+        run: pip install edge-tts
+
+      - name: Install Node deps
+        run: npm ci
+
+      - name: Resolve date
+        id: d
+        run: |
+          if [ -n "${{ github.event.inputs.date }}" ]; then D="${{ github.event.inputs.date }}"; else D=$(date -u +%Y-%m-%d); fi
+          echo "value=$D" >> $GITHUB_OUTPUT
+          mkdir -p output/$D
+          echo "Long-form date: $D"
+
+      - name: Fetch long-form script from Drive
+        run: npx tsx scripts/fetch-longform.ts ${{ steps.d.outputs.value }}
+
+      - name: Render long-form video (1920x1080)
+        run: npx tsx scripts/build-longform-video.ts ${{ steps.d.outputs.value }}
+
+      - name: Publish to YouTube (long-form)
+        run: npx tsx scripts/publish-longform.ts ${{ steps.d.outputs.value }}
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: longform-${{ steps.d.outputs.value }}
+          path: |
+            output/${{ steps.d.outputs.value }}/longform.mp4
+            output/${{ steps.d.outputs.value }}/longform.json
+            output/${{ steps.d.outputs.value }}/longform-chapters.json
+            output/${{ steps.d.outputs.value }}/longform-publish-result.json
+          retention-days: 30
+          if-no-files-found: warn
