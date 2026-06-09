@@ -1,0 +1,38 @@
+{
+  "date": "2026-06-09",
+  "title": "Why Xi Went to Pyongyang: China, North Korea and the Russia Problem",
+  "topic": "Xi Jinping's North Korea visit",
+  "hook": "China's leader just made his first trip to North Korea in seven years. Here is why it matters.",
+  "sections": [
+    {
+      "heading": "What happened",
+      "narration": "On Monday, Chinese President Xi Jinping arrived in Pyongyang for a two-day state visit. It was his first trip to North Korea since 2019. Kim Jong Un welcomed him at the airport with a twenty-one gun salute and a military band. The two leaders said they would inject powerful momentum into their relationship, and they talked about working together on trade, agriculture, and technology.",
+      "imageQuery": "Pyongyang North Korea cityscape",
+      "sources": [{ "name": "Al Jazeera", "url": "https://www.aljazeera.com/news/2026/6/8/chinas-xi-jinping-arrives-in-north-korea-on-rare-state-visit" }]
+    },
+    {
+      "heading": "Why now",
+      "narration": "The timing is not an accident. This year marks sixty-five years since China and North Korea signed their mutual defense treaty in 1961. That treaty is still Beijing's only formal military alliance. But experts say the deeper reason is Russia. Since the war in Ukraine, North Korea has moved closer to Moscow, sending weapons and even troops. China does not want to lose its influence over its neighbor, so Xi is reminding Pyongyang who its oldest partner is.",
+      "imageQuery": "China North Korea flags diplomacy",
+      "sources": [{ "name": "CNN", "url": "https://www.cnn.com/2026/06/07/asia/china-xi-jinping-north-korea-kim-jong-un-intl-hnk" }]
+    },
+    {
+      "heading": "What it means",
+      "narration": "For the region, this visit is a signal. A stronger China-North Korea bond worries South Korea, Japan, and the United States, who already watch the North's weapons program closely. It also shows a wider split in global politics, with Beijing, Moscow, and Pyongyang on one side. Watch what comes next: any new deals on technology or trade could tell us how far this partnership will really go.",
+      "imageQuery": "Korean peninsula map satellite",
+      "sources": [{ "name": "NPR", "url": "https://www.npr.org/2026/06/05/g-s1-126481/xi-jinping-will-travel-to-north-korea-next-week-in-first-visit-since-2019" }]
+    }
+  ],
+  "todaysWord": {
+    "word": "alliance",
+    "definitionEn": "A formal agreement between countries to support each other, especially in defense.",
+    "definitionJp": "同盟：国家間が特に防衛で互いに支え合う公式な取り決め。"
+  },
+  "close": "That is the story behind the headline. If this helped you understand the news, subscribe for a deeper look every week.",
+  "thumbnail": { "hook": "XI MEETS KIM", "stat": "1st in 7 YEARS" },
+  "sourceUrls": [
+    "https://www.aljazeera.com/news/2026/6/8/chinas-xi-jinping-arrives-in-north-korea-on-rare-state-visit",
+    "https://www.cnn.com/2026/06/07/asia/china-xi-jinping-north-korea-kim-jong-un-intl-hnk",
+    "https://www.npr.org/2026/06/05/g-s1-126481/xi-jinping-will-travel-to-north-korea-next-week-in-first-visit-since-2019"
+  ]
+}
