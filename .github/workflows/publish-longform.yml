@@ -3,12 +3,13 @@ name: Daily World 60 — Weekly Deep Dive
 # 週次の長尺(横16:9・8-12分)深掘り動画を 生成→YouTube長尺投稿。
 # 入力: Drive の longform-YYYY-MM-DD.json (週次 Routine `trig_01Twko5e...` が Sun 19:00 UTC に生成)。
 #
-# ⚠️ 公開は不可逆。**まず workflow_dispatch で1回テスト**し、動画/概要欄を確認してから
-#    下の schedule(cron) のコメントを外して自動化すること。
+# 週次自動公開: Sun 19:00 UTC に Routine(trig_01Twko5e) が longform-{date}.json を生成 →
+#   下の cron(Sun 21:00 UTC)が fetch→render→publish。2026-06-09 に手動 publish で初回検証済み(videoId EWi1cDIP914)。
+#   停止したい場合はこの schedule をコメントアウト。
 on:
-  # schedule:
-  #   # Sunday 21:00 UTC = Monday 09:00 NZST (Routine の Sun 19:00 UTC の後)
-  #   - cron: '0 21 * * 0'
+  schedule:
+    # Sunday 21:00 UTC = Monday 09:00 NZST (Routine の Sun 19:00 UTC の後)
+    - cron: '0 21 * * 0'
   workflow_dispatch:
     inputs:
       mode:
