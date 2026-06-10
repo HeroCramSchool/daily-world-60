@@ -60,6 +60,13 @@ async function main() {
   const forceRepublish = (process.env.FORCE_REPUBLISH ?? "").toLowerCase() === "true";
   if (forceRepublish) console.log(`[publish] FORCE_REPUBLISH=true — bypassing dedup ledger + already-posted checks (one-off re-upload)`);
 
+  // ─── YouTube 公開時刻の階段ずらし ───
+  // 同時刻に複数本公開すると再生数が伸びにくいため、PUBLISH_STAGGER_MINUTES > 0 のとき
+  // 2本目以降を private + publishAt の予約公開にして 1本ずつ時間を空ける。
+  const staggerMin = Number(process.env.PUBLISH_STAGGER_MINUTES ?? "0") || 0;
+  let ytUploadedCount = 0;
+  if (staggerMin > 0) console.log(`[publish] PUBLISH_STAGGER_MINUTES=${staggerMin} — 2nd+ videos will be scheduled at ${staggerMin}-min intervals`);
+
   // ─── 重複防止: 投稿済み台帳(posted-ledger.json, 直近14日) + 前日 publish-results と照合 ───
   // 台帳には実際に投稿した見出しが日付付きで蓄積される(手動投稿分も seed 可能)。
   const ledger = await loadLedger().catch(e => {
@@ -141,10 +148,19 @@ async function main() {
     } else if (alreadyPosted("youtube")) {
       ytRes = { ok: true, skipped: true, reason: "already_posted_today", ...prevStory.youtube };
     } else {
+      const publishAt = staggerMin > 0 && ytUploadedCount > 0
+        ? new Date(Date.now() + ytUploadedCount * staggerMin * 60000).toISOString()
+        : undefined;
+      if (publishAt) console.log(`[publish] ${code} YouTube: scheduled publish at ${publishAt}`);
       ytRes = await publishYoutube({
         videoPath, thumbnailPath: ytThumb,
         title: ytTitle, description: ytDesc, tags: ytTags,
+        ...(publishAt ? { publishAt } : {}),
       });
+      if (isOk(ytRes)) {
+        ytUploadedCount++;
+        if (publishAt) (ytRes as Record<string, unknown>).publishAt = publishAt;
+      }
     }
     console.log(`[publish] ${code} YouTube:`, isOk(ytRes) ? "✓" : isSkipped(ytRes) ? "⏭" : `✗ ${getErr(ytRes)}`);
     if (isOk(ytRes) && !isSkipped(ytRes)) newlyPosted.push({ date, code, headline: story.headline });

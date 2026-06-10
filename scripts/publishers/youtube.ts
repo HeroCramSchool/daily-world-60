@@ -7,6 +7,8 @@ export interface YouTubePublishInput {
   title: string;
   description: string;
   tags: string[];
+  /** ISO 8601。指定時は private でアップし、YouTube がこの時刻に自動公開（予約公開）。 */
+  publishAt?: string;
 }
 
 export interface YouTubePublishResult {
@@ -50,7 +52,9 @@ export async function publishYoutube(
           defaultLanguage: "en",
         },
         status: {
-          privacyStatus: "public",
+          // publishAt 指定時は private + 予約公開 (YouTube が時刻到来で自動 public 化)
+          privacyStatus: input.publishAt ? "private" : "public",
+          ...(input.publishAt ? { publishAt: input.publishAt } : {}),
           selfDeclaredMadeForKids: false,
         },
       },

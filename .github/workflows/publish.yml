@@ -59,6 +59,10 @@ on:
         description: "台本ソースをDriveでなくリポジトリ内ファイルから読む (独自トピック用。例 content/dw60-trending-2026-06-10.json)。空=Drive取得"
         required: false
         default: ""
+      publish_stagger_minutes:
+        description: "YouTube公開の時間差(分)。2本目以降を予約公開でずらす。空/0=同時公開"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -102,6 +106,8 @@ jobs:
       FORCE_REPUBLISH: ${{ github.event.inputs.force_republish || 'false' }}
       # 台本ソースをリポジトリ内ファイルから読む (独自トピック用)。空=Drive取得。schedule では常に空。
       SCRIPT_SOURCE_FILE: ${{ github.event.inputs.script_source_file }}
+      # YouTube 1本ずつ時間差公開 (2本目以降 private+publishAt 予約)。schedule は 120分間隔 = 1日9本が約2時間おき。
+      PUBLISH_STAGGER_MINUTES: ${{ github.event.inputs.publish_stagger_minutes || (github.event_name == 'schedule' && '120' || '0') }}
 
     steps:
       - name: Checkout
