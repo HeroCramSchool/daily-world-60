@@ -24,6 +24,10 @@ on:
         description: "日付上書き (YYYY-MM-DD UTC, 空=当日)"
         required: false
         default: ""
+      img_query_overrides:
+        description: "背景画像クエリ上書き JSON (例 {\"0\":\"Israel Iron Dome air defense\"})。空=従来どおり"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -43,6 +47,7 @@ jobs:
       YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
       YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
       EN_VOICE: en-US-AvaNeural
+      IMG_QUERY_OVERRIDES: ${{ github.event.inputs.img_query_overrides }}
 
     steps:
       - name: Checkout

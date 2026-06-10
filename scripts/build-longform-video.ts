@@ -42,6 +42,24 @@ async function main() {
 
   console.log(`[longform] "${lf.title}" — ${lf.sections.length} sections`);
 
+  // 背景画像クエリの手動上書き: IMG_QUERY_OVERRIDES='{"0":"Israel Iron Dome air defense"}'。
+  // 特定動画の不適切な背景を差し替える用 (Drive 台本を編集できない場合の救済)。空なら従来どおり。
+  try {
+    const ov = process.env.IMG_QUERY_OVERRIDES;
+    if (ov && ov.trim()) {
+      const map = JSON.parse(ov) as Record<string, string>;
+      for (const [k, v] of Object.entries(map)) {
+        const idx = Number(k);
+        if (Number.isInteger(idx) && lf.sections[idx] && typeof v === "string" && v.trim()) {
+          lf.sections[idx].imageQuery = v.trim();
+          console.log(`[longform] imageQuery override [${idx}] -> "${v.trim()}"`);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn(`[longform] IMG_QUERY_OVERRIDES parse failed (ignored): ${e instanceof Error ? e.message : e}`);
+  }
+
   const segs: { file: string; dur: number; label: string }[] = [];
 
   // Intro (greeting + framing + hook)
@@ -82,7 +100,7 @@ async function main() {
   const out = path.join(dir, "longform.mp4");
   const bgmFile = process.env.BGM_PATH ?? path.join("assets", "news-bed-longform.mp3");
   const hasBgm = await fs.access(bgmFile).then(() => true).catch(() => false);
-  const bgmVol = process.env.BGM_VOLUME ?? "0.08";
+  const bgmVol = process.env.BGM_VOLUME ?? "0.10";
   if (hasBgm) {
     const dur = await ffprobeDuration(master);
     await run("ffmpeg", [

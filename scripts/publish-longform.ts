@@ -51,7 +51,6 @@ async function main() {
     "A deeper look at one big story, every week. Subscribe for more.",
     "",
     "Educational summary · Fair use (US §107 / JP 著作権法32条). AI-assisted voice and video editing.",
-    'Music: "Lightless Dawn" by Kevin MacLeod (incompetech.com) — licensed under CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/',
   );
   const description = lines.join("\n");
 
