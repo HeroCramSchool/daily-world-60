@@ -148,13 +148,14 @@ export async function driveClient(): Promise<drive_v3.Drive> {
 // We support all three; downstream pipeline expects the Script object shape for stories rendering, and a flat thread array for X.
 type RawStory = {
   index?: number;
-  country?: string | { code?: string; flag?: string };
+  country?: string | { code?: string; flag?: string; name?: string };
   flag?: string;
   region?: string;
   headline?: string;
   summary?: string;
   sourceName?: string;
   sourceUrl?: string;
+  imageQueries?: string[];
 };
 
 function normalizeScript(
@@ -171,20 +172,23 @@ function normalizeScript(
   const normStories = stories.map((s, i) => {
     let countryCode = "";
     let countryFlag = "";
+    let countryName: string | undefined;
     if (typeof s.country === "string") {
       countryCode = s.country;
       countryFlag = s.flag ?? "";
     } else if (s.country && typeof s.country === "object") {
       countryCode = s.country.code ?? "";
       countryFlag = s.country.flag ?? s.flag ?? "";
+      countryName = s.country.name;
     }
     return {
       index: s.index ?? i + 1,
-      country: { code: countryCode, flag: countryFlag },
+      country: { code: countryCode, flag: countryFlag, ...(countryName ? { name: countryName } : {}) },
       headline: s.headline ?? "",
       summary: s.summary ?? "",
       sourceName: s.sourceName ?? "",
       sourceUrl: s.sourceUrl ?? "",
+      ...(Array.isArray(s.imageQueries) && s.imageQueries.length ? { imageQueries: s.imageQueries } : {}),
     };
   });
 

@@ -11,7 +11,8 @@
         "summary": "On June 5th, NASA's experimental X-59 flew faster than sound for the very first time, reaching Mach 1.1 high above California. The jet is built to turn the loud sonic boom into a soft thump. If it works, it could end a fifty-year ban and bring supersonic passenger flights back over land.",
         "sourceName": "NASA",
         "sourceUrl": "https://www.nasa.gov/aeronautics/x-59-first-supersonic-flight/",
-        "keyword": { "word": "supersonic", "definitionEn": "faster than the speed of sound" }
+        "keyword": { "word": "supersonic", "definitionEn": "faster than the speed of sound" },
+        "imageQueries": ["NASA X-59", "X-59 aircraft", "NASA X-59 QueSST", "supersonic jet aircraft"]
       },
       {
         "index": 2,
@@ -20,7 +21,8 @@
         "summary": "The 2026 World Cup opens on June 11th, when Mexico face South Africa at the famous Estadio Azteca. For the first time the tournament has 48 teams and is co-hosted by three countries, the United States, Canada, and Mexico. Tiny Curacao even became the smallest nation ever to qualify.",
         "sourceName": "Al Jazeera",
         "sourceUrl": "https://www.aljazeera.com/sports/2026/6/9/world-cup-opening-ceremony-whos-performing-when-it-starts-how-to-watch",
-        "keyword": { "word": "host", "definitionEn": "a country or city that holds and organizes an event" }
+        "keyword": { "word": "host", "definitionEn": "a country or city that holds and organizes an event" },
+        "imageQueries": ["Estadio Azteca stadium", "World Cup stadium", "FIFA World Cup trophy", "soccer stadium match"]
       },
       {
         "index": 3,
@@ -29,7 +31,8 @@
         "summary": "Barcelona's Sagrada Familia has finally finished its central tower, rising 172.5 meters to become the tallest church on Earth. Work began all the way back in 1882. A blessing is planned for June 10th, exactly one hundred years after the architect Antoni Gaudi died. Even so, the whole basilica will not be done until around 2034.",
         "sourceName": "Washington Post",
         "sourceUrl": "https://www.washingtonpost.com/world/interactive/2026/06/09/photos-how-sagrada-famiila-gaudis-iconic-church-barcelona-was-built/",
-        "keyword": { "word": "basilica", "definitionEn": "a large and important church" }
+        "keyword": { "word": "basilica", "definitionEn": "a large and important church" },
+        "imageQueries": ["Sagrada Familia", "Sagrada Familia Barcelona", "Sagrada Familia interior", "Antoni Gaudi Sagrada"]
       }
     ],
     "todaysWord": {

@@ -30,6 +30,7 @@ interface Story {
   summary: string;
   sourceName: string;
   sourceUrl: string;
+  imageQueries?: string[];
 }
 interface ScriptJson { date: string; stories: Story[] }
 
@@ -117,7 +118,9 @@ async function main() {
     const code = story.country.code.toLowerCase();
     const countryName = story.country.name ?? COUNTRY_NAMES[story.country.code.toUpperCase()] ?? story.country.code;
 
-    const queries = buildQueries(countryName, story.headline, story.summary);
+    const queries = (Array.isArray(story.imageQueries) && story.imageQueries.length)
+      ? [...story.imageQueries, countryName]
+      : buildQueries(countryName, story.headline, story.summary);
     console.log(`[broll] ${code} (${countryName}) queries: ${queries.join(" | ")}`);
 
     const results: CommonsImage[][] = [];
