@@ -225,12 +225,30 @@ function shortUrl(url: string, maxLen = 56): string {
 }
 
 /**
- * Single word (キーワード) を指定幅に収めるフォントサイズを返す。
- * Hiragino Sans 太字 letter-spacing -4 想定。文字幅は font-size の約 0.58 倍。
+ * 大文字テキストの推定幅 (em)。Hiragino Sans W9 想定の文字別幅。
+ * 一律係数だと "THE WORLD CUP" のようなワイド字 (W/O/C/U) 多めの語で
+ * 実幅を過小評価しフレーム外にはみ出すため、文字ごとに見積もる。
+ */
+function estimateUpperWidthEm(text: string): number {
+  let w = 0;
+  for (const ch of text) {
+    if (/[MWQ@]/.test(ch)) w += 0.95;
+    else if (/[ABCDGHKNOPRSUVXYZ0-9]/.test(ch)) w += 0.78;
+    else if (/[EFLT]/.test(ch)) w += 0.66;
+    else if (/[IJ]/.test(ch)) w += 0.42;
+    else if (ch === " ") w += 0.34;
+    else w += 0.7;
+  }
+  return w;
+}
+
+/**
+ * Single word (キーワード/国名) を指定幅に収めるフォントサイズを返す。
+ * 描画は toUpperCase されるため大文字幅で見積もる。
  */
 function fitKeywordFontSize(word: string, maxWidth = 900, ceilingFontSize = 220): number {
-  const widthPerChar = 0.58;
-  const ideal = Math.floor(maxWidth / Math.max(1, word.length) / widthPerChar);
+  const em = estimateUpperWidthEm(word.toUpperCase());
+  const ideal = Math.floor(maxWidth / Math.max(0.5, em));
   return Math.min(ceilingFontSize, ideal);
 }
 
