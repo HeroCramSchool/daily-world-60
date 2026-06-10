@@ -1,0 +1,80 @@
+{
+  "scriptEn": {
+    "date": "2026-06-10",
+    "language": "en",
+    "hook": "Three stories the whole world is talking about. Sixty seconds each.",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "US", "flag": "🇺🇸", "name": "the United States" },
+        "headline": "NASA's quiet supersonic jet, the X-59, just broke the sound barrier",
+        "summary": "On June 5th, NASA's experimental X-59 flew faster than sound for the very first time, reaching Mach 1.1 high above California. The jet is built to turn the loud sonic boom into a soft thump. If it works, it could end a fifty-year ban and bring supersonic passenger flights back over land.",
+        "sourceName": "NASA",
+        "sourceUrl": "https://www.nasa.gov/aeronautics/x-59-first-supersonic-flight/",
+        "keyword": { "word": "supersonic", "definitionEn": "faster than the speed of sound" }
+      },
+      {
+        "index": 2,
+        "country": { "code": "WC", "flag": "🌍", "name": "the World Cup" },
+        "headline": "The biggest World Cup ever kicks off, with 48 teams and three host nations",
+        "summary": "The 2026 World Cup opens on June 11th, when Mexico face South Africa at the famous Estadio Azteca. For the first time the tournament has 48 teams and is co-hosted by three countries, the United States, Canada, and Mexico. Tiny Curacao even became the smallest nation ever to qualify.",
+        "sourceName": "Al Jazeera",
+        "sourceUrl": "https://www.aljazeera.com/sports/2026/6/9/world-cup-opening-ceremony-whos-performing-when-it-starts-how-to-watch",
+        "keyword": { "word": "host", "definitionEn": "a country or city that holds and organizes an event" }
+      },
+      {
+        "index": 3,
+        "country": { "code": "ES", "flag": "🇪🇸", "name": "Spain" },
+        "headline": "After 144 years, Barcelona's Sagrada Familia becomes the world's tallest church",
+        "summary": "Barcelona's Sagrada Familia has finally finished its central tower, rising 172.5 meters to become the tallest church on Earth. Work began all the way back in 1882. A blessing is planned for June 10th, exactly one hundred years after the architect Antoni Gaudi died. Even so, the whole basilica will not be done until around 2034.",
+        "sourceName": "Washington Post",
+        "sourceUrl": "https://www.washingtonpost.com/world/interactive/2026/06/09/photos-how-sagrada-famiila-gaudis-iconic-church-barcelona-was-built/",
+        "keyword": { "word": "basilica", "definitionEn": "a large and important church" }
+      }
+    ],
+    "todaysWord": {
+      "word": "supersonic",
+      "definitionEn": "faster than the speed of sound",
+      "definitionJp": "超音速の（音速より速い）"
+    },
+    "close": "That's three big stories shaping the world right now. Follow for more.",
+    "estimatedSeconds": 60
+  },
+  "scriptJp": {
+    "date": "2026-06-10",
+    "language": "jp",
+    "hook": "今、世界が注目する3つの話題。",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "US", "flag": "🇺🇸", "name": "アメリカ" },
+        "headline": "NASAの静かな超音速機X-59、初めて音速を突破",
+        "summary": "6月5日、NASAの実験機X-59がカリフォルニア上空で初めて音速を超え、マッハ1.1を記録。ソニックブームを小さな音に変える設計で、陸上での超音速旅客便が50年ぶりに戻る可能性。",
+        "sourceName": "NASA",
+        "sourceUrl": "https://www.nasa.gov/aeronautics/x-59-first-supersonic-flight/"
+      },
+      {
+        "index": 2,
+        "country": { "code": "WC", "flag": "🌍", "name": "ワールドカップ" },
+        "headline": "史上最大のW杯が開幕、48カ国・3カ国共催",
+        "summary": "2026年W杯が6月11日開幕。開幕戦はメキシコ対南アフリカ、舞台は名門エスタディオ・アステカ。初の48カ国・米加墨の3カ国共催で、最小出場国キュラソーも話題に。",
+        "sourceName": "Al Jazeera",
+        "sourceUrl": "https://www.aljazeera.com/sports/2026/6/9/world-cup-opening-ceremony-whos-performing-when-it-starts-how-to-watch"
+      },
+      {
+        "index": 3,
+        "country": { "code": "ES", "flag": "🇪🇸", "name": "スペイン" },
+        "headline": "144年かけて、サグラダ・ファミリアが世界一高い教会に",
+        "summary": "バルセロナのサグラダ・ファミリアが中央塔を172.5mで完成させ、世界一高い教会に。着工は1882年。6月10日にガウディ没後100年の祝福が予定。全体の完成は2034年頃の見込み。",
+        "sourceName": "Washington Post",
+        "sourceUrl": "https://www.washingtonpost.com/world/interactive/2026/06/09/photos-how-sagrada-famiila-gaudis-iconic-church-barcelona-was-built/"
+      }
+    ],
+    "thread": [
+      "🌍 今、世界が注目する3つの話題 #DailyWorld60 #世界ニュース",
+      "①NASAのX-59が初の超音速飛行。静かな超音速時代へ。",
+      "②史上最大のW杯が開幕。48カ国・米加墨の3カ国共催。",
+      "③サグラダ・ファミリアが世界一高い教会に。144年の歩み。"
+    ]
+  }
+}

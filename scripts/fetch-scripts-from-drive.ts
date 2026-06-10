@@ -18,45 +18,58 @@ async function main() {
   const outDir = process.env.OUT_DIR ?? path.join("output", date);
   await fs.mkdir(outDir, { recursive: true });
 
-  const drive = await driveClient();
-  const folderId = process.env.DRIVE_FOLDER_ID ?? (await findFolderId(drive, FOLDER_NAME));
-  if (!folderId) throw new Error(`Drive folder "${FOLDER_NAME}" not found (set DRIVE_FOLDER_ID to override)`);
-
-  const candidateNames = [
-    `publish-results-${date}.json`,
-    `scripts-${date}.json`,
-  ];
-
-  // 同名ファイルが複数ある場合があるため、modifiedTime 降順で全部リストし、
-  // scriptEn を含む最初のものを採用する。
   let json: Record<string, unknown> | undefined;
   let fileId: string | undefined;
   let fileName: string | undefined;
-  outer: for (const name of candidateNames) {
-    const r = await drive.files.list({
-      q: `'${folderId}' in parents and name = '${name}' and trashed = false`,
-      fields: "files(id, name, modifiedTime)",
-      orderBy: "modifiedTime desc",
-      pageSize: 20,
-    });
-    for (const f of r.data.files ?? []) {
-      const res = await drive.files.get(
-        { fileId: f.id!, alt: "media" },
-        { responseType: "text" },
-      );
-      try {
-        const parsed = JSON.parse(res.data as unknown as string);
-        if (parsed && (parsed.scriptEn || parsed["script-en"] || parsed.script_en)) {
-          fileId = f.id!;
-          fileName = f.name!;
-          json = parsed;
-          console.log(`[drive] using ${fileName} (id=${fileId}, modified=${f.modifiedTime})`);
-          break outer;
-        } else {
-          console.log(`[drive] skipping ${f.name} (id=${f.id}) — no scriptEn`);
+
+  // ローカル上書き: SCRIPT_SOURCE_FILE が指定されたら Drive を読まず、そのファイル
+  // (publish-results 形式 = {scriptEn, scriptJp}) を台本ソースにする。
+  // 独自トピックのショートを流す用 (Drive に書けない環境向け)。空なら従来どおり Drive 取得。
+  const overrideFile = process.env.SCRIPT_SOURCE_FILE?.trim();
+  if (overrideFile) {
+    json = JSON.parse(await fs.readFile(overrideFile, "utf-8"));
+    fileName = overrideFile;
+    console.log(`[drive] using LOCAL override script source: ${overrideFile}`);
+  }
+
+  if (!json) {
+    const drive = await driveClient();
+    const folderId = process.env.DRIVE_FOLDER_ID ?? (await findFolderId(drive, FOLDER_NAME));
+    if (!folderId) throw new Error(`Drive folder "${FOLDER_NAME}" not found (set DRIVE_FOLDER_ID to override)`);
+
+    const candidateNames = [
+      `publish-results-${date}.json`,
+      `scripts-${date}.json`,
+    ];
+
+    // 同名ファイルが複数ある場合があるため、modifiedTime 降順で全部リストし、
+    // scriptEn を含む最初のものを採用する。
+    outer: for (const name of candidateNames) {
+      const r = await drive.files.list({
+        q: `'${folderId}' in parents and name = '${name}' and trashed = false`,
+        fields: "files(id, name, modifiedTime)",
+        orderBy: "modifiedTime desc",
+        pageSize: 20,
+      });
+      for (const f of r.data.files ?? []) {
+        const res = await drive.files.get(
+          { fileId: f.id!, alt: "media" },
+          { responseType: "text" },
+        );
+        try {
+          const parsed = JSON.parse(res.data as unknown as string);
+          if (parsed && (parsed.scriptEn || parsed["script-en"] || parsed.script_en)) {
+            fileId = f.id!;
+            fileName = f.name!;
+            json = parsed;
+            console.log(`[drive] using ${fileName} (id=${fileId}, modified=${f.modifiedTime})`);
+            break outer;
+          } else {
+            console.log(`[drive] skipping ${f.name} (id=${f.id}) — no scriptEn`);
+          }
+        } catch {
+          console.log(`[drive] skipping ${f.name} (id=${f.id}) — invalid JSON`);
         }
-      } catch {
-        console.log(`[drive] skipping ${f.name} (id=${f.id}) — invalid JSON`);
       }
     }
   }
