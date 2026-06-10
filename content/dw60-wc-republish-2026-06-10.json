@@ -1,0 +1,43 @@
+{
+  "scriptEn": {
+    "date": "2026-06-10",
+    "language": "en",
+    "hook": "The biggest World Cup ever is here.",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "WC", "flag": "🌍", "name": "the World Cup" },
+        "headline": "The biggest World Cup ever kicks off, with 48 teams and three host nations",
+        "summary": "The 2026 World Cup opens on June 11th, when Mexico face South Africa at the famous Estadio Azteca. For the first time the tournament has 48 teams and is co-hosted by three countries, the United States, Canada, and Mexico. Tiny Curacao even became the smallest nation ever to qualify.",
+        "sourceName": "Al Jazeera",
+        "sourceUrl": "https://www.aljazeera.com/sports/2026/6/9/world-cup-opening-ceremony-whos-performing-when-it-starts-how-to-watch",
+        "keyword": { "word": "host", "definitionEn": "a country or city that holds and organizes an event" },
+        "imageQueries": ["Estadio Azteca stadium", "World Cup stadium", "FIFA World Cup trophy", "soccer stadium match"]
+      }
+    ],
+    "todaysWord": {
+      "word": "host",
+      "definitionEn": "a country or city that holds and organizes an event",
+      "definitionJp": "開催国・主催地"
+    },
+    "close": "That's the story shaping the world right now. Follow for more.",
+    "estimatedSeconds": 60
+  },
+  "scriptJp": {
+    "date": "2026-06-10",
+    "language": "jp",
+    "hook": "",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "WC", "flag": "🌍", "name": "ワールドカップ" },
+        "headline": "史上最大のW杯が開幕、48カ国・3カ国共催",
+        "summary": "2026年W杯が6月11日開幕。開幕戦はメキシコ対南アフリカ、舞台は名門エスタディオ・アステカ。初の48カ国・米加墨の3カ国共催で、最小出場国キュラソーも話題に。",
+        "sourceName": "Al Jazeera",
+        "sourceUrl": "https://www.aljazeera.com/sports/2026/6/9/world-cup-opening-ceremony-whos-performing-when-it-starts-how-to-watch"
+      }
+    ],
+    "todaysWord": { "word": "host", "definitionEn": "a country or city that holds and organizes an event", "definitionJp": "開催国・主催地" },
+    "close": ""
+  }
+}
