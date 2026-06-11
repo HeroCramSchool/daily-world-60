@@ -29,6 +29,9 @@ interface Story {
   sourceName: string;
   sourceUrl: string;
   keyword?: { word: string; definitionEn: string };
+  hookText?: string;
+  hookPattern?: string;
+  commentQuestion?: string;
 }
 interface ScriptEn { date: string; stories: Story[]; }
 interface JpThreadTweet { tweetIndex?: number; text: string; }
@@ -189,6 +192,9 @@ async function main() {
       story: story.index,
       country: countryName,
       headline: story.headline,
+      // フック文型の成績集計用 (週次で Stayed to watch と突き合わせる)
+      ...(story.hookPattern ? { hookPattern: story.hookPattern } : {}),
+      ...(story.hookText ? { hookText: story.hookText } : {}),
       youtube: ytRes,
       instagram: igRes,
       tiktok: ttRes,
@@ -246,8 +252,13 @@ function buildYoutubeDescription(story: Story, date: string): string {
     `${date} · Daily World 60`,
     "Subscribe for daily 60-second world news from around the world.",
     "",
+    // ストーリー固有の意見質問 (コメント誘発、汎用ベイトは使わない)
+    ...(story.commentQuestion ? [`💬 ${story.commentQuestion}`, ""] : []),
+    // 宛先指定シェア CTA (ダークソーシャル/DM転送向け)
+    "📩 Send this to a friend who's learning English.",
+    "",
     "Educational summary · Fair use (US §107 / JP 著作権法32条)",
-    "AI-assisted voice and video editing.",
+    "AI-assisted voice and video editing. Images: Wikimedia Commons / agency file photos.",
     "",
     `#WorldNews #DailyNews #60Seconds #Shorts #${story.country.code} #${story.sourceName.replace(/\s+/g, "")}`,
   );

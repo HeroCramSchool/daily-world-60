@@ -156,6 +156,10 @@ type RawStory = {
   sourceName?: string;
   sourceUrl?: string;
   imageQueries?: string[];
+  keyword?: { word?: string; definitionEn?: string };
+  hookText?: string;
+  hookPattern?: string;
+  commentQuestion?: string;
 };
 
 function normalizeScript(
@@ -169,6 +173,7 @@ function normalizeScript(
   }
 
   const stories = Array.isArray(raw.stories) ? (raw.stories as RawStory[]) : [];
+  const sharedWord = raw.todaysWord as { word?: string; definitionEn?: string } | undefined;
   const normStories = stories.map((s, i) => {
     let countryCode = "";
     let countryFlag = "";
@@ -181,6 +186,13 @@ function normalizeScript(
       countryFlag = s.country.flag ?? s.flag ?? "";
       countryName = s.country.name;
     }
+    // keyword: story 固有 → 無ければ script 共通の todaysWord にフォールバック
+    // (ESL キーワード解説 = inauthentic 対策の明文の教育価値。落とさない)
+    const kw = (s.keyword?.word && s.keyword?.definitionEn)
+      ? { word: s.keyword.word, definitionEn: s.keyword.definitionEn }
+      : (sharedWord?.word && sharedWord?.definitionEn)
+        ? { word: sharedWord.word, definitionEn: sharedWord.definitionEn }
+        : undefined;
     return {
       index: s.index ?? i + 1,
       country: { code: countryCode, flag: countryFlag, ...(countryName ? { name: countryName } : {}) },
@@ -188,7 +200,11 @@ function normalizeScript(
       summary: s.summary ?? "",
       sourceName: s.sourceName ?? "",
       sourceUrl: s.sourceUrl ?? "",
+      ...(kw ? { keyword: kw } : {}),
       ...(Array.isArray(s.imageQueries) && s.imageQueries.length ? { imageQueries: s.imageQueries } : {}),
+      ...(s.hookText ? { hookText: s.hookText } : {}),
+      ...(s.hookPattern ? { hookPattern: s.hookPattern } : {}),
+      ...(s.commentQuestion ? { commentQuestion: s.commentQuestion } : {}),
     };
   });
 

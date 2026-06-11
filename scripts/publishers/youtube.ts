@@ -50,6 +50,8 @@ export async function publishYoutube(
           tags: input.tags.slice(0, 15),
           categoryId: "25", // News & Politics
           defaultLanguage: "en",
+          // auto-dubbing / 自動翻訳字幕の前提となる音声言語の明示
+          defaultAudioLanguage: "en",
         },
         status: {
           // publishAt 指定時は private + 予約公開 (YouTube が時刻到来で自動 public 化)

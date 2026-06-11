@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 import sharp from "sharp";
+import { fitSingleLine, fitTextBox } from "./lib/textfit.js";
 
 /**
  * Weekly long-form deep-dive renderer (horizontal 1920x1080, 8-12 min).
@@ -187,16 +188,8 @@ function escape(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/** 文字列を最大幅で折り返し、tspan 行配列を返す。 */
-function wrapTspans(text: string, charsPerLine: number, x: number, dy: number): string {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let cur = "";
-  for (const w of words) {
-    if ((cur + " " + w).trim().length > charsPerLine) { if (cur) lines.push(cur); cur = w; }
-    else cur = (cur + " " + w).trim();
-  }
-  if (cur) lines.push(cur);
+/** fitTextBox の行配列を tspan 群にする (折り返しは実測幅で済んでいる)。 */
+function tspanLines(lines: string[], x: number, dy: number): string {
   return lines.map((ln, i) =>
     `<tspan x="${x}" dy="${i === 0 ? 0 : dy}">${escape(ln)}</tspan>`).join("");
 }
@@ -206,15 +199,18 @@ const BG = `<rect width="${W}" height="${H}" fill="#0B1220"/>
   <rect y="${H - 8}" width="${W}" height="8" fill="#F5E63B"/>`;
 
 function titleSceneSvg(lf: Longform, cue: string): string {
+  // タイトル・cue とも実測幅で 1700px 箱にフィット (はみ出し防止)
+  const tFit = fitTextBox(lf.title, 1700, 460, [88, 80, 72, 64, 56, 48, 42]);
+  const cFit = fitTextBox(cue, 1700, 280, [44, 40, 36, 32, 28, 24]);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   ${BG}
   <text x="${W / 2}" y="150" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
         font-size="34" fill="#F5E63B" letter-spacing="6">DAILY WORLD 60 · DEEP DIVE</text>
   <text x="${W / 2}" y="430" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="76" fill="#FFFFFF">${wrapTspans(lf.title, 36, W / 2, 92)}</text>
+        font-size="${tFit.fontSize}" fill="#FFFFFF">${tspanLines(tFit.lines, W / 2, tFit.lineHeight)}</text>
   <text x="${W / 2}" y="930" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
-        font-size="40" fill="#9FB3D8">${wrapTspans(cue, 70, W / 2, 52)}</text>
+        font-size="${cFit.fontSize}" fill="#9FB3D8">${tspanLines(cFit.lines, W / 2, cFit.lineHeight)}</text>
 </svg>`;
 }
 
@@ -224,6 +220,10 @@ function sectionSceneSvg(heading: string, num: number, total: number, cue: strin
   <rect width="${W}" height="${H}" fill="#0B1220" opacity="0.62"/>
   <rect width="${W}" height="8" fill="#F5E63B"/><rect y="${H - 8}" width="${W}" height="8" fill="#F5E63B"/>`
     : BG;
+  const hFs = fitSingleLine(heading, W - 200 - 240, 50);
+  const cFit = fitTextBox(cue, 1700, 520, [62, 56, 50, 44, 38, 32, 28]);
+  const srcLine = source ? `SOURCE: ${source}` : "";
+  const srcFs = srcLine ? fitSingleLine(srcLine, W - 180, 28) : 0;
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   ${bg}
@@ -231,18 +231,21 @@ function sectionSceneSvg(heading: string, num: number, total: number, cue: strin
   <text x="132" y="150" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
         font-size="46" fill="#0B1220">${num}</text>
   <text x="200" y="150" font-family="Hiragino Sans" font-weight="900"
-        font-size="50" fill="#FFFFFF">${escape(heading)}</text>
+        font-size="${hFs}" fill="#FFFFFF">${escape(heading)}</text>
   <text x="${W - 90}" y="150" text-anchor="end" font-family="Hiragino Sans" font-weight="600"
         font-size="30" fill="#5C6B8A">${num} / ${total}</text>
   <text x="${W / 2}" y="600" text-anchor="middle" font-family="Hiragino Sans" font-weight="700"
-        font-size="58" fill="#FFFFFF">${wrapTspans(cue, 52, W / 2, 76)}</text>
-  ${source ? `<text x="90" y="${H - 60}" font-family="Hiragino Sans" font-weight="600"
-        font-size="28" fill="#5C6B8A">SOURCE: ${escape(source)}</text>` : ""}
+        font-size="${cFit.fontSize}" fill="#FFFFFF">${tspanLines(cFit.lines, W / 2, cFit.lineHeight)}</text>
+  ${srcLine ? `<text x="90" y="${H - 60}" font-family="Hiragino Sans" font-weight="600"
+        font-size="${srcFs}" fill="#5C6B8A">${escape(srcLine)}</text>` : ""}
 </svg>`;
 }
 
 function outroSceneSvg(lf: Longform, cue: string): string {
   const w = lf.todaysWord;
+  const wordLine = w ? `Word: ${w.word}` : "";
+  const wFs = wordLine ? fitSingleLine(wordLine, 1700, 56) : 0;
+  const cFit = fitTextBox(cue, 1700, 320, [40, 36, 32, 28, 24]);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   ${BG}
@@ -250,10 +253,10 @@ function outroSceneSvg(lf: Longform, cue: string): string {
         font-size="120" fill="#F5E63B" letter-spacing="4">SUBSCRIBE</text>
   <text x="${W / 2}" y="320" text-anchor="middle" font-family="Hiragino Sans" font-weight="700"
         font-size="38" fill="#FFFFFF">A deep dive into one big story, every week.</text>
-  ${w ? `<text x="${W / 2}" y="520" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="56" fill="#9FB3D8">Word: ${escape(w.word)}</text>` : ""}
+  ${wordLine ? `<text x="${W / 2}" y="520" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="${wFs}" fill="#9FB3D8">${escape(wordLine)}</text>` : ""}
   <text x="${W / 2}" y="760" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
-        font-size="38" fill="#9FB3D8">${wrapTspans(cue, 72, W / 2, 50)}</text>
+        font-size="${cFit.fontSize}" fill="#9FB3D8">${tspanLines(cFit.lines, W / 2, cFit.lineHeight)}</text>
   <text x="${W / 2}" y="${H - 70}" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
         font-size="32" fill="#F5E63B" letter-spacing="4">@60dailyworld</text>
 </svg>`;

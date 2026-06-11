@@ -51,27 +51,24 @@ export const Script = {
   ): string {
     const countryName = s.country.name ?? Country.nameOf(s.country.code);
     const kw = s.keyword;
+    // Cold open: 挨拶・前置きなし。第一声 = headline (事実)。
+    // "Here's what's happening." は hook→body のシーン境界マーカーを兼ねる。
     const lines = [
-      `Hi, and welcome to Daily World 60.`,
-      `Here's today's news from ${countryName}.`,
       `${s.headline}.`,
       `Here's what's happening.`,
       s.summary,
     ];
     if (kw) {
       const cap = kw.word.charAt(0).toUpperCase() + kw.word.slice(1);
+      // ESL 価値 (キーワード解説) は残して短縮。"Quick English check" は word シーン境界マーカー。
       lines.push(
-        `Now, let's pick up one English keyword from today's news.`,
-        `The keyword is ${kw.word}.`,
+        `Quick English check. The keyword is ${kw.word}.`,
         `${cap} means ${kw.definitionEn}.`,
-        `You'll hear this word often in world news, so try using it in your own English.`,
       );
     }
-    // Outro は ~5秒に収める (字幕の subscribe シーンと尺を合わせる)。
-    lines.push(
-      `Thanks for watching, and please subscribe.`,
-      `See you in the next video.`,
-    );
+    // ループ接続の締め。登録CTAは音声から削除 (説明欄へ移設)。
+    // "that's the latest" は outro シーン境界マーカーを兼ねる。
+    lines.push(`And that's the latest from ${countryName}.`);
     return lines.join(" ");
   },
 

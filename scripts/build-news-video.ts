@@ -1,6 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
+import { fitSingleLine, fitTextBox, textWidthEm } from "./lib/textfit.js";
 
 /**
  * 1 ストーリー単独動画を構築する (v8: 尺=音声長に動的化, 字幕同期 + 国旗なし body)。
@@ -35,7 +36,11 @@ interface Story {
   headline: string;
   summary: string;
   sourceName: string;
+  sourceUrl: string;
   keyword?: Keyword;
+  /** 3-6語の画面用フック (数字入り推奨)。無ければ headline で代用。 */
+  hookText?: string;
+  hookPattern?: string;
 }
 interface ScriptJson {
   date: string;
@@ -65,31 +70,29 @@ async function buildOne(dir: string, story: Story) {
   // 動画尺は音声長に合わせる (60秒固定をやめる)。本文が長い回でも末尾が切れない。
   const total = audioDuration + 0.4;
 
-  // Key cue indices
-  const countryCueIdx = cues.findIndex(c => /comes from|news from/i.test(c.text));
-  const wordCueIdx = cues.findIndex(c => /english keyword|english word|keyword from today's news|word of the day/i.test(c.text));
-  // outro の先頭 ("thanks for watching") から subscribe シーンにして、音声 outro 全体と尺を一致させる。
-  const subscribeCueIdx = cues.findIndex(c => /thanks for watching|subscribe/i.test(c.text));
+  // Key cue indices (新ナレーション: cold open → "Here's what's happening." → summary
+  //   → "Quick English check..." → "And that's the latest from X.")
+  // 旧ナレーションの表現もフォールバックで検出する。
+  const countryCueIdx = cues.findIndex(c => /here's what's happening|comes from|news from/i.test(c.text));
+  const wordCueIdx = cues.findIndex(c => /quick english check|english keyword|english word|keyword from today's news|word of the day/i.test(c.text));
+  const outroCueIdx = cues.findIndex(c => /that's the latest|thanks for watching|subscribe/i.test(c.text));
 
   const tHookEnd = countryCueIdx >= 0 ? cues[countryCueIdx].end : 4;
-  const tWordStart = wordCueIdx >= 0 ? cues[wordCueIdx].start : Math.max(audioDuration - 12, 30);
-  const tSubscribeStart = subscribeCueIdx >= 0 ? cues[subscribeCueIdx].start : Math.min(tWordStart + 10, audioDuration - 4);
 
   // ─── Caption scenes (body) ───
-  // 各 cue (after country, before word) を 1 scene にする
   const bodyStartIdx = countryCueIdx + 1;
-  // キーワード区間が無い回 (wordCueIdx<0) は subscribe 直前までを body にする。
-  // wordCueIdx をそのまま渡すと slice(_, -1) になり outro まで body に飲み込み、
-  // subscribe シーンが極小になってしまう (音声と画像がズレる原因)。
   const bodyEndIdx = wordCueIdx >= 0 ? wordCueIdx
-    : subscribeCueIdx >= 0 ? subscribeCueIdx
+    : outroCueIdx >= 0 ? outroCueIdx
     : cues.length;
   const bodyCues = cues.slice(bodyStartIdx, bodyEndIdx);
 
   // ─── Word scenes ───
-  const wordCues = wordCueIdx >= 0 && subscribeCueIdx >= 0
-    ? cues.slice(wordCueIdx, subscribeCueIdx)
+  const wordCues = wordCueIdx >= 0
+    ? cues.slice(wordCueIdx, outroCueIdx >= 0 ? outroCueIdx : cues.length)
     : [];
+
+  // ─── Outro cues: bg-1 (フックと同じ画像) に戻る = ループ接続。エンドカードは置かない ───
+  const outroCues = outroCueIdx >= 0 ? cues.slice(outroCueIdx) : [];
 
   // ─── Scene list ───
   type Scene = { id: string; dur: number; svg: string };
@@ -102,16 +105,14 @@ async function buildOne(dir: string, story: Story) {
     svg: hookSvg(story),
   });
 
-  // Body cues: 各 cue を 1 scene 化
+  // Body cues: 各 cue を 1 scene 化 (bg-2..6 cycle、caption 位置は交互に変化)
   bodyCues.forEach((cue, i) => {
     const dur = cue.end - cue.start;
-    // Hook は bg-1。body は bg-2..6 を cycle (5 種類)。
-    // body cue が 5 個以下なら全 unique、6 個以降は bg-2 から再 cycle。
     const bgN = (i % 5) + 2;
     scenes.push({
       id: `02-cap${(i + 1).toString().padStart(2, "0")}`,
       dur,
-      svg: captionSvg(story, cue.text, bgN),
+      svg: captionSvg(story, cue.text, bgN, i),
     });
   });
 
@@ -125,17 +126,23 @@ async function buildOne(dir: string, story: Story) {
     });
   });
 
-  // Subscribe: 残り全部
-  const usedSoFar = scenes.reduce((acc, s) => acc + s.dur, 0);
-  const subscribeDur = Math.max(2, total - usedSoFar);
-  scenes.push({
-    id: "04-subscribe",
-    dur: subscribeDur,
-    svg: subscribeSvg(story),
+  // Outro: ループ用に bg-1 へ戻す caption scene
+  outroCues.forEach((cue, i) => {
+    const dur = cue.end - cue.start;
+    scenes.push({
+      id: `04-outro${(i + 1).toString().padStart(2, "0")}`,
+      dur,
+      svg: captionSvg(story, cue.text, 1, i),
+    });
   });
 
-  console.log(`[news] ${code} (story ${story.index}): audio=${audioDuration.toFixed(1)}s, total=${total.toFixed(1)}s, subscribe=${subscribeDur.toFixed(1)}s, scenes=${scenes.length}`);
-  console.log(`[news]   hook end=${tHookEnd.toFixed(2)} word start=${tWordStart.toFixed(2)} subscribe=${tSubscribeStart.toFixed(2)}`);
+  // 端数 (audio + 0.4s pad) は最終シーンに吸収させる
+  const usedSoFar = scenes.reduce((acc, s) => acc + s.dur, 0);
+  const pad = total - usedSoFar;
+  if (pad > 0.05 && scenes.length > 0) scenes[scenes.length - 1].dur += pad;
+
+  console.log(`[news] ${code} (story ${story.index}): audio=${audioDuration.toFixed(1)}s, total=${total.toFixed(1)}s, scenes=${scenes.length} (body=${bodyCues.length}, word=${wordCues.length}, outro=${outroCues.length})`);
+  console.log(`[news]   hook end=${tHookEnd.toFixed(2)} outro start=${outroCueIdx >= 0 ? cues[outroCueIdx].start.toFixed(2) : "n/a"}`);
 
   // ─── Render scenes ───
   const segments: string[] = [];
@@ -225,96 +232,40 @@ function shortUrl(url: string, maxLen = 56): string {
 }
 
 /**
- * 大文字テキストの推定幅 (em)。Hiragino Sans W9 想定の文字別幅。
- * 一律係数だと "THE WORLD CUP" のようなワイド字 (W/O/C/U) 多めの語で
- * 実幅を過小評価しフレーム外にはみ出すため、文字ごとに見積もる。
- */
-function estimateUpperWidthEm(text: string): number {
-  let w = 0;
-  for (const ch of text) {
-    if (/[MWQ@]/.test(ch)) w += 0.95;
-    else if (/[ABCDGHKNOPRSUVXYZ0-9]/.test(ch)) w += 0.78;
-    else if (/[EFLT]/.test(ch)) w += 0.66;
-    else if (/[IJ]/.test(ch)) w += 0.42;
-    else if (ch === " ") w += 0.34;
-    else w += 0.7;
-  }
-  return w;
-}
-
-/**
- * Single word (キーワード/国名) を指定幅に収めるフォントサイズを返す。
- * 描画は toUpperCase されるため大文字幅で見積もる。
+ * テキストフィットは lib/textfit.ts の実測幅エンジンに委譲する。
+ * (一律係数による過小評価ではみ出した事故の再発防止。全テキスト要素で使用。)
  */
 function fitKeywordFontSize(word: string, maxWidth = 900, ceilingFontSize = 220): number {
-  const em = estimateUpperWidthEm(word.toUpperCase());
-  const ideal = Math.floor(maxWidth / Math.max(0.5, em));
-  return Math.min(ceilingFontSize, ideal);
+  return fitSingleLine(word.toUpperCase(), maxWidth, ceilingFontSize);
 }
 
-/**
- * 与えられた文字列を box (W×H) に「一字一句残して」収めるフォントサイズと折り返し行を返す。
- * 大きい font から小さい font に降りていき、最初に box 内に収まるものを採用。
- */
 function fitCaption(
   text: string,
   boxW: number,
   boxH: number,
-  candidates = [64, 58, 52, 48, 44, 40, 36, 32, 28],
+  candidates = [64, 58, 52, 48, 44, 40, 36, 32, 28, 24],
 ): { fontSize: number; lines: string[]; lineHeight: number } {
-  const widthPerChar = 0.62; // Hiragino Sans 太字 letter-spacing -1 想定、安全マージン込み
-  const lineGapRatio = 1.32;
-  for (const fs of candidates) {
-    const charsPerLine = Math.max(8, Math.floor(boxW / (fs * widthPerChar)));
-    const lines = wrapAll(text, charsPerLine);
-    const lineHeight = Math.round(fs * lineGapRatio);
-    if (lines.length * lineHeight <= boxH) {
-      return { fontSize: fs, lines, lineHeight };
-    }
-  }
-  const fs = candidates[candidates.length - 1];
-  const charsPerLine = Math.max(8, Math.floor(boxW / (fs * widthPerChar)));
-  const lines = wrapAll(text, charsPerLine);
-  return { fontSize: fs, lines, lineHeight: Math.round(fs * lineGapRatio) };
-}
-
-/** 折り返し: 行数の上限なし、一字一句残す。単語長が charsPerLine を超える場合は強制改行。 */
-function wrapAll(text: string, charsPerLine: number): string[] {
-  const lines: string[] = [];
-  const words = text.split(/\s+/).filter(Boolean);
-  let cur = "";
-  for (const w of words) {
-    if (w.length > charsPerLine) {
-      if (cur) { lines.push(cur); cur = ""; }
-      for (let i = 0; i < w.length; i += charsPerLine) {
-        lines.push(w.slice(i, i + charsPerLine));
-      }
-      continue;
-    }
-    if ((cur + " " + w).trim().length > charsPerLine) {
-      if (cur) lines.push(cur);
-      cur = w;
-    } else {
-      cur = (cur + " " + w).trim();
-    }
-  }
-  if (cur) lines.push(cur);
-  return lines;
+  return fitTextBox(text, boxW, boxH, candidates);
 }
 
 /**
- * Source attribution footer (Y 1820-1910). Shown on hook + caption + word scenes.
- * Designed not to overlap with any other text element.
+ * Source attribution footer (Y 1820-1910). Shown on every scene.
+ * 右側に AI 音声・file photo の常時開示 (inauthentic 対策)。
+ * source 行は実測幅で 760px に収まるフォントサイズに自動縮小。
  */
 function sourceFooter(story: Story): string {
+  const srcLine = `${story.sourceName} · ${shortUrl(story.sourceUrl)}`;
+  const srcFs = fitSingleLine(srcLine, 760, 22);
   return `
   <!-- Source attribution footer -->
   <rect x="0" y="1820" width="${W}" height="100" fill="#0A0A0A" fill-opacity="0.92"/>
   <rect x="0" y="1820" width="${W}" height="3" fill="#F5E63B"/>
   <text x="60" y="1862" font-family="Hiragino Sans" font-weight="900"
         font-size="24" fill="#F5E63B" letter-spacing="4">SOURCE</text>
+  <text x="${W - 60}" y="1862" text-anchor="end" font-family="Hiragino Sans" font-weight="600"
+        font-size="20" fill="#9CA3AF" letter-spacing="1">AI VOICE · FILE PHOTOS</text>
   <text x="60" y="1900" font-family="Hiragino Sans" font-weight="600"
-        font-size="22" fill="#FFFFFF" letter-spacing="0">${escape(story.sourceName)} · ${escape(shortUrl(story.sourceUrl))}</text>`;
+        font-size="${srcFs}" fill="#FFFFFF" letter-spacing="0">${escape(srcLine)}</text>`;
 }
 function wrap(text: string, maxChars: number, maxLines = 5): string[] {
   const words = text.split(/\s+/);
@@ -333,50 +284,62 @@ function wrap(text: string, maxChars: number, maxLines = 5): string[] {
   return lines.slice(0, maxLines);
 }
 
-/** Hook: 背景画像 + 国旗 + 国名 + headline (only here flag shows large). */
+/**
+ * Hook (1フレーム目=サムネイル設計):
+ *   - 劇的写真をほぼ素のまま主役に (暗幕は下部のみ)
+ *   - 特大フックテキスト (hookText 3-6語、無ければ headline)
+ *   - 国旗+国名は左上の小チップに格下げ
+ */
 function hookSvg(story: Story): string {
   const code = story.country.code.toLowerCase();
   const countryName = story.country.name ?? story.country.code;
-  const cnFontSize = fitKeywordFontSize(countryName, 900, 130);
-  const hlBoxW = 960, hlBoxH = 560, hlBoxY = 1230;
-  const hlFit = fitCaption(story.headline, hlBoxW, hlBoxH,
-                           [56, 50, 46, 42, 38, 34, 30, 26]);
-  const hlTotalH = hlFit.lines.length * hlFit.lineHeight;
-  const hlStartY = hlBoxY + (hlBoxH - hlTotalH) / 2 + hlFit.fontSize;
-  let headlineSvg = "";
-  hlFit.lines.forEach((line, i) => {
-    headlineSvg += `\n  <text x="60" y="${hlStartY + i * hlFit.lineHeight}" font-family="Hiragino Sans" font-weight="900"
-        font-size="${hlFit.fontSize}" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
+  const cnText = countryName.toUpperCase();
+  const cnFs = fitSingleLine(cnText, 560, 40);
+
+  // 特大フック: hookText 優先 (大文字化)。fallback は headline (文そのまま)。
+  const hookRaw = story.hookText?.trim() || story.headline;
+  const isShortHook = Boolean(story.hookText?.trim());
+  const hookShown = isShortHook ? hookRaw.toUpperCase() : hookRaw;
+  const boxY = 980, boxH = 660;
+  const hFit = fitTextBox(hookShown, 960, boxH,
+    isShortHook ? [120, 110, 100, 92, 84, 76, 68, 60, 52] : [76, 68, 62, 56, 50, 46, 42, 38, 34]);
+  const totalH = hFit.lines.length * hFit.lineHeight;
+  const startY = boxY + (boxH - totalH) + hFit.fontSize - Math.round(hFit.fontSize * 0.2);
+  let hookSvgText = "";
+  hFit.lines.forEach((line, i) => {
+    hookSvgText += `\n  <text x="60" y="${startY + i * hFit.lineHeight}" font-family="Hiragino Sans" font-weight="900"
+        font-size="${hFit.fontSize}" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
   });
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   <defs>
     <linearGradient id="hookDarken" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%"  stop-color="#0A0A0A" stop-opacity="0.65"/>
-      <stop offset="40%" stop-color="#0A0A0A" stop-opacity="0.55"/>
-      <stop offset="100%" stop-color="#0A0A0A" stop-opacity="0.92"/>
+      <stop offset="0%"  stop-color="#0A0A0A" stop-opacity="0.35"/>
+      <stop offset="45%" stop-color="#0A0A0A" stop-opacity="0.12"/>
+      <stop offset="62%" stop-color="#0A0A0A" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#0A0A0A" stop-opacity="0.94"/>
     </linearGradient>
   </defs>
-  <!-- Background photo for Hook scene -->
+  <!-- Dramatic photo is the hero -->
   <image href="_assets/bg-${code}-1.jpg" x="0" y="0" width="${W}" height="${H}"
          preserveAspectRatio="xMidYMid slice"/>
   <rect width="${W}" height="${H}" fill="url(#hookDarken)"/>
 
   <rect x="0" y="0" width="${W}" height="60" fill="#F5E63B"/>
-  <text x="60" y="200" font-family="Hiragino Sans" font-weight="900"
-        font-size="60" fill="#F5E63B" letter-spacing="8">TODAY'S NEWS</text>
-  <image href="_assets/${code}.png" x="60" y="280" width="480" height="320"
+
+  <!-- Country chip (small): flag + name (実測幅でチップサイズを決定) -->
+  <rect x="60" y="110" width="${Math.min(960, Math.ceil(148 + textWidthEm(cnText) * cnFs + cnText.length * 1 + 28))}" height="96" rx="14" fill="#0A0A0A" fill-opacity="0.78"/>
+  <image href="_assets/${code}.png" x="84" y="128" width="96" height="60"
          preserveAspectRatio="xMidYMid meet"/>
-  <text x="60" y="780" font-family="Hiragino Sans" font-weight="900"
-        font-size="${cnFontSize}" fill="#FFFFFF" letter-spacing="-2">${escape(countryName.toUpperCase())}</text>
-  <rect x="60" y="820" width="280" height="10" fill="#F5E63B"/>
-  <text x="60" y="950" font-family="Hiragino Sans" font-weight="900"
-        font-size="44" fill="#F5E63B" letter-spacing="6">DAILY WORLD 60</text>
-  <text x="60" y="1000" font-family="Hiragino Sans" font-weight="600"
-        font-size="28" fill="#9CA3AF" letter-spacing="3">@60dailyworld</text>
-  <text x="60" y="1180" font-family="Hiragino Sans" font-weight="600"
-        font-size="36" fill="#E5E7EB" letter-spacing="6">HEADLINE</text>
-  ${headlineSvg}
+  <text x="208" y="172" font-family="Hiragino Sans" font-weight="900"
+        font-size="${cnFs}" fill="#FFFFFF" letter-spacing="1">${escape(cnText)}</text>
+
+  <!-- Brand (small, top right) -->
+  <text x="${W - 60}" y="172" text-anchor="end" font-family="Hiragino Sans" font-weight="900"
+        font-size="28" fill="#F5E63B" letter-spacing="3">DAILY WORLD 60</text>
+
+  ${hookSvgText}
   ${sourceFooter(story)}
 </svg>`;
 }
@@ -387,22 +350,26 @@ function hookSvg(story: Story): string {
  *   - top: country chip + headline (compact, 国旗なし)
  *   - bottom: caption text (current cue text)
  */
-function captionSvg(story: Story, captionText: string, bgN: number): string {
+function captionSvg(story: Story, captionText: string, bgN: number, sceneIdx = 0): string {
   const code = story.country.code.toLowerCase();
   const countryName = story.country.name ?? story.country.code;
+  const cnText = countryName.toUpperCase();
+  // 国名行: letter-spacing 6 の分を概算で引いた幅に実測フィット
+  const cnFs = fitSingleLine(cnText, 960 - cnText.length * 6, 40);
   // Top headline area: Y 200-460 (260px height、上にコンパクトに) x=60 w=960
   const hlBoxW = 960, hlBoxH = 260, hlBoxY = 200;
   const hlFit = fitCaption(story.headline, hlBoxW, hlBoxH,
-                           [52, 46, 42, 38, 34, 30, 28]);
+                           [52, 46, 42, 38, 34, 30, 28, 24]);
   const hlStartY = hlBoxY + hlFit.fontSize + 8;
   let headlineSvg = "";
   hlFit.lines.forEach((line, i) => {
     headlineSvg += `\n  <text x="60" y="${hlStartY + i * hlFit.lineHeight}" font-family="Hiragino Sans" font-weight="900"
         font-size="${hlFit.fontSize}" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
   });
-  // Caption text: large, bottom-half, white with strong outline-feel via box bg
-  // Caption box: Y 1260-1780 (1000x520)。一字一句残し、収まる font-size を動的決定。
-  const boxX = 40, boxY = 1260, boxW = 1000, boxH = 520;
+  // 構成ローテ: シーンごとに caption box の位置とアクセントを交互に変える
+  // (視覚変化を作りつつ、headline 帯 (~Y460) とフッター (Y1820) には絶対に重ねない)
+  const variant = sceneIdx % 2;
+  const boxX = 40, boxY = variant === 0 ? 1260 : 1180, boxW = 1000, boxH = 520;
   const fit = fitCaption(captionText, boxW - 80, boxH - 80);
   const totalH = fit.lines.length * fit.lineHeight;
   const capStartY = boxY + (boxH - totalH) / 2 + fit.fontSize;
@@ -412,6 +379,9 @@ function captionSvg(story: Story, captionText: string, bgN: number): string {
         font-family="Hiragino Sans" font-weight="900"
         font-size="${fit.fontSize}" fill="#FFFFFF" letter-spacing="0">${escape(line)}</text>`;
   });
+  const accent = variant === 1
+    ? `<rect x="${boxX}" y="${boxY}" width="14" height="${boxH}" fill="#F5E63B" rx="7"/>`
+    : "";
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   <defs>
@@ -429,11 +399,12 @@ function captionSvg(story: Story, captionText: string, bgN: number): string {
   <!-- Top: yellow stripe + country (no flag) -->
   <rect x="0" y="0" width="${W}" height="60" fill="#F5E63B"/>
   <text x="60" y="160" font-family="Hiragino Sans" font-weight="900"
-        font-size="40" fill="#F5E63B" letter-spacing="6">${escape(countryName.toUpperCase())}</text>
+        font-size="${cnFs}" fill="#F5E63B" letter-spacing="6">${escape(cnText)}</text>
   ${headlineSvg}
 
-  <!-- Bottom caption box (Y 1260-1780) -->
+  <!-- Caption box -->
   <rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" fill="#0A0A0A" fill-opacity="0.82" rx="20"/>
+  ${accent}
   ${capSvg}
 
   ${sourceFooter(story)}
@@ -495,49 +466,10 @@ function wordSvg(keyword: Keyword | undefined, cueText: string, cueIdx: number, 
 </svg>`;
 }
 
-/** Subscribe outro. Source 行は最下部に表示。 */
-function subscribeSvg(story: Story): string {
-  const thumbUp = `<g transform="translate(396, 800) scale(2.4)">
-    <path d="M0 60 L0 200 L100 200 L150 140 L150 90 L100 90 L120 30 Q120 0 90 0 L70 0 L40 60 Z"
-          fill="#F5E63B" stroke="#0A0A0A" stroke-width="6" stroke-linejoin="round"/>
-    <rect x="-40" y="60" width="40" height="140" fill="#F5E63B" stroke="#0A0A0A" stroke-width="6"/>
-  </g>`;
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
-  <rect width="${W}" height="${H}" fill="#0F1B3D"/>
-  <text x="540" y="440" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="120" fill="#FFFFFF" letter-spacing="2">PLEASE</text>
-  <text x="540" y="580" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="140" fill="#F5E63B" letter-spacing="2">SUBSCRIBE</text>
-  ${thumbUp}
-  <!-- Channel block (Y 1240-1500) -->
-  <rect x="60" y="1240" width="960" height="260" fill="#0A0A0A"/>
-  <text x="540" y="1330" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="64" fill="#F5E63B" letter-spacing="4">DAILY WORLD 60</text>
-  <text x="540" y="1400" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="44" fill="#FFFFFF" letter-spacing="4">@60dailyworld</text>
-  <text x="540" y="1455" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
-        font-size="26" fill="#7A8AB5" letter-spacing="3">YouTube</text>
-
-  <!-- Disclaimer (Y 1540-1810, small grey) -->
-  <text x="540" y="1565" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="20" fill="#9CA3AF" letter-spacing="4">DISCLAIMER</text>
-  <text x="540" y="1610" text-anchor="middle" font-family="Hiragino Sans" font-weight="500"
-        font-size="20" fill="#9CA3AF" letter-spacing="0">News summaries are for general information only.</text>
-  <text x="540" y="1640" text-anchor="middle" font-family="Hiragino Sans" font-weight="500"
-        font-size="20" fill="#9CA3AF" letter-spacing="0">Original reporting belongs to the publishers listed below.</text>
-  <text x="540" y="1670" text-anchor="middle" font-family="Hiragino Sans" font-weight="500"
-        font-size="20" fill="#9CA3AF" letter-spacing="0">Please verify details with the original source.</text>
-  <text x="540" y="1700" text-anchor="middle" font-family="Hiragino Sans" font-weight="500"
-        font-size="20" fill="#9CA3AF" letter-spacing="0">AI-assisted voice and video editing.</text>
-  <text x="540" y="1730" text-anchor="middle" font-family="Hiragino Sans" font-weight="500"
-        font-size="20" fill="#9CA3AF" letter-spacing="0">Not affiliated with any government or publisher.</text>
-  <text x="540" y="1770" text-anchor="middle" font-family="Hiragino Sans" font-weight="500"
-        font-size="18" fill="#6B7280" letter-spacing="2">© 2026 Daily World 60 · Fair use of news summaries (US §107 / JP 著作権法32条)</text>
-
-  ${sourceFooter(story)}
-</svg>`;
-}
+/* subscribeSvg (PLEASE SUBSCRIBE エンドカード) は廃止 —
+ * デッドエンドカードはリテンションとループを切るため、outro はループ接続の
+ * caption scene (bg-1) に置き換えた。AI 開示は sourceFooter に常時表示、
+ * 法的 disclaimer は YouTube 説明欄に記載される。 */
 
 // ─────────── Helpers ───────────
 

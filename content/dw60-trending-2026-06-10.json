@@ -12,7 +12,10 @@
         "sourceName": "NASA",
         "sourceUrl": "https://www.nasa.gov/aeronautics/x-59-first-supersonic-flight/",
         "keyword": { "word": "supersonic", "definitionEn": "faster than the speed of sound" },
-        "imageQueries": ["NASA X-59", "X-59 aircraft", "NASA X-59 QueSST", "supersonic jet aircraft"]
+        "imageQueries": ["NASA X-59", "X-59 aircraft", "NASA X-59 QueSST", "supersonic jet aircraft"],
+        "hookText": "Mach 1.1 with no boom",
+        "hookPattern": "number",
+        "commentQuestion": "Would you fly supersonic if tickets cost double?"
       },
       {
         "index": 2,
@@ -22,7 +25,10 @@
         "sourceName": "Al Jazeera",
         "sourceUrl": "https://www.aljazeera.com/sports/2026/6/9/world-cup-opening-ceremony-whos-performing-when-it-starts-how-to-watch",
         "keyword": { "word": "host", "definitionEn": "a country or city that holds and organizes an event" },
-        "imageQueries": ["Estadio Azteca stadium", "World Cup stadium", "FIFA World Cup trophy", "soccer stadium match"]
+        "imageQueries": ["Estadio Azteca stadium", "World Cup stadium", "FIFA World Cup trophy", "soccer stadium match"],
+        "hookText": "48 teams. 3 countries. 1 cup",
+        "hookPattern": "number",
+        "commentQuestion": "Which team are you backing this World Cup?"
       },
       {
         "index": 3,
@@ -32,7 +38,10 @@
         "sourceName": "Washington Post",
         "sourceUrl": "https://www.washingtonpost.com/world/interactive/2026/06/09/photos-how-sagrada-famiila-gaudis-iconic-church-barcelona-was-built/",
         "keyword": { "word": "basilica", "definitionEn": "a large and important church" },
-        "imageQueries": ["Sagrada Familia", "Sagrada Familia Barcelona", "Sagrada Familia interior", "Antoni Gaudi Sagrada"]
+        "imageQueries": ["Sagrada Familia", "Sagrada Familia Barcelona", "Sagrada Familia interior", "Antoni Gaudi Sagrada"],
+        "hookText": "144 years to build this",
+        "hookPattern": "curiosity",
+        "commentQuestion": "Would you wait 144 years to finish one building?"
       }
     ],
     "todaysWord": {
