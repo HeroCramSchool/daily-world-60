@@ -98,15 +98,19 @@ jobs:
       INSTAGRAM_COOKIES_B64: ${{ secrets.INSTAGRAM_COOKIES_B64 }}
       TIKTOK_COOKIES_B64: ${{ secrets.TIKTOK_COOKIES_B64 }}
 
+      # Instagram Graph API (公式・完全自動)。secrets 未設定の間は IG は安全にスキップされる。
+      IG_GRAPH_ACCESS_TOKEN: ${{ secrets.IG_GRAPH_ACCESS_TOKEN }}
+      IG_GRAPH_USER_ID: ${{ secrets.IG_GRAPH_USER_ID }}
+
       EN_VOICE: en-US-AvaNeural
 
       # スケジュール起動 (朝昼夜 3 cron) は全て full(生成+投稿)。手動 dispatch は入力の mode を尊重。
       RUN_MODE: ${{ github.event_name == 'schedule' && 'full' || github.event.inputs.mode }}
       DATE_OVERRIDE: ${{ github.event.inputs.date }}
       # 手動 dispatch の publish_skip 最優先 → skip_youtube → スケジュールの auto-publish は
-      # YouTube のみ。IG の CI 自動投稿は「✓報告するが実際は未掲載」の偽陽性と判明 (2026-06-12、
-      # プロフィール0件で確認)。ボット試行の繰り返しはアカウントリスクのため停止。恒久策は Graph API。
-      PUBLISH_SKIP: ${{ github.event.inputs.publish_skip != '' && github.event.inputs.publish_skip || (github.event.inputs.skip_youtube == 'true' && 'youtube' || (github.event_name == 'schedule' && 'instagram,tiktok,x' || '')) }}
+      # YouTube + Instagram(Graph API)。IG は IG_GRAPH_* secrets が入るまで publish-all 側で
+      # 自動スキップ (cookie 経路は偽陽性のため廃止 2026-06-12)。TikTok/X は停止中。
+      PUBLISH_SKIP: ${{ github.event.inputs.publish_skip != '' && github.event.inputs.publish_skip || (github.event.inputs.skip_youtube == 'true' && 'youtube' || (github.event_name == 'schedule' && 'tiktok,x' || '')) }}
       # IG は 1 run あたり 1 本まで (= 朝昼夜で1日3リール。連投スパム判定の回避)
       IG_MAX_PER_RUN: ${{ github.event.inputs.ig_max_per_run || (github.event_name == 'schedule' && '1' || '0') }}
       # 強制再投稿 (差し替え再アップ用)。schedule では常に false。

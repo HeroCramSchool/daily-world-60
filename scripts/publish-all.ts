@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { publishYoutube } from "./publishers/youtube.js";
 import { publishX } from "./publishers/x.js";
-import { publishInstagram } from "./publishers/instagram.js";
+import { publishInstagramGraph, hasGraphCreds } from "./publishers/instagram-graph.js";
 import { publishTikTok } from "./publishers/tiktok.js";
 import { driveClient, findFolderId } from "./fetch-scripts-from-drive.js";
 
@@ -182,8 +182,12 @@ async function main() {
       igRes = { ok: true, skipped: true, reason: "already_posted_today", ...prevStory.instagram };
     } else if (igCap > 0 && igPostedCount >= igCap) {
       igRes = { ok: false, skipped: true, reason: "ig_per_run_cap" };
+    } else if (!hasGraphCreds()) {
+      // cookie/Playwright 経路は CI から実掲載されない偽陽性が確認されたため使わない。
+      // Graph API クレデンシャル (IG_GRAPH_ACCESS_TOKEN / IG_GRAPH_USER_ID) が入るまではスキップ。
+      igRes = { ok: false, skipped: true, reason: "no_ig_graph_creds" };
     } else {
-      igRes = await publishInstagram({ videoPath, caption: igCaption });
+      igRes = await publishInstagramGraph({ videoPath, caption: igCaption });
       if (isOk(igRes)) igPostedCount++;
     }
     console.log(`[publish] ${code} Instagram:`, isOk(igRes) ? "✓" : isSkipped(igRes) ? "⏭" : `✗ ${getErr(igRes)}`);
