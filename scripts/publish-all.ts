@@ -70,6 +70,13 @@ async function main() {
   let ytUploadedCount = 0;
   if (staggerMin > 0) console.log(`[publish] PUBLISH_STAGGER_MINUTES=${staggerMin} — 2nd+ videos will be scheduled at ${staggerMin}-min intervals`);
 
+  // ─── Instagram 本数キャップ (アカウント健全性: 連投スパム判定の回避) ───
+  // IG_MAX_PER_RUN > 0 のとき、1 run あたりの IG 投稿をその本数で打ち切る。
+  // schedule 既定は 1 (= 朝昼夜で1日3リール)。0 = 無制限。
+  const igCap = Number(process.env.IG_MAX_PER_RUN ?? "0") || 0;
+  let igPostedCount = 0;
+  if (igCap > 0) console.log(`[publish] IG_MAX_PER_RUN=${igCap}`);
+
   // ─── 重複防止: 投稿済み台帳(posted-ledger.json, 直近14日) + 前日 publish-results と照合 ───
   // 台帳には実際に投稿した見出しが日付付きで蓄積される(手動投稿分も seed 可能)。
   const ledger = await loadLedger().catch(e => {
@@ -173,8 +180,11 @@ async function main() {
       igRes = { ok: false, skipped: true, reason: "PUBLISH_SKIP" };
     } else if (alreadyPosted("instagram")) {
       igRes = { ok: true, skipped: true, reason: "already_posted_today", ...prevStory.instagram };
+    } else if (igCap > 0 && igPostedCount >= igCap) {
+      igRes = { ok: false, skipped: true, reason: "ig_per_run_cap" };
     } else {
       igRes = await publishInstagram({ videoPath, caption: igCaption });
+      if (isOk(igRes)) igPostedCount++;
     }
     console.log(`[publish] ${code} Instagram:`, isOk(igRes) ? "✓" : isSkipped(igRes) ? "⏭" : `✗ ${getErr(igRes)}`);
 

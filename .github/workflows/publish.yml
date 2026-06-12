@@ -63,6 +63,10 @@ on:
         description: "YouTube公開の時間差(分)。2本目以降を予約公開でずらす。空/0=同時公開"
         required: false
         default: ""
+      ig_max_per_run:
+        description: "Instagram の 1 run あたり投稿上限 (空=scheduleは1/手動は0=無制限)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -100,8 +104,10 @@ jobs:
       RUN_MODE: ${{ github.event_name == 'schedule' && 'full' || github.event.inputs.mode }}
       DATE_OVERRIDE: ${{ github.event.inputs.date }}
       # 手動 dispatch の publish_skip 最優先 → skip_youtube → スケジュールの auto-publish は
-      # YouTube のみ投稿。IG/TikTok/X は既定スキップ(YouTube集中方針 2026-06-09)。
-      PUBLISH_SKIP: ${{ github.event.inputs.publish_skip != '' && github.event.inputs.publish_skip || (github.event.inputs.skip_youtube == 'true' && 'youtube' || (github.event_name == 'schedule' && 'instagram,tiktok,x' || '')) }}
+      # YouTube + Instagram (IG 再開 2026-06-12、CI からの投稿成功を確認済み)。TikTok/X は停止中。
+      PUBLISH_SKIP: ${{ github.event.inputs.publish_skip != '' && github.event.inputs.publish_skip || (github.event.inputs.skip_youtube == 'true' && 'youtube' || (github.event_name == 'schedule' && 'tiktok,x' || '')) }}
+      # IG は 1 run あたり 1 本まで (= 朝昼夜で1日3リール。連投スパム判定の回避)
+      IG_MAX_PER_RUN: ${{ github.event.inputs.ig_max_per_run || (github.event_name == 'schedule' && '1' || '0') }}
       # 強制再投稿 (差し替え再アップ用)。schedule では常に false。
       FORCE_REPUBLISH: ${{ github.event.inputs.force_republish || 'false' }}
       # 台本ソースをリポジトリ内ファイルから読む (独自トピック用)。空=Drive取得。schedule では常に空。
