@@ -104,8 +104,9 @@ jobs:
       RUN_MODE: ${{ github.event_name == 'schedule' && 'full' || github.event.inputs.mode }}
       DATE_OVERRIDE: ${{ github.event.inputs.date }}
       # 手動 dispatch の publish_skip 最優先 → skip_youtube → スケジュールの auto-publish は
-      # YouTube + Instagram (IG 再開 2026-06-12、CI からの投稿成功を確認済み)。TikTok/X は停止中。
-      PUBLISH_SKIP: ${{ github.event.inputs.publish_skip != '' && github.event.inputs.publish_skip || (github.event.inputs.skip_youtube == 'true' && 'youtube' || (github.event_name == 'schedule' && 'tiktok,x' || '')) }}
+      # YouTube のみ。IG の CI 自動投稿は「✓報告するが実際は未掲載」の偽陽性と判明 (2026-06-12、
+      # プロフィール0件で確認)。ボット試行の繰り返しはアカウントリスクのため停止。恒久策は Graph API。
+      PUBLISH_SKIP: ${{ github.event.inputs.publish_skip != '' && github.event.inputs.publish_skip || (github.event.inputs.skip_youtube == 'true' && 'youtube' || (github.event_name == 'schedule' && 'instagram,tiktok,x' || '')) }}
       # IG は 1 run あたり 1 本まで (= 朝昼夜で1日3リール。連投スパム判定の回避)
       IG_MAX_PER_RUN: ${{ github.event.inputs.ig_max_per_run || (github.event_name == 'schedule' && '1' || '0') }}
       # 強制再投稿 (差し替え再アップ用)。schedule では常に false。
