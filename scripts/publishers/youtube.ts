@@ -66,6 +66,10 @@ export async function publishYoutube(
     const videoId = uploadRes.data.id;
     if (!videoId) return { ok: false, error: "no videoId returned" };
 
+    // YouTube が実際に保存した公開状態を記録 (publishAt 予約が効いているかの確証用)
+    const st = uploadRes.data.status;
+    console.log(`[youtube] ${videoId} stored status: privacy=${st?.privacyStatus} publishAt=${st?.publishAt ?? "-"}`);
+
     // Set thumbnail if provided
     if (input.thumbnailPath) {
       try {
