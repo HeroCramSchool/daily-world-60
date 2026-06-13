@@ -126,15 +126,12 @@ async function buildOne(dir: string, story: Story) {
     });
   });
 
-  // Outro: ループ用に bg-1 へ戻す caption scene
-  outroCues.forEach((cue, i) => {
-    const dur = cue.end - cue.start;
-    scenes.push({
-      id: `04-outro${(i + 1).toString().padStart(2, "0")}`,
-      dur,
-      svg: captionSvg(story, cue.text, 1, i),
-    });
-  });
+  // Outro: フックと同じ写真 (bg-1) の上に PLEASE SUBSCRIBE を重ねた1シーン。
+  // outro 区間 (= "that's the latest" 以降) の合計尺をまるごと使う。
+  if (outroCues.length) {
+    const outroDur = outroCues.reduce((acc, c) => acc + (c.end - c.start), 0);
+    scenes.push({ id: "04-subscribe", dur: Math.max(1.5, outroDur), svg: subscribeOutroSvg(story) });
+  }
 
   // 端数 (audio + 0.4s pad) は最終シーンに吸収させる
   const usedSoFar = scenes.reduce((acc, s) => acc + s.dur, 0);
@@ -466,10 +463,46 @@ function wordSvg(keyword: Keyword | undefined, cueText: string, cueIdx: number, 
 </svg>`;
 }
 
-/* subscribeSvg (PLEASE SUBSCRIBE エンドカード) は廃止 —
- * デッドエンドカードはリテンションとループを切るため、outro はループ接続の
- * caption scene (bg-1) に置き換えた。AI 開示は sourceFooter に常時表示、
- * 法的 disclaimer は YouTube 説明欄に記載される。 */
+/**
+ * Subscribe outro: フックと同じ写真 (bg-1) の上に PLEASE SUBSCRIBE を重ねる。
+ * 単色のデッドエンドカードは避けつつ、末尾に登録 CTA を明示 (ユーザー要望)。
+ * 全テキストは実測フィットで枠内に収める。
+ */
+function subscribeOutroSvg(story: Story): string {
+  const code = story.country.code.toLowerCase();
+  const plFs = fitSingleLine("PLEASE", 760, 110);
+  const subFs = fitSingleLine("SUBSCRIBE", 1000, 156);
+  const handle = "@60dailyworld";
+  const hFs = fitSingleLine(handle, 760, 44);
+  const yPlease = 760;
+  const ySub = yPlease + Math.round(subFs * 1.02);
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+  <defs>
+    <linearGradient id="subDarken" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0A0A0A" stop-opacity="0.55"/>
+      <stop offset="45%" stop-color="#0A0A0A" stop-opacity="0.78"/>
+      <stop offset="100%" stop-color="#0A0A0A" stop-opacity="0.92"/>
+    </linearGradient>
+  </defs>
+  <image href="_assets/bg-${code}-1.jpg" x="0" y="0" width="${W}" height="${H}"
+         preserveAspectRatio="xMidYMid slice"/>
+  <rect width="${W}" height="${H}" fill="url(#subDarken)"/>
+  <rect x="0" y="0" width="${W}" height="60" fill="#F5E63B"/>
+
+  <text x="540" y="${yPlease}" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="${plFs}" fill="#FFFFFF" letter-spacing="4">PLEASE</text>
+  <text x="540" y="${ySub}" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="${subFs}" fill="#F5E63B" letter-spacing="2">SUBSCRIBE</text>
+  <rect x="340" y="${ySub + 50}" width="400" height="10" fill="#F5E63B"/>
+  <text x="540" y="${ySub + 170}" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="${hFs}" fill="#FFFFFF" letter-spacing="3">${escape(handle)}</text>
+  <text x="540" y="${ySub + 240}" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
+        font-size="30" fill="#9CA3AF" letter-spacing="6">DAILY WORLD 60</text>
+
+  ${sourceFooter(story)}
+</svg>`;
+}
 
 // ─────────── Helpers ───────────
 

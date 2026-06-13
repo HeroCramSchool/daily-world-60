@@ -66,9 +66,9 @@ export const Script = {
         `${cap} means ${kw.definitionEn}.`,
       );
     }
-    // ループ接続の締め。登録CTAは音声から削除 (説明欄へ移設)。
-    // "that's the latest" は outro シーン境界マーカーを兼ねる。
-    lines.push(`And that's the latest from ${countryName}.`);
+    // 締め: ループ接続の一文 + 登録CTA (ユーザー要望で subscribe を末尾に復活)。
+    // "that's the latest" が outro シーン境界マーカーを兼ねる (subscribe シーンに切替)。
+    lines.push(`And that's the latest from ${countryName}. If this helped, please subscribe.`);
     return lines.join(" ");
   },
 
