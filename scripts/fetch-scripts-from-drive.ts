@@ -32,15 +32,16 @@ async function main() {
     console.log(`[drive] using LOCAL override script source: ${overrideFile}`);
   }
 
+  // 関数スコープで宣言 (Drive ループと not-found throw の両方から参照するため)。
+  const candidateNames = [
+    `publish-results-${date}.json`,
+    `scripts-${date}.json`,
+  ];
+
   if (!json) {
     const drive = await driveClient();
     const folderId = process.env.DRIVE_FOLDER_ID ?? (await findFolderId(drive, FOLDER_NAME));
     if (!folderId) throw new Error(`Drive folder "${FOLDER_NAME}" not found (set DRIVE_FOLDER_ID to override)`);
-
-    const candidateNames = [
-      `publish-results-${date}.json`,
-      `scripts-${date}.json`,
-    ];
 
     // 同名ファイルが複数ある場合があるため、modifiedTime 降順で全部リストし、
     // scriptEn を含む最初のものを採用する。
