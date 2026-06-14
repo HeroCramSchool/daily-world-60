@@ -1,0 +1,92 @@
+{
+  "scriptEn": {
+    "date": "2026-06-13",
+    "language": "en",
+    "hook": "Three stories shaping your world this weekend.",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "US", "flag": "🇺🇸", "name": "the United States" },
+        "headline": "NASA's Roman telescope could reveal 100,000 hidden worlds",
+        "summary": "NASA's Roman Space Telescope is fully built and set to launch on August 30th. Scientists expect it to find about 100,000 planets beyond our solar system, far more than the 6,300 found so far. It could reshape the search for another Earth.",
+        "sourceName": "NASA",
+        "sourceUrl": "https://www.nasa.gov/missions/roman-space-telescope/nasas-roman-mission-preps-to-unveil-new-populations-of-faraway-worlds/",
+        "keyword": { "word": "exoplanet", "definitionEn": "a planet that orbits a star outside our own solar system" },
+        "imageQueries": ["Nancy Grace Roman Space Telescope", "NASA space telescope", "Hubble Space Telescope"],
+        "hookText": "100,000 HIDDEN WORLDS",
+        "hookPattern": "number",
+        "commentQuestion": "If we find 100,000 worlds, should we focus on the nearest one?"
+      },
+      {
+        "index": 2,
+        "country": { "code": "GL", "flag": "🌍", "name": "the global economy" },
+        "headline": "Global growth falls to its weakest level since COVID",
+        "summary": "The World Bank cut its 2026 global growth forecast to 2.5 percent, the weakest since the COVID pandemic. It blames the closed Strait of Hormuz and oil near 94 dollars a barrel. Inflation could reach 4 percent, meaning higher prices in your daily shopping.",
+        "sourceName": "World Bank",
+        "sourceUrl": "https://www.worldbank.org/en/news/press-release/2026/06/11/global-economic-prospects-june-2026-press-release",
+        "keyword": { "word": "inflation", "definitionEn": "when prices rise over time and your money buys less" },
+        "imageQueries": ["oil tanker ship", "Strait of Hormuz", "stock exchange trading floor"],
+        "hookText": "WHY YOUR BILLS KEEP RISING",
+        "hookPattern": "curiosity",
+        "commentQuestion": "Have prices gone up where you live this year?"
+      },
+      {
+        "index": 3,
+        "country": { "code": "ZA", "flag": "🇿🇦", "name": "South Africa" },
+        "headline": "South Africa's Western Cape faces long flood recovery",
+        "summary": "South Africa's Western Cape is still recovering from May storms that killed 11 people and affected over 230,000. Nearly 23,000 homes and 230 roads were damaged, with losses above 9 billion rand. The province is now building stronger flood defenses to protect families next time.",
+        "sourceName": "allAfrica",
+        "sourceUrl": "https://allafrica.com/stories/202606120087.html",
+        "keyword": { "word": "recovery", "definitionEn": "the slow process of returning to normal after a disaster" },
+        "imageQueries": ["Cape Town South Africa", "flood damaged street", "Table Mountain Cape Town"],
+        "hookText": "COULD YOUR CITY SURVIVE THIS?",
+        "hookPattern": "question",
+        "commentQuestion": "Is your area ready for a once-in-a-century storm?"
+      }
+    ],
+    "todaysWord": {
+      "word": "inflation",
+      "definitionEn": "when prices rise over time and your money buys less",
+      "definitionJp": "インフレ（物価が上がりお金の価値が下がること）"
+    },
+    "close": "That's your world in sixty. Follow for tomorrow.",
+    "estimatedSeconds": 60
+  },
+  "scriptJp": {
+    "date": "2026-06-13",
+    "language": "jp",
+    "hook": "",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "US", "flag": "🇺🇸", "name": "アメリカ" },
+        "headline": "NASAのローマン望遠鏡、10万個の系外惑星発見へ",
+        "summary": "NASAのローマン宇宙望遠鏡が完成し、8月30日打ち上げ予定。これまで確認された約6,300個をはるかに超える、約10万個の系外惑星の発見が期待される。第二の地球探しが大きく進む可能性。",
+        "sourceName": "NASA",
+        "sourceUrl": "https://www.nasa.gov/missions/roman-space-telescope/nasas-roman-mission-preps-to-unveil-new-populations-of-faraway-worlds/"
+      },
+      {
+        "index": 2,
+        "country": { "code": "GL", "flag": "🌍", "name": "世界経済" },
+        "headline": "世界成長率2.5%へ、コロナ以来の低水準",
+        "summary": "世界銀行が2026年の世界成長率予測を2.5%に下方修正。コロナ禍以来の低さだ。ホルムズ海峡の閉鎖と原油1バレル94ドル前後が要因。インフレは4%に達する見込みで、日々の買い物の値上がりに直結する。",
+        "sourceName": "World Bank",
+        "sourceUrl": "https://www.worldbank.org/en/news/press-release/2026/06/11/global-economic-prospects-june-2026-press-release"
+      },
+      {
+        "index": 3,
+        "country": { "code": "ZA", "flag": "🇿🇦", "name": "南アフリカ" },
+        "headline": "南ア西ケープ州、洪水からの長い復旧へ",
+        "summary": "南アフリカ西ケープ州が5月の嵐からの復旧途上にある。死者11人、23万人以上が影響を受けた。住宅約2万3千戸と道路230本が損壊し、損失は90億ランド超。州は次に備え、洪水対策の強化を進めている。",
+        "sourceName": "allAfrica",
+        "sourceUrl": "https://allafrica.com/stories/202606120087.html"
+      }
+    ],
+    "thread": [
+      "🌍 今週末の世界の話題3つ #DailyWorld60 #世界ニュース",
+      "①NASAローマン望遠鏡、10万個の系外惑星発見へ。8/30打ち上げ。",
+      "②世界成長率2.5%、コロナ以来最低。原油高とインフレ。",
+      "③南ア西ケープ、洪水復旧へ。11死・23万人影響。"
+    ]
+  }
+}
