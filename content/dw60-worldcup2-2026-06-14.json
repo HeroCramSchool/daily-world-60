@@ -1,0 +1,92 @@
+{
+  "scriptEn": {
+    "date": "2026-06-14",
+    "language": "en",
+    "hook": "Three more World Cup stories you missed.",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "SCO", "flag": "🏴", "name": "Scotland" },
+        "headline": "Scotland mark World Cup return with a 1-0 win over Haiti",
+        "summary": "Scotland marked its return to the World Cup with a 1-0 win over Haiti. Midfielder John McGinn scored the only goal in the 28th minute. After years of near-misses, the Scots finally have a World Cup win and a strong start in their group.",
+        "sourceName": "FOX Sports",
+        "sourceUrl": "https://www.foxsports.com/watch/fmc-ubrv527b73ldaqlc",
+        "keyword": { "word": "comeback", "definitionEn": "a return to success after a long absence or setback" },
+        "imageQueries": ["Hampden Park stadium", "Scotland football fans", "soccer stadium crowd"],
+        "hookText": "SCOTLAND END THE LONG WAIT",
+        "hookPattern": "curiosity",
+        "commentQuestion": "How far can Scotland go at this World Cup?"
+      },
+      {
+        "index": 2,
+        "country": { "code": "CA", "flag": "🇨🇦", "name": "Canada" },
+        "headline": "Co-host Canada held to a 1-1 draw by Bosnia",
+        "summary": "Co-host Canada was held to a 1-1 draw by Bosnia and Herzegovina in its opening match. Cyle Larin came off the bench to rescue a point. While the United States started with a big win, Canada will feel it dropped two points at home.",
+        "sourceName": "FIFA",
+        "sourceUrl": "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/canada-bosnia-and-herzegovina-highlights-match-report",
+        "keyword": { "word": "equalizer", "definitionEn": "a goal that makes the score even" },
+        "imageQueries": ["BMO Field Toronto", "Canada soccer fans", "soccer stadium"],
+        "hookText": "CO-HOSTS HELD AT HOME, 1-1",
+        "hookPattern": "number",
+        "commentQuestion": "Can co-hosts Canada still reach the knockout rounds?"
+      },
+      {
+        "index": 3,
+        "country": { "code": "QA", "flag": "🇶🇦", "name": "Qatar" },
+        "headline": "Qatar hold Switzerland to a 1-1 draw in Group B",
+        "summary": "Qatar earned a battling 1-1 draw with Switzerland in Group B. The result was a small surprise, with Qatar holding a higher-ranked European side. Every point matters in the new 48-team format, where more third-placed teams can still advance.",
+        "sourceName": "Yahoo Sports",
+        "sourceUrl": "https://sports.yahoo.com/soccer/live/world-cup-schedule-scores-live-updates-group-stage-usmnt-paraguay-canada-bosnia-herzegovina-180000044.html",
+        "keyword": { "word": "underdog", "definitionEn": "the team or player expected to lose" },
+        "imageQueries": ["soccer stadium night", "Qatar Lusail Stadium", "World Cup match ball"],
+        "hookText": "DID QATAR JUST SURPRISE EUROPE?",
+        "hookPattern": "question",
+        "commentQuestion": "Which smaller nation has impressed you most so far?"
+      }
+    ],
+    "todaysWord": {
+      "word": "comeback",
+      "definitionEn": "a return to success after a long absence or setback",
+      "definitionJp": "返り咲き・再起"
+    },
+    "close": "That's your World Cup in sixty. Follow for more.",
+    "estimatedSeconds": 60
+  },
+  "scriptJp": {
+    "date": "2026-06-14",
+    "language": "jp",
+    "hook": "",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "SCO", "flag": "🏴", "name": "スコットランド" },
+        "headline": "スコットランド、W杯復帰戦でハイチに1-0勝利",
+        "summary": "スコットランドがW杯復帰戦でハイチを1-0で下した。MFジョン・マッギンが28分に決勝点。あと一歩が続いた年月を経て、ついにW杯での勝利をつかみ、グループで好スタートを切った。",
+        "sourceName": "FOX Sports",
+        "sourceUrl": "https://www.foxsports.com/watch/fmc-ubrv527b73ldaqlc"
+      },
+      {
+        "index": 2,
+        "country": { "code": "CA", "flag": "🇨🇦", "name": "カナダ" },
+        "headline": "共催国カナダ、ボスニアと1-1ドロー",
+        "summary": "共催国カナダが初戦でボスニア・ヘルツェゴビナと1-1で引き分けた。途中出場のサイル・ラリンが追いつき勝ち点1を拾う。アメリカが大勝した一方、地元のカナダは2点を取りこぼした形だ。",
+        "sourceName": "FIFA",
+        "sourceUrl": "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/canada-bosnia-and-herzegovina-highlights-match-report"
+      },
+      {
+        "index": 3,
+        "country": { "code": "QA", "flag": "🇶🇦", "name": "カタール" },
+        "headline": "カタールがスイスと1-1、グループBで健闘",
+        "summary": "カタールがグループBでスイスと1-1の引き分けに持ち込んだ。格上の欧州勢を抑えるささやかな驚き。48カ国制では3位でも勝ち上がれる枠が増え、勝ち点1の価値は大きい。",
+        "sourceName": "Yahoo Sports",
+        "sourceUrl": "https://sports.yahoo.com/soccer/live/world-cup-schedule-scores-live-updates-group-stage-usmnt-paraguay-canada-bosnia-herzegovina-180000044.html"
+      }
+    ],
+    "thread": [
+      "⚽ W杯続報3つ #DailyWorld60 #WorldCup2026",
+      "①スコットランドがW杯復帰戦でハイチに1-0。",
+      "②共催国カナダはボスニアと1-1ドロー。",
+      "③カタールがスイスを1-1で抑える健闘。"
+    ]
+  }
+}
