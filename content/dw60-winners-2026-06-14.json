@@ -1,0 +1,85 @@
+{
+  "scriptEn": {
+    "date": "2026-06-14",
+    "language": "en",
+    "hook": "Three stories the world is watching right now.",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "PH", "flag": "🇵🇭", "name": "the Philippines" },
+        "headline": "Powerful earthquake hits the Philippines, dozens killed",
+        "summary": "A powerful 7.8 magnitude earthquake has struck the southern Philippines. At least 61 people are dead and more than 1,400 injured, with 40 still missing. Nearly 2,800 rescuers are searching collapsed buildings, but landslides have cut off many villages near the epicenter.",
+        "sourceName": "NDRRMC / Wikipedia",
+        "sourceUrl": "https://en.wikipedia.org/wiki/2026_Mindanao_earthquake",
+        "imageQueries": ["earthquake damaged building", "rescue workers rubble", "collapsed building"],
+        "hookText": "7.8 QUAKE: 61 DEAD, RESCUE ON",
+        "hookPattern": "number",
+        "commentQuestion": "How should the world help after a major quake?"
+      },
+      {
+        "index": 2,
+        "country": { "code": "SCS", "flag": "🌊", "name": "the South China Sea" },
+        "headline": "Philippines protests China's mystery structure at sea",
+        "summary": "Tension is rising in the South China Sea. The Philippines says China has placed a manned structure near Scarborough Shoal, with eight objects spotted in the area. Manila filed a formal protest. These disputed waters carry a huge share of global trade, so any clash could ripple worldwide.",
+        "sourceName": "AEI",
+        "sourceUrl": "https://www.aei.org/articles/china-taiwan-update-june-12-2026/",
+        "imageQueries": ["coast guard ship at sea", "naval ships South China Sea", "ocean patrol boat"],
+        "hookText": "CHINA'S MYSTERY STRUCTURE AT SEA",
+        "hookPattern": "curiosity",
+        "commentQuestion": "Who do you think should control the South China Sea?"
+      },
+      {
+        "index": 3,
+        "country": { "code": "UA", "flag": "🇺🇦", "name": "Ukraine" },
+        "headline": "Ukraine frees five villages in its fastest push in months",
+        "summary": "Ukraine says its forces are advancing again. War monitors confirmed Ukrainian troops freed five villages south of Velyka Novosilka in just two days. The gains are small in size but mark Ukraine's fastest progress in months, putting fresh pressure on Russia's front lines.",
+        "sourceName": "Institute for the Study of War",
+        "sourceUrl": "https://news.yahoo.com/isw-russia-downplaying-ukrainian-advances-024411285.html",
+        "imageQueries": ["Ukrainian soldiers", "armored vehicle field", "Ukraine flag military"],
+        "hookText": "IS RUSSIA LOSING GROUND?",
+        "hookPattern": "question",
+        "commentQuestion": "Will this war finally end in 2026?"
+      }
+    ],
+    "todaysWord": { "word": "epicenter", "definitionEn": "the point on the surface right above where an earthquake starts", "definitionJp": "震源地" },
+    "close": "That's your world in sixty. Follow for tomorrow.",
+    "estimatedSeconds": 60
+  },
+  "scriptJp": {
+    "date": "2026-06-14",
+    "language": "jp",
+    "hook": "",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "PH", "flag": "🇵🇭", "name": "フィリピン" },
+        "headline": "フィリピンでM7.8の地震、多数の死者",
+        "summary": "フィリピン南部をマグニチュード7.8の強い地震が襲った。死者は少なくとも61人、負傷者は1,400人超、40人が依然不明。約2,800人の救助隊が倒壊建物を捜索するが、震源近くの集落は土砂崩れで孤立している。",
+        "sourceName": "NDRRMC / Wikipedia",
+        "sourceUrl": "https://en.wikipedia.org/wiki/2026_Mindanao_earthquake"
+      },
+      {
+        "index": 2,
+        "country": { "code": "SCS", "flag": "🌊", "name": "南シナ海" },
+        "headline": "南シナ海で中国の有人構造物、比が抗議",
+        "summary": "南シナ海で緊張が高まる。フィリピンは、中国がスカボロー礁付近に有人の構造物を設置したと主張。周辺で8つの物体が確認された。マニラは正式に抗議。世界の貿易の多くが通る海域で、衝突は世界に波及しかねない。",
+        "sourceName": "AEI",
+        "sourceUrl": "https://www.aei.org/articles/china-taiwan-update-june-12-2026/"
+      },
+      {
+        "index": 3,
+        "country": { "code": "UA", "flag": "🇺🇦", "name": "ウクライナ" },
+        "headline": "ウクライナが5村を解放、数カ月で最大の前進",
+        "summary": "ウクライナ軍が再び前進している。戦況監視団は、ウクライナ軍がヴェリカ・ノボシルカ南方の5つの村をわずか2日で解放したと確認。規模は小さいが数カ月で最速の前進で、ロシアの前線に新たな圧力をかけている。",
+        "sourceName": "Institute for the Study of War",
+        "sourceUrl": "https://news.yahoo.com/isw-russia-downplaying-ukrainian-advances-024411285.html"
+      }
+    ],
+    "thread": [
+      "🌍 いま世界が注目する3つ #DailyWorld60 #世界ニュース",
+      "①フィリピンでM7.8地震。61人死亡、救助続く。",
+      "②南シナ海で中国の有人構造物、フィリピンが抗議。",
+      "③ウクライナが5村を解放、数カ月で最速の前進。"
+    ]
+  }
+}
