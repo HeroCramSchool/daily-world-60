@@ -1,0 +1,92 @@
+{
+  "scriptEn": {
+    "date": "2026-06-14",
+    "language": "en",
+    "hook": "Three big moments from the World Cup right now.",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "US", "flag": "🇺🇸", "name": "the United States" },
+        "headline": "Hosts USA open World Cup with a 4-1 win over Paraguay",
+        "summary": "The host United States opened its home World Cup in style, beating Paraguay four goals to one. Folarin Balogun scored twice and Giovanni Reyna added a stunning strike. The win gives the Americans a dream start and big momentum in front of their home crowd.",
+        "sourceName": "Yahoo Sports",
+        "sourceUrl": "https://sports.yahoo.com/soccer/live/2026-world-cup-scores-results-usmnt-throttles-paraguay-canada-earns-draw-with-bosnia-and-herzegovina-145258177.html",
+        "keyword": { "word": "momentum", "definitionEn": "the feeling of moving forward with growing success" },
+        "imageQueries": ["soccer stadium crowd", "FIFA World Cup trophy", "football pitch"],
+        "hookText": "HOSTS ROLL, 4-1",
+        "hookPattern": "number",
+        "commentQuestion": "Can the USA go all the way on home soil?"
+      },
+      {
+        "index": 2,
+        "country": { "code": "BR", "flag": "🇧🇷", "name": "Brazil" },
+        "headline": "Brazil held to a 1-1 draw by a stubborn Morocco",
+        "summary": "Five-time champion Brazil was held to a one-all draw by Morocco in an entertaining Group C match. Morocco, a 2022 semifinalist, showed again it can trouble anyone. The dropped points mean Brazil must now fight harder to win its group.",
+        "sourceName": "Yahoo Sports",
+        "sourceUrl": "https://sports.yahoo.com/soccer/live/2026-world-cup-scores-results-usmnt-throttles-paraguay-canada-earns-draw-with-bosnia-and-herzegovina-145258177.html",
+        "keyword": { "word": "draw", "definitionEn": "a game that ends with both teams on equal points" },
+        "imageQueries": ["Maracana stadium", "Brazil flag", "soccer ball on pitch"],
+        "hookText": "WHY BRAZIL COULDN'T WIN",
+        "hookPattern": "curiosity",
+        "commentQuestion": "Is Brazil still the team to beat this World Cup?"
+      },
+      {
+        "index": 3,
+        "country": { "code": "AU", "flag": "🇦🇺", "name": "Australia" },
+        "headline": "Australia stun Türkiye 2-0 in the World Cup's first big shock",
+        "summary": "Australia produced the day's biggest surprise, beating Türkiye two-nil. The Socceroos defended hard and struck twice to stun a fancied opponent. It is a statement win that throws Group D wide open and lifts hopes back home.",
+        "sourceName": "Yahoo Sports",
+        "sourceUrl": "https://sports.yahoo.com/soccer/live/2026-world-cup-scores-results-usmnt-throttles-paraguay-canada-earns-draw-with-bosnia-and-herzegovina-145258177.html",
+        "keyword": { "word": "upset", "definitionEn": "a surprise win against a stronger opponent" },
+        "imageQueries": ["soccer stadium night", "Australia flag", "football goal net"],
+        "hookText": "THE WORLD CUP'S FIRST SHOCK?",
+        "hookPattern": "question",
+        "commentQuestion": "Which underdog will shock the World Cup next?"
+      }
+    ],
+    "todaysWord": {
+      "word": "upset",
+      "definitionEn": "a surprise win against a stronger opponent",
+      "definitionJp": "番狂わせ（格上に勝つこと）"
+    },
+    "close": "That's your World Cup in sixty. Follow for more.",
+    "estimatedSeconds": 60
+  },
+  "scriptJp": {
+    "date": "2026-06-14",
+    "language": "jp",
+    "hook": "",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "US", "flag": "🇺🇸", "name": "アメリカ" },
+        "headline": "開催国アメリカ、パラグアイに4-1で初戦白星",
+        "summary": "開催国アメリカが本拠地でのW杯初戦をパラグアイに4-1で快勝。バログンが2得点、レイナも見事な一撃を決めた。地元の大観衆の前で理想的なスタートを切り、大きな勢いを得た。",
+        "sourceName": "Yahoo Sports",
+        "sourceUrl": "https://sports.yahoo.com/soccer/live/2026-world-cup-scores-results-usmnt-throttles-paraguay-canada-earns-draw-with-bosnia-and-herzegovina-145258177.html"
+      },
+      {
+        "index": 2,
+        "country": { "code": "BR", "flag": "🇧🇷", "name": "ブラジル" },
+        "headline": "ブラジル、モロッコと1-1ドロー",
+        "summary": "優勝5回のブラジルが、グループCの好ゲームでモロッコと1-1の引き分け。2022年4強のモロッコは今回も強豪を苦しめた。勝ち点を落としたブラジルは、首位通過へ正念場を迎える。",
+        "sourceName": "Yahoo Sports",
+        "sourceUrl": "https://sports.yahoo.com/soccer/live/2026-world-cup-scores-results-usmnt-throttles-paraguay-canada-earns-draw-with-bosnia-and-herzegovina-145258177.html"
+      },
+      {
+        "index": 3,
+        "country": { "code": "AU", "flag": "🇦🇺", "name": "オーストラリア" },
+        "headline": "オーストラリアがトルコを2-0、大会初の大金星",
+        "summary": "オーストラリアがこの日最大の驚きを演出し、トルコを2-0で破った。サッカルーズは堅守から2得点を奪い、優勝候補を撃破。グループDを混戦に持ち込み、母国の期待を高めた。",
+        "sourceName": "Yahoo Sports",
+        "sourceUrl": "https://sports.yahoo.com/soccer/live/2026-world-cup-scores-results-usmnt-throttles-paraguay-canada-earns-draw-with-bosnia-and-herzegovina-145258177.html"
+      }
+    ],
+    "thread": [
+      "⚽ 今のW杯トップ3 #DailyWorld60 #WorldCup2026",
+      "①開催国アメリカ、パラグアイに4-1。バログン2発。",
+      "②ブラジルはモロッコと1-1ドロー。優勝候補が足踏み。",
+      "③オーストラリアがトルコを2-0。大会初の大金星。"
+    ]
+  }
+}
