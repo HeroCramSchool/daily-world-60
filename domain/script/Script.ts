@@ -50,23 +50,16 @@ export const Script = {
     },
   ): string {
     const countryName = s.country.name ?? Country.nameOf(s.country.code);
-    const kw = s.keyword;
     // Cold open: 挨拶・前置きなし。第一声 = headline (事実)。
     // "Here's what's happening." は hook→body のシーン境界マーカーを兼ねる。
+    // 末尾の英単語解説 (Quick English check) は廃止 (2026-06-14 要望)。
+    // narration に keyword 句が出なくなるため、build-news-video 側の word シーンも生成されない。
     const lines = [
       `${s.headline}.`,
       `Here's what's happening.`,
       s.summary,
     ];
-    if (kw) {
-      const cap = kw.word.charAt(0).toUpperCase() + kw.word.slice(1);
-      // ESL 価値 (キーワード解説) は残して短縮。"Quick English check" は word シーン境界マーカー。
-      lines.push(
-        `Quick English check. The keyword is ${kw.word}.`,
-        `${cap} means ${kw.definitionEn}.`,
-      );
-    }
-    // 締め: ループ接続の一文 + 登録CTA (ユーザー要望で subscribe を末尾に復活)。
+    // 締め: ループ接続の一文 + 登録CTA。
     // "that's the latest" が outro シーン境界マーカーを兼ねる (subscribe シーンに切替)。
     lines.push(`And that's the latest from ${countryName}. If this helped, please subscribe.`);
     return lines.join(" ");
