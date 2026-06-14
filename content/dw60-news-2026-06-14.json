@@ -1,0 +1,92 @@
+{
+  "scriptEn": {
+    "date": "2026-06-14",
+    "language": "en",
+    "hook": "Three more stories shaping your world.",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "IN", "flag": "🇮🇳", "name": "India" },
+        "headline": "One year after Air India crash, families still wait for answers",
+        "summary": "A year ago, an Air India Boeing 787 crashed seconds after takeoff in Ahmedabad, killing 260 people. Families hoped for a final report this week, but investigators released only an interim one. Pilot groups are demanding clearer answers about why it happened.",
+        "sourceName": "The Japan Times",
+        "sourceUrl": "https://www.japantimes.co.jp/news/2026/06/11/asia-pacific/air-india-crash-anniversary/",
+        "keyword": { "word": "investigation", "definitionEn": "an official effort to find out the truth about something" },
+        "imageQueries": ["Air India aircraft", "Boeing 787 Dreamliner", "Ahmedabad airport"],
+        "hookText": "ONE YEAR ON, STILL NO ANSWERS",
+        "hookPattern": "curiosity",
+        "commentQuestion": "Should crash investigations have a strict deadline for answers?"
+      },
+      {
+        "index": 2,
+        "country": { "code": "GL", "flag": "🌍", "name": "global health" },
+        "headline": "Study finds the strength-training sweet spot for a longer life",
+        "summary": "A study following more than 147,000 people for 30 years found a sweet spot for strength training. Just 90 to 120 minutes a week was linked to a 13 percent lower risk of death. Doing more than that added little extra benefit.",
+        "sourceName": "ScienceDaily",
+        "sourceUrl": "https://www.sciencedaily.com/releases/2026/06/260611024609.htm",
+        "keyword": { "word": "longevity", "definitionEn": "long life; living for many healthy years" },
+        "imageQueries": ["dumbbells gym", "weight training", "people exercising in a gym"],
+        "hookText": "2 HOURS A WEEK MAY ADD YEARS",
+        "hookPattern": "number",
+        "commentQuestion": "How many minutes do you train each week?"
+      },
+      {
+        "index": 3,
+        "country": { "code": "US", "flag": "🇺🇸", "name": "the United States" },
+        "headline": "Stanford scientists regrow knee cartilage and reverse arthritis in mice",
+        "summary": "Stanford scientists restored lost knee cartilage in older mice by blocking a single aging-related protein. Human tissue from knee surgeries also grew new cartilage. If it works in people, a simple injection or pill could one day replace many knee and hip replacements.",
+        "sourceName": "Stanford Medicine",
+        "sourceUrl": "https://www.sciencedaily.com/releases/2026/06/260612021604.htm",
+        "keyword": { "word": "cartilage", "definitionEn": "the strong, flexible tissue that cushions your joints" },
+        "imageQueries": ["knee joint anatomy", "Stanford University campus", "medical research laboratory"],
+        "hookText": "CAN WE REGROW WORN-OUT KNEES?",
+        "hookPattern": "question",
+        "commentQuestion": "Would you take a pill instead of knee surgery?"
+      }
+    ],
+    "todaysWord": {
+      "word": "longevity",
+      "definitionEn": "long life; living for many healthy years",
+      "definitionJp": "長寿（長く健康に生きること）"
+    },
+    "close": "That's your world in sixty. Follow for tomorrow.",
+    "estimatedSeconds": 60
+  },
+  "scriptJp": {
+    "date": "2026-06-14",
+    "language": "jp",
+    "hook": "",
+    "stories": [
+      {
+        "index": 1,
+        "country": { "code": "IN", "flag": "🇮🇳", "name": "インド" },
+        "headline": "エア・インディア墜落から1年、遺族はなお答えを待つ",
+        "summary": "1年前、アーメダバードでエア・インディアのボーイング787が離陸直後に墜落し、260人が死亡した。遺族は今週の最終報告を期待したが、出たのは中間報告のみ。パイロット団体は原因の明確な説明を求めている。",
+        "sourceName": "The Japan Times",
+        "sourceUrl": "https://www.japantimes.co.jp/news/2026/06/11/asia-pacific/air-india-crash-anniversary/"
+      },
+      {
+        "index": 2,
+        "country": { "code": "GL", "flag": "🌍", "name": "世界の健康" },
+        "headline": "筋トレの最適量、研究が示す「長生きの目安」",
+        "summary": "14万7千人を30年追った研究で、筋トレの最適量が見えた。週90〜120分の筋トレは、あらゆる死因のリスクを13%下げることと関連していた。それ以上やっても追加の効果はほとんどなかった。",
+        "sourceName": "ScienceDaily",
+        "sourceUrl": "https://www.sciencedaily.com/releases/2026/06/260611024609.htm"
+      },
+      {
+        "index": 3,
+        "country": { "code": "US", "flag": "🇺🇸", "name": "アメリカ" },
+        "headline": "スタンフォード、膝軟骨の再生に成功（マウス）",
+        "summary": "スタンフォードの研究者が、老化に関わるタンパク質を阻害し、高齢マウスの失われた膝軟骨を再生させた。膝手術で採取したヒト組織でも新たな軟骨が育った。実用化すれば、注射や飲み薬が膝・股関節の置換手術に代わる可能性がある。",
+        "sourceName": "Stanford Medicine",
+        "sourceUrl": "https://www.sciencedaily.com/releases/2026/06/260612021604.htm"
+      }
+    ],
+    "thread": [
+      "🌍 きょうの世界の話題3つ #DailyWorld60 #世界ニュース",
+      "①エア・インディア墜落から1年。260人死亡、最終報告はまだ。",
+      "②筋トレは週90〜120分が最適。死亡リスク13%減。",
+      "③スタンフォードが膝軟骨を再生。手術不要の未来へ。"
+    ]
+  }
+}
