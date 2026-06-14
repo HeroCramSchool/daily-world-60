@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 import sharp from "sharp";
-import { fitSingleLine, fitTextBox } from "./lib/textfit.js";
+import { fitSingleLine, fitTextBox, clampAttr } from "./lib/textfit.js";
 
 /**
  * Weekly long-form deep-dive renderer (horizontal 1920x1080, 8-12 min).
@@ -231,13 +231,13 @@ function sectionSceneSvg(heading: string, num: number, total: number, cue: strin
   <text x="132" y="150" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
         font-size="46" fill="#0B1220">${num}</text>
   <text x="200" y="150" font-family="Hiragino Sans" font-weight="900"
-        font-size="${hFs}" fill="#FFFFFF">${escape(heading)}</text>
+        font-size="${hFs}" fill="#FFFFFF"${clampAttr(heading, hFs, W - 200 - 240, 0)}>${escape(heading)}</text>
   <text x="${W - 90}" y="150" text-anchor="end" font-family="Hiragino Sans" font-weight="600"
         font-size="30" fill="#5C6B8A">${num} / ${total}</text>
   <text x="${W / 2}" y="600" text-anchor="middle" font-family="Hiragino Sans" font-weight="700"
         font-size="${cFit.fontSize}" fill="#FFFFFF">${tspanLines(cFit.lines, W / 2, cFit.lineHeight)}</text>
   ${srcLine ? `<text x="90" y="${H - 60}" font-family="Hiragino Sans" font-weight="600"
-        font-size="${srcFs}" fill="#5C6B8A">${escape(srcLine)}</text>` : ""}
+        font-size="${srcFs}" fill="#5C6B8A"${clampAttr(srcLine, srcFs, W - 180, 0)}>${escape(srcLine)}</text>` : ""}
 </svg>`;
 }
 

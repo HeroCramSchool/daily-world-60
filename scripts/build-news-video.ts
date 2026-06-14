@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
-import { fitSingleLine, fitTextBox, textWidthEm } from "./lib/textfit.js";
+import { fitSingleLine, fitTextBox, textWidthEm, clampAttr } from "./lib/textfit.js";
 
 /**
  * 1 ストーリー単独動画を構築する (v8: 尺=音声長に動的化, 字幕同期 + 国旗なし body)。
@@ -262,7 +262,7 @@ function sourceFooter(story: Story): string {
   <text x="${W - 60}" y="1862" text-anchor="end" font-family="Hiragino Sans" font-weight="600"
         font-size="20" fill="#9CA3AF" letter-spacing="1">AI VOICE · FILE PHOTOS</text>
   <text x="60" y="1900" font-family="Hiragino Sans" font-weight="600"
-        font-size="${srcFs}" fill="#FFFFFF" letter-spacing="0">${escape(srcLine)}</text>`;
+        font-size="${srcFs}" fill="#FFFFFF" letter-spacing="0"${clampAttr(srcLine, srcFs, 760, 0)}>${escape(srcLine)}</text>`;
 }
 function wrap(text: string, maxChars: number, maxLines = 5): string[] {
   const words = text.split(/\s+/);
@@ -305,8 +305,15 @@ function hookSvg(story: Story): string {
   let hookSvgText = "";
   hFit.lines.forEach((line, i) => {
     hookSvgText += `\n  <text x="60" y="${startY + i * hFit.lineHeight}" font-family="Hiragino Sans" font-weight="900"
-        font-size="${hFit.fontSize}" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
+        font-size="${hFit.fontSize}" fill="#FFFFFF" letter-spacing="-1"${clampAttr(line, hFit.fontSize, 960, -1)}>${escape(line)}</text>`;
   });
+
+  // 国名チップ: テキスト幅から算出、ただし右マージン 60px を超えないよう上限クランプ。
+  const chipTextX = 208;
+  const chipMaxTextW = W - 60 - chipTextX; // 国名テキストが使える最大幅 (= 812)
+  const cnClamp = clampAttr(cnText, cnFs, chipMaxTextW, 1);
+  const cnDrawW = Math.min(chipMaxTextW, Math.ceil(textWidthEm(cnText) * cnFs + (cnText.length - 1) * 1));
+  const chipW = Math.min(W - 120, chipTextX - 60 + cnDrawW + 28);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
@@ -325,16 +332,13 @@ function hookSvg(story: Story): string {
 
   <rect x="0" y="0" width="${W}" height="60" fill="#F5E63B"/>
 
-  <!-- Country chip (small): flag + name (実測幅でチップサイズを決定) -->
-  <rect x="60" y="110" width="${Math.min(960, Math.ceil(148 + textWidthEm(cnText) * cnFs + cnText.length * 1 + 28))}" height="96" rx="14" fill="#0A0A0A" fill-opacity="0.78"/>
+  <!-- Country chip: flag + name。右上ブランドは廃止 (長い国名との衝突防止)。
+       テキストは chipMaxTextW を超えると自動圧縮 = 絶対にはみ出さない。 -->
+  <rect x="60" y="110" width="${chipW}" height="96" rx="14" fill="#0A0A0A" fill-opacity="0.78"/>
   <image href="_assets/${code}.png" x="84" y="128" width="96" height="60"
          preserveAspectRatio="xMidYMid meet"/>
-  <text x="208" y="172" font-family="Hiragino Sans" font-weight="900"
-        font-size="${cnFs}" fill="#FFFFFF" letter-spacing="1">${escape(cnText)}</text>
-
-  <!-- Brand (small, top right) -->
-  <text x="${W - 60}" y="172" text-anchor="end" font-family="Hiragino Sans" font-weight="900"
-        font-size="28" fill="#F5E63B" letter-spacing="3">DAILY WORLD 60</text>
+  <text x="${chipTextX}" y="172" font-family="Hiragino Sans" font-weight="900"
+        font-size="${cnFs}" fill="#FFFFFF" letter-spacing="1"${cnClamp}>${escape(cnText)}</text>
 
   ${hookSvgText}
   ${sourceFooter(story)}
@@ -351,8 +355,9 @@ function captionSvg(story: Story, captionText: string, bgN: number, sceneIdx = 0
   const code = story.country.code.toLowerCase();
   const countryName = story.country.name ?? story.country.code;
   const cnText = countryName.toUpperCase();
-  // 国名行: letter-spacing 6 の分を概算で引いた幅に実測フィット
+  // 国名行: letter-spacing 6 の分を概算で引いた幅に実測フィット + 絶対クランプ (x=60, 右マージン60 → 幅960)
   const cnFs = fitSingleLine(cnText, 960 - cnText.length * 6, 40);
+  const cnClamp = clampAttr(cnText, cnFs, 960, 6);
   // Top headline area: Y 200-460 (260px height、上にコンパクトに) x=60 w=960
   const hlBoxW = 960, hlBoxH = 260, hlBoxY = 200;
   const hlFit = fitCaption(story.headline, hlBoxW, hlBoxH,
@@ -361,7 +366,7 @@ function captionSvg(story: Story, captionText: string, bgN: number, sceneIdx = 0
   let headlineSvg = "";
   hlFit.lines.forEach((line, i) => {
     headlineSvg += `\n  <text x="60" y="${hlStartY + i * hlFit.lineHeight}" font-family="Hiragino Sans" font-weight="900"
-        font-size="${hlFit.fontSize}" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
+        font-size="${hlFit.fontSize}" fill="#FFFFFF" letter-spacing="-1"${clampAttr(line, hlFit.fontSize, hlBoxW, -1)}>${escape(line)}</text>`;
   });
   // 構成ローテ: シーンごとに caption box の位置とアクセントを交互に変える
   // (視覚変化を作りつつ、headline 帯 (~Y460) とフッター (Y1820) には絶対に重ねない)
@@ -374,7 +379,7 @@ function captionSvg(story: Story, captionText: string, bgN: number, sceneIdx = 0
   fit.lines.forEach((line, i) => {
     capSvg += `\n  <text x="540" y="${capStartY + i * fit.lineHeight}" text-anchor="middle"
         font-family="Hiragino Sans" font-weight="900"
-        font-size="${fit.fontSize}" fill="#FFFFFF" letter-spacing="0">${escape(line)}</text>`;
+        font-size="${fit.fontSize}" fill="#FFFFFF" letter-spacing="0"${clampAttr(line, fit.fontSize, boxW - 80, 0)}>${escape(line)}</text>`;
   });
   const accent = variant === 1
     ? `<rect x="${boxX}" y="${boxY}" width="14" height="${boxH}" fill="#F5E63B" rx="7"/>`
@@ -396,7 +401,7 @@ function captionSvg(story: Story, captionText: string, bgN: number, sceneIdx = 0
   <!-- Top: yellow stripe + country (no flag) -->
   <rect x="0" y="0" width="${W}" height="60" fill="#F5E63B"/>
   <text x="60" y="160" font-family="Hiragino Sans" font-weight="900"
-        font-size="${cnFs}" fill="#F5E63B" letter-spacing="6">${escape(cnText)}</text>
+        font-size="${cnFs}" fill="#F5E63B" letter-spacing="6"${cnClamp}>${escape(cnText)}</text>
   ${headlineSvg}
 
   <!-- Caption box -->
@@ -428,7 +433,7 @@ function wordSvg(keyword: Keyword | undefined, cueText: string, cueIdx: number, 
   fit.lines.forEach((line, i) => {
     capSvg += `\n  <text x="540" y="${capStartY + i * fit.lineHeight}" text-anchor="middle"
         font-family="Hiragino Sans" font-weight="700"
-        font-size="${fit.fontSize}" fill="#FFFFFF" letter-spacing="0">${escape(line)}</text>`;
+        font-size="${fit.fontSize}" fill="#FFFFFF" letter-spacing="0"${clampAttr(line, fit.fontSize, boxW - 80, 0)}>${escape(line)}</text>`;
   });
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -438,11 +443,11 @@ function wordSvg(keyword: Keyword | undefined, cueText: string, cueIdx: number, 
   <!-- Top label band -->
   <rect x="60" y="200" width="960" height="80" fill="#F5E63B"/>
   <text x="540" y="260" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="38" fill="#0A0A0A" letter-spacing="6">TODAY'S ENGLISH KEYWORD</text>
+        font-size="38" fill="#0A0A0A" letter-spacing="6"${clampAttr("TODAY'S ENGLISH KEYWORD", 38, 900, 6)}>TODAY'S ENGLISH KEYWORD</text>
 
   <!-- Big keyword (dynamic font-size to avoid overflow) -->
   <text x="540" y="640" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="${kwFontSize}" fill="#F5E63B" letter-spacing="-2">${escape(word)}</text>
+        font-size="${kwFontSize}" fill="#F5E63B" letter-spacing="-2"${clampAttr(word, kwFontSize, 960, -2)}>${escape(word)}</text>
 
   <!-- Divider -->
   <rect x="290" y="740" width="500" height="8" fill="#F5E63B"/>
@@ -491,12 +496,12 @@ function subscribeOutroSvg(story: Story): string {
   <rect x="0" y="0" width="${W}" height="60" fill="#F5E63B"/>
 
   <text x="540" y="${yPlease}" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="${plFs}" fill="#FFFFFF" letter-spacing="4">PLEASE</text>
+        font-size="${plFs}" fill="#FFFFFF" letter-spacing="4"${clampAttr("PLEASE", plFs, 1000, 4)}>PLEASE</text>
   <text x="540" y="${ySub}" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="${subFs}" fill="#F5E63B" letter-spacing="2">SUBSCRIBE</text>
+        font-size="${subFs}" fill="#F5E63B" letter-spacing="2"${clampAttr("SUBSCRIBE", subFs, 1000, 2)}>SUBSCRIBE</text>
   <rect x="340" y="${ySub + 50}" width="400" height="10" fill="#F5E63B"/>
   <text x="540" y="${ySub + 170}" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="${hFs}" fill="#FFFFFF" letter-spacing="3">${escape(handle)}</text>
+        font-size="${hFs}" fill="#FFFFFF" letter-spacing="3"${clampAttr(handle, hFs, 1000, 3)}>${escape(handle)}</text>
   <text x="540" y="${ySub + 240}" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
         font-size="30" fill="#9CA3AF" letter-spacing="6">DAILY WORLD 60</text>
 

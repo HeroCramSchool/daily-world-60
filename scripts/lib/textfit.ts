@@ -78,6 +78,20 @@ export function wrapByWidth(text: string, maxEm: number): string[] {
   return lines;
 }
 
+/**
+ * 単行テキストの「絶対はみ出さない」保証用属性。
+ * 推定自然幅 (letter-spacing 込み) が maxWidth を超えるときだけ
+ * ` textLength="maxWidth" lengthAdjust="spacingAndGlyphs"` を返す。
+ * 超えていなければ空文字 (短い文字を引き伸ばさない)。
+ * フォント実測と無関係に、レンダラ側が必ず maxWidth 内に収める = 画面切れ/重なりゼロ。
+ */
+export function clampAttr(text: string, fontSize: number, maxWidth: number, letterSpacing = 0): string {
+  const n = [...text].length;
+  const natural = textWidthEm(text) * fontSize + Math.max(0, n - 1) * letterSpacing;
+  if (natural <= maxWidth) return "";
+  return ` textLength="${Math.floor(maxWidth)}" lengthAdjust="spacingAndGlyphs"`;
+}
+
 export interface FitResult { fontSize: number; lines: string[]; lineHeight: number; }
 
 /**
