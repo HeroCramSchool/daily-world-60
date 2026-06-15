@@ -271,8 +271,9 @@ function buildYoutubeDescription(story: Story, date: string): string {
     // 宛先指定シェア CTA (ダークソーシャル/DM転送向け)
     "📩 Send this to a friend who's learning English.",
     "",
-    "Educational summary · Fair use (US §107 / JP 著作権法32条)",
-    "AI-assisted voice and video editing. Images: Wikimedia Commons / agency file photos.",
+    "Educational summary for general information only · Fair use (US §107 / JP 著作権法32条)",
+    "Original reporting belongs to the publisher linked above. Please verify details with the original source.",
+    "Not affiliated with any government or publisher. AI-assisted voice and video editing. Images: Wikimedia Commons / agency file photos.",
     "",
     `#WorldNews #DailyNews #60Seconds #Shorts #${story.country.code} #${story.sourceName.replace(/\s+/g, "")}`,
   );
