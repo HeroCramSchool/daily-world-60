@@ -357,9 +357,11 @@ async function fetchYesterdayHeadlines(date: string): Promise<string[]> {
   const drive = await driveClient();
   const folderId = process.env.DRIVE_FOLDER_ID ?? (await findFolderId(drive, folderName));
   if (!folderId) return [];
-  const fileName = `publish-results-${y}.json`;
+  const candidateNames = [`run-results-${y}.json`, `publish-results-${y}.json`];
   const r = await drive.files.list({
-    q: `'${folderId}' in parents and name = '${fileName}' and trashed = false`,
+    q: `'${folderId}' in parents and (${candidateNames
+      .map((n) => `name = '${n}'`)
+      .join(" or ")}) and trashed = false`,
     fields: "files(id, name, modifiedTime)",
     orderBy: "modifiedTime desc",
     pageSize: 5,

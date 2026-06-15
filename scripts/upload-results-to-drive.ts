@@ -18,8 +18,11 @@ async function main() {
   const folderId = process.env.DRIVE_FOLDER_ID ?? (await findFolderId(drive, FOLDER_NAME));
   if (!folderId) throw new Error(`Folder "${FOLDER_NAME}" not found in Drive (set DRIVE_FOLDER_ID to override)`);
 
-  // Upload publish-results-YYYY-MM-DD.json (overwrite if exists)
-  const remoteName = `publish-results-${path.basename(dir)}.json`;
+  // Upload run-results-YYYY-MM-DD.json (overwrite if exists)
+  // NOTE: must NOT be publish-results-${date}.json — that name is the Routine's
+  // SCRIPT input ({scriptEn,scriptJp}) and overwriting it here would clobber the
+  // next batch's script source (fetch-scripts-from-drive reads publish-results-).
+  const remoteName = `run-results-${path.basename(dir)}.json`;
   const existing = await drive.files.list({
     q: `'${folderId}' in parents and name = '${remoteName}' and trashed = false`,
     fields: "files(id)",
