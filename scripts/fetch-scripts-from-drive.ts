@@ -89,6 +89,11 @@ async function main() {
       JSON.stringify({ date, stories: [] }, null, 2),
       "utf-8",
     );
+    await fs.writeFile(
+      path.join(outDir, "script-jp.json"),
+      JSON.stringify({ date, stories: [] }, null, 2),
+      "utf-8",
+    );
     return;
   }
 

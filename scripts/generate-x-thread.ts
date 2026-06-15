@@ -31,11 +31,28 @@ interface ScriptJsonJp {
 }
 
 // CD/KW/SG 用の日本語要約（既に script-jp.json にあるもの）
+async function readJsonOrNull<T>(file: string): Promise<T | null> {
+  try {
+    return JSON.parse(await fs.readFile(file, "utf-8")) as T;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw e;
+  }
+}
+
 async function main() {
   const date = process.argv[2] ?? new Date().toISOString().slice(0, 10);
   const dir = process.env.OUT_DIR ?? path.join("output", date);
-  const en: ScriptJsonEn = JSON.parse(await fs.readFile(path.join(dir, "script-en.json"), "utf-8"));
-  const jp: ScriptJsonJp = JSON.parse(await fs.readFile(path.join(dir, "script-jp.json"), "utf-8"));
+  const en = await readJsonOrNull<ScriptJsonEn>(path.join(dir, "script-en.json"));
+  const jp = await readJsonOrNull<ScriptJsonJp>(path.join(dir, "script-jp.json"));
+
+  // Empty/missing batch (e.g. Routine produced no script) is a clean no-op,
+  // not a failure — otherwise a missing script-jp.json aborts the whole publish.
+  if (!en || !jp || !en.stories?.length || !jp.stories?.length) {
+    console.log(`[x] no stories for ${date} — skipping X thread (no-op)`);
+    return;
+  }
+
   const mmdd = date.slice(5).replace("-", "/");
 
   const lines: string[] = [];

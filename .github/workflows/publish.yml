@@ -210,7 +210,10 @@ jobs:
         run: npx tsx scripts/generate-social-images.ts ${{ steps.date.outputs.realdate }}
 
       - name: Step E — Generate X thread (3 tweets)
-        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
+        # Skip entirely when X is in PUBLISH_SKIP (x-thread.txt is unused then).
+        # continue-on-error so a thread-gen hiccup never blocks the YouTube publish.
+        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete' && !contains(format(',{0},', env.PUBLISH_SKIP), ',x,')
+        continue-on-error: true
         run: npx tsx scripts/generate-x-thread.ts ${{ steps.date.outputs.realdate }}
 
       - name: Step F0 — Upload preview to Drive (best effort)
