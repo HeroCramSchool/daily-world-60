@@ -36,10 +36,18 @@ export function textWidthEm(text: string): number {
   return w;
 }
 
+/**
+ * 安全マージン。rsvg-convert (librsvg) は `textLength`/`lengthAdjust` を無視するため
+ * clampAttr のはみ出し防止は効かない。実フォント (Hiragino Sans W9) は glyphEm 推定より
+ * 数%太く、推定で「ちょうど収まる」サイズは実描画で枠端に到達/越える。フォント側で
+ * この分の余白を必ず確保する = 単行テキストは絶対に枠内に収まる。
+ */
+const SINGLE_LINE_SAFETY = 0.92;
+
 /** 1行テキストを maxWidth(px) に収めるフォントサイズ。 */
 export function fitSingleLine(text: string, maxWidth: number, ceilingFontSize: number): number {
   const em = textWidthEm(text);
-  const ideal = Math.floor(maxWidth / Math.max(0.5, em));
+  const ideal = Math.floor((maxWidth * SINGLE_LINE_SAFETY) / Math.max(0.5, em));
   return Math.min(ceilingFontSize, ideal);
 }
 

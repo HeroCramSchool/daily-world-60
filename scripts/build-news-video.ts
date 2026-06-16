@@ -312,7 +312,8 @@ function hookSvg(story: Story): string {
   const chipTextX = 208;
   const chipMaxTextW = W - 60 - chipTextX; // 国名テキストが使える最大幅 (= 812)
   const cnClamp = clampAttr(cnText, cnFs, chipMaxTextW, 1);
-  const cnDrawW = Math.min(chipMaxTextW, Math.ceil(textWidthEm(cnText) * cnFs + (cnText.length - 1) * 1));
+  // chip 背景は実フォント (推定より太い) を必ず内包するよう推定幅を 1.1x 膨らませる。
+  const cnDrawW = Math.min(chipMaxTextW, Math.ceil((textWidthEm(cnText) * cnFs + (cnText.length - 1) * 1) * 1.1));
   const chipW = Math.min(W - 120, chipTextX - 60 + cnDrawW + 28);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
