@@ -35,6 +35,9 @@ async function main() {
   const script: ScriptJson = JSON.parse(await fs.readFile(path.join(dir, "script-en.json"), "utf-8"));
   const mmdd = enDate(date);
 
+  // 配信先は YouTube + Instagram のみ。TikTok は停止中なのでカバー生成もしない。
+  const skipTikTok = (process.env.PUBLISH_SKIP ?? "").split(",").map(s => s.trim()).includes("tiktok");
+
   for (const story of script.stories) {
     const code = story.country.code.toLowerCase();
     // 縦長: bg-1 (主要メイン画像)
@@ -44,7 +47,9 @@ async function main() {
     await renderSvg(path.join(dir, `yt-thumbnail-v-${code}.png`),  vertical(story, mmdd, code, 1),    1080, 1920);
     await renderSvg(path.join(dir, `ig-reels-cover-${code}.png`),  vertical(story, mmdd, code, 1),    1080, 1920);
     await renderSvg(path.join(dir, `ig-feed-${code}.png`),         square(story, mmdd, code, 1),      1080, 1080);
-    await renderSvg(path.join(dir, `tiktok-cover-${code}.png`),    vertical(story, mmdd, code, 1),    1080, 1920);
+    if (!skipTikTok) {
+      await renderSvg(path.join(dir, `tiktok-cover-${code}.png`),  vertical(story, mmdd, code, 1),    1080, 1920);
+    }
   }
 
   console.log("[social] done");

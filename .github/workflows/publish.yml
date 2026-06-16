@@ -44,7 +44,7 @@ on:
           - "false"
           - "true"
       publish_skip:
-        description: "スキップするプラットフォーム (カンマ区切り: youtube,instagram,tiktok,x)。指定時 skip_youtube より優先"
+        description: "追加でスキップするプラットフォーム (カンマ区切り: youtube,instagram)。tiktok,x は常時オフ。指定時 skip_youtube より優先"
         required: false
         default: ""
       force_republish:
@@ -107,10 +107,10 @@ jobs:
       # スケジュール起動 (朝昼夜 3 cron) は全て full(生成+投稿)。手動 dispatch は入力の mode を尊重。
       RUN_MODE: ${{ github.event_name == 'schedule' && 'full' || github.event.inputs.mode }}
       DATE_OVERRIDE: ${{ github.event.inputs.date }}
-      # 手動 dispatch の publish_skip 最優先 → skip_youtube → スケジュールの auto-publish は
-      # YouTube + Instagram(Graph API)。IG は IG_GRAPH_* secrets が入るまで publish-all 側で
-      # 自動スキップ (cookie 経路は偽陽性のため廃止 2026-06-12)。TikTok/X は停止中。
-      PUBLISH_SKIP: ${{ github.event.inputs.publish_skip != '' && github.event.inputs.publish_skip || (github.event.inputs.skip_youtube == 'true' && 'youtube' || (github.event_name == 'schedule' && 'tiktok,x' || '')) }}
+      # 配信先は YouTube + Instagram(Graph API) のみ。TikTok/X は常時オフ (どの trigger でも
+      # tiktok,x を必ず PUBLISH_SKIP に含める)。任意で publish_skip 追加 / skip_youtube 可。
+      # IG は IG_GRAPH_* secrets が入るまで publish-all 側で自動スキップ (cookie 経路は廃止 2026-06-12)。
+      PUBLISH_SKIP: ${{ format('tiktok,x{0}{1}', github.event.inputs.publish_skip != '' && format(',{0}', github.event.inputs.publish_skip) || '', github.event.inputs.skip_youtube == 'true' && ',youtube' || '') }}
       # IG は 1 run あたり 1 本まで (= 朝昼夜で1日3リール。連投スパム判定の回避)
       IG_MAX_PER_RUN: ${{ github.event.inputs.ig_max_per_run || (github.event_name == 'schedule' && '1' || '0') }}
       # 強制再投稿 (差し替え再アップ用)。schedule では常に false。
