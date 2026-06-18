@@ -147,9 +147,20 @@ jobs:
           python-version: "3.12"
 
       - name: Install ffmpeg + librsvg + xvfb (for headed Playwright)
+        # GH runners intermittently hang on apt mirrors, which was eating the whole
+        # 30-min job budget and cancelling batches (e.g. 2026-06-18 batch1). Bound each
+        # attempt with `timeout` and retry up to 3x so a stuck mirror fails fast.
+        timeout-minutes: 12
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg librsvg2-bin xvfb
+          ok=""
+          for i in 1 2 3; do
+            sudo timeout 180 apt-get update \
+              && sudo timeout 300 apt-get install -y ffmpeg librsvg2-bin xvfb \
+              && ok=1 && break
+            echo "apt attempt $i failed/timed out — retrying"; sleep 15
+          done
+          [ -n "$ok" ] || { echo "apt failed after 3 attempts"; exit 1; }
+          command -v ffmpeg >/dev/null && command -v rsvg-convert >/dev/null
 
       - name: Install edge-tts
         run: pip install edge-tts
