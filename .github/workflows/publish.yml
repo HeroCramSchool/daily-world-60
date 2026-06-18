@@ -2,15 +2,16 @@ name: Daily World 60 — Publish
 
 on:
   schedule:
-    # 朝昼夜 3 バッチ × 3 本 = 1 日 9 本 (YouTube のみ。IG/TikTok/X は既定スキップ)。
-    # Routine(18:07 UTC) が publish-results-{date}.json に 9 ストーリー出力 → 各 cron が BATCH で 3 本ずつ。
-    # GH cron は数時間遅延しうる (NZ 時刻は目安)。停止は該当 cron 行を消す。
-    # batch1: 20:00 UTC = 08:00 NZST 朝 (当日 Routine 分)
+    # 公開を視聴者ピーク UTC 14:00-22:00 に集約 (2026-06-18 Studio アナリティクス分析:
+    # 視聴者オンライン最濃は NZ 02:00-10:00 = UTC 14:00-22:00、欧米中心グローバル英語層)。
+    # 9 本/日。各 cron が BATCH で 3 本ずつ stagger 60 分で予約公開 → 全 9 本が UTC 14:00-22:00 に 1h おき。
+    # GH cron は数時間遅延しうる。停止は該当 cron 行を消す。
+    # batch1: 20:00 UTC (当日 Routine 分) → 20/21/22 UTC
     - cron: '0 20 * * *'
-    # batch2: 02:00 UTC = 14:00 NZST 昼 (前日 Routine 分 → date-1)
-    - cron: '0 2 * * *'
-    # batch3: 08:00 UTC = 20:00 NZST 夜 (前日 Routine 分 → date-1)
-    - cron: '0 8 * * *'
+    # batch2: 14:00 UTC (前日 Routine 分 → date-1) → 14/15/16 UTC
+    - cron: '0 14 * * *'
+    # batch3: 17:00 UTC (前日 Routine 分 → date-1) → 17/18/19 UTC
+    - cron: '0 17 * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -117,8 +118,8 @@ jobs:
       FORCE_REPUBLISH: ${{ github.event.inputs.force_republish || 'false' }}
       # 台本ソースをリポジトリ内ファイルから読む (独自トピック用)。空=Drive取得。schedule では常に空。
       SCRIPT_SOURCE_FILE: ${{ github.event.inputs.script_source_file }}
-      # YouTube 1本ずつ時間差公開 (2本目以降 private+publishAt 予約)。schedule は 120分間隔 = 1日9本が約2時間おき。
-      PUBLISH_STAGGER_MINUTES: ${{ github.event.inputs.publish_stagger_minutes || (github.event_name == 'schedule' && '120' || '0') }}
+      # YouTube 1本ずつ時間差公開 (2本目以降 private+publishAt 予約)。schedule は 60分間隔 = 各バッチ3本が1hおき → 全9本が UTC 14:00-22:00 のピークに収まる。
+      PUBLISH_STAGGER_MINUTES: ${{ github.event.inputs.publish_stagger_minutes || (github.event_name == 'schedule' && '60' || '0') }}
 
     steps:
       - name: Checkout
@@ -171,8 +172,8 @@ jobs:
             # 朝昼夜 3 cron → batch と日付オフセット。batch2/3 は前日 Routine 分。
             case "$SCHED" in
               "0 20 * * *") BATCH=1; OFF=0 ;;
-              "0 2 * * *")  BATCH=2; OFF=1 ;;
-              "0 8 * * *")  BATCH=3; OFF=1 ;;
+              "0 14 * * *") BATCH=2; OFF=1 ;;
+              "0 17 * * *") BATCH=3; OFF=1 ;;
               *)            BATCH=1; OFF=0 ;;
             esac
             DATE=$(date -u -d "-${OFF} day" +%Y-%m-%d)
