@@ -158,7 +158,13 @@ jobs:
         run: npm ci
 
       - name: Install Playwright Chromium
-        if: env.RUN_MODE != 'preview'
+        # Chromium is only needed by the X / TikTok cookie publishers. Scheduled runs always
+        # skip tiktok,x (IG=Graph API, YouTube doesn't use Playwright), so skip the install
+        # entirely there. When it does run, bound it + make it non-fatal so a hung download
+        # can never eat the 30-min job budget (was causing batch runs to be cancelled).
+        if: env.RUN_MODE != 'preview' && (!contains(format(',{0},', env.PUBLISH_SKIP), ',x,') || !contains(format(',{0},', env.PUBLISH_SKIP), ',tiktok,'))
+        timeout-minutes: 5
+        continue-on-error: true
         run: npx playwright install --with-deps chromium
 
       - name: Resolve date & batch
