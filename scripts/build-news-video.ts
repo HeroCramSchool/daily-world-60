@@ -126,11 +126,11 @@ async function buildOne(dir: string, story: Story) {
     });
   });
 
-  // Outro: フックと同じ写真 (bg-1) の上に PLEASE SUBSCRIBE を重ねた1シーン。
-  // outro 区間 (= "that's the latest" 以降) の合計尺をまるごと使う。
+  // Outro: 末尾はフック画面に戻す = シームレスループ (Shorts の自動ループで end→start が繋がり
+  // 再視聴を誘発)。旧「PLEASE SUBSCRIBE」の死に区間は廃止 (2026-06-20 リテンション改善)。尺も短くキャップ。
   if (outroCues.length) {
     const outroDur = outroCues.reduce((acc, c) => acc + (c.end - c.start), 0);
-    scenes.push({ id: "04-subscribe", dur: Math.max(1.5, outroDur), svg: subscribeOutroSvg(story) });
+    scenes.push({ id: "04-loop", dur: Math.max(1.2, Math.min(2.5, outroDur)), svg: hookSvg(story) });
   }
 
   // 端数 (audio + 0.4s pad) は最終シーンに吸収させる

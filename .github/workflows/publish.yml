@@ -2,18 +2,10 @@ name: Daily World 60 — Publish
 
 on:
   schedule:
-    # 1 日 12 本 = 4 バッチ × 3 本。視聴者ピーク UTC 14:00-22:00 に集約 (2026-06-18 Studio
-    # アナリティクス: 視聴者オンライン最濃は NZ 02:00-10:00 = UTC 14:00-22:00、欧米中心英語層)。
-    # 各 cron が BATCH で 3 本ずつ stagger 30 分で予約公開 → 全 12 本が UTC 14:00-21:00 に収まる。
-    # batch2-4 は前日台本(OFF=1, stories 4-12)、batch1 のみ当日(OFF=0, stories 1-3)。
-    # GH cron は数時間遅延しうる。停止は該当 cron 行を消す。
-    # batch2: 14:00 UTC (前日 stories 4-6) → 14:00/14:30/15:00
-    - cron: '0 14 * * *'
-    # batch3: 16:00 UTC (前日 stories 7-9) → 16:00/16:30/17:00
-    - cron: '0 16 * * *'
-    # batch4: 18:00 UTC (前日 stories 10-12) → 18:00/18:30/19:00
-    - cron: '0 18 * * *'
-    # batch1: 20:00 UTC (当日 stories 1-3) → 20:00/20:30/21:00
+    # 1 日 3 本 = 1 バッチ × 3 本（質重視への転換 2026-06-20: 12本/日は cold-start で
+    # アルゴの個別テストと制作労力を希薄化。実測でも上位ニュースShortsは月~20本。紛争/
+    # 災害/記録に絞り「狭く厚く」= 1本ブレイクで10K狙い）。当日台本の上位トリオ(stories
+    # 1-3)を視聴者ピーク UTC 20:00-21:00 に stagger 30分で公開。GH cron は数時間遅延しうる。
     - cron: '0 20 * * *'
   workflow_dispatch:
     inputs:
@@ -192,9 +184,6 @@ jobs:
             # 朝昼夜 3 cron → batch と日付オフセット。batch2/3 は前日 Routine 分。
             case "$SCHED" in
               "0 20 * * *") BATCH=1; OFF=0 ;;
-              "0 14 * * *") BATCH=2; OFF=1 ;;
-              "0 16 * * *") BATCH=3; OFF=1 ;;
-              "0 18 * * *") BATCH=4; OFF=1 ;;
               *)            BATCH=1; OFF=0 ;;
             esac
             DATE=$(date -u -d "-${OFF} day" +%Y-%m-%d)

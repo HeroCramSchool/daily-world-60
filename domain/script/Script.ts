@@ -59,9 +59,9 @@ export const Script = {
       `Here's what's happening.`,
       s.summary,
     ];
-    // 締め: ループ接続の一文 + 登録CTA。
-    // "that's the latest" が outro シーン境界マーカーを兼ねる (subscribe シーンに切替)。
-    lines.push(`And that's the latest from ${countryName}. If this helped, please subscribe.`);
+    // 締め: 短いループ接続の一文のみ (登録CTAの「please subscribe」は廃止 = 末尾の死に区間を短縮)。
+    // "that's the latest" が outro シーン境界マーカーを兼ねる (末尾はフック画面に戻りループ)。
+    lines.push(`And that's the latest from ${countryName}.`);
     return lines.join(" ");
   },
 
