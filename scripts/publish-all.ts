@@ -132,7 +132,9 @@ async function main() {
     const ttCover = path.join(dir, `tiktok-cover-${code}.png`);
 
     const countryName = story.country.name ?? story.country.code;
-    const ytTitle = `${countryName}: ${story.headline} | Daily World 60`;
+    // タイトルはフック主体に (2026-06-20): 旧「Country: 〜 | Daily World 60」は接頭/接尾が
+    // フィードでの初速を削ぐ。見出しを front-load し、発見用ハッシュタグを2つだけ付与。
+    const ytTitle = `${story.headline} #Shorts #WorldNews`;
     const ytDesc = buildYoutubeDescription(story, scriptEn.date);
     const ytTags = [
       "World News", "Daily News", "60 Seconds", "Short News",
