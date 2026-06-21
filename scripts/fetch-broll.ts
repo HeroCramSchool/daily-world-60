@@ -192,11 +192,11 @@ async function main() {
     const savedBg: number[] = [];
     for (let i = 0; i < picked.length && i < BG_COUNT; i++) {
       const img = picked[i];
-      const dest = path.join(assets, `bg-${code}-${i + 1}.jpg`);
+      const dest = path.join(assets, `bg-${code}-s${story.index}-${i + 1}.jpg`);
       try {
         await downloadAndCrop(img.thumbUrl, dest);
         savedBg.push(i + 1);
-        creditLines.push(`- bg-${code}-${i + 1}.jpg — ${img.title} (${img.license || "see Commons"}) ${img.artist ? `by ${stripHtml(img.artist)}` : ""}\n  ${img.descUrl}`);
+        creditLines.push(`- bg-${code}-s${story.index}-${i + 1}.jpg — ${img.title} (${img.license || "see Commons"}) ${img.artist ? `by ${stripHtml(img.artist)}` : ""}\n  ${img.descUrl}`);
       } catch (e) {
         console.warn(`[broll] download/crop failed (${img.title}): ${e instanceof Error ? e.message : e}`);
       }
@@ -206,26 +206,26 @@ async function main() {
     if (savedBg.length === 0) {
       const fallbackImgs = await searchImages(countryName).catch(() => [] as CommonsImage[]);
       for (let i = 0; i < fallbackImgs.length && savedBg.length < BG_COUNT; i++) {
-        const dest = path.join(assets, `bg-${code}-${savedBg.length + 1}.jpg`);
+        const dest = path.join(assets, `bg-${code}-s${story.index}-${savedBg.length + 1}.jpg`);
         try {
           await downloadAndCrop(fallbackImgs[i].thumbUrl, dest);
           savedBg.push(savedBg.length + 1);
-          creditLines.push(`- bg-${code}-${savedBg.length}.jpg — ${fallbackImgs[i].title} (fallback)\n  ${fallbackImgs[i].descUrl}`);
+          creditLines.push(`- bg-${code}-s${story.index}-${savedBg.length}.jpg — ${fallbackImgs[i].title} (fallback)\n  ${fallbackImgs[i].descUrl}`);
         } catch { /* keep trying */ }
       }
     }
     if (savedBg.length === 0) {
-      await solidFallback(path.join(assets, `bg-${code}-1.jpg`), countryName);
+      await solidFallback(path.join(assets, `bg-${code}-s${story.index}-1.jpg`), countryName);
       savedBg.push(1);
-      creditLines.push(`- bg-${code}-1.jpg — solid-color fallback (no Commons image found)`);
+      creditLines.push(`- bg-${code}-s${story.index}-1.jpg — solid-color fallback (no Commons image found)`);
       console.warn(`[broll] ${code}: no Commons image, used solid fallback`);
     }
 
     // bg-1..6 を必ず揃える: 不足分は取得済みを cycle してコピー。
     for (let n = 1; n <= BG_COUNT; n++) {
-      const target = path.join(assets, `bg-${code}-${n}.jpg`);
+      const target = path.join(assets, `bg-${code}-s${story.index}-${n}.jpg`);
       if (await exists(target)) continue;
-      const src = path.join(assets, `bg-${code}-${savedBg[(n - 1) % savedBg.length]}.jpg`);
+      const src = path.join(assets, `bg-${code}-s${story.index}-${savedBg[(n - 1) % savedBg.length]}.jpg`);
       await fs.copyFile(src, target).catch(() => {});
     }
 

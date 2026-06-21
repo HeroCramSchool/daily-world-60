@@ -327,7 +327,7 @@ function hookSvg(story: Story): string {
     </linearGradient>
   </defs>
   <!-- Dramatic photo is the hero -->
-  <image href="_assets/bg-${code}-1.jpg" x="0" y="0" width="${W}" height="${H}"
+  <image href="_assets/bg-${code}-s${story.index}-1.jpg" x="0" y="0" width="${W}" height="${H}"
          preserveAspectRatio="xMidYMid slice"/>
   <rect width="${W}" height="${H}" fill="url(#hookDarken)"/>
 
@@ -395,7 +395,7 @@ function captionSvg(story: Story, captionText: string, bgN: number, sceneIdx = 0
       <stop offset="100%" stop-color="#0A0A0A" stop-opacity="0.95"/>
     </linearGradient>
   </defs>
-  <image href="_assets/bg-${code}-${bgN}.jpg" x="0" y="0" width="${W}" height="${H}"
+  <image href="_assets/bg-${code}-s${story.index}-${bgN}.jpg" x="0" y="0" width="${W}" height="${H}"
          preserveAspectRatio="xMidYMid slice"/>
   <rect width="${W}" height="${H}" fill="url(#darken)"/>
 
@@ -491,7 +491,7 @@ function subscribeOutroSvg(story: Story): string {
       <stop offset="100%" stop-color="#0A0A0A" stop-opacity="0.92"/>
     </linearGradient>
   </defs>
-  <image href="_assets/bg-${code}-1.jpg" x="0" y="0" width="${W}" height="${H}"
+  <image href="_assets/bg-${code}-s${story.index}-1.jpg" x="0" y="0" width="${W}" height="${H}"
          preserveAspectRatio="xMidYMid slice"/>
   <rect width="${W}" height="${H}" fill="url(#subDarken)"/>
   <rect x="0" y="0" width="${W}" height="60" fill="#F5E63B"/>
