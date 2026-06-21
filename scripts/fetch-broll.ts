@@ -146,8 +146,17 @@ async function generateAIHero(
   story: { headline: string; summary?: string; imageQueries?: string[]; country?: { name?: string }; index?: number },
   dest: string,
 ): Promise<void> {
-  const scene = (Array.isArray(story.imageQueries) && story.imageQueries[0]) || story.country?.name || "";
-  const prompt = `Editorial news illustration, vertical, cinematic and somber, evoking: ${story.headline}. Scene: ${scene}. Photojournalistic painterly style, muted serious tones, dramatic lighting, no text, no captions, no logos, no watermark, no recognizable real people`.slice(0, 480);
+  // 細密なプロンプト: 見出し + 要約の具体(数字/場所) + 複数の imageQueries + 詳細な構図/光/質感/色調/画風 + 強い negatives。
+  const elements = (Array.isArray(story.imageQueries) ? story.imageQueries.slice(0, 4) : [])
+    .map(s => String(s).trim()).filter(Boolean).join(", ");
+  const ctx = (story.summary ?? "").replace(/\s+/g, " ").trim().slice(0, 240);
+  const prompt = [
+    `Highly detailed cinematic editorial news illustration depicting the story: "${story.headline}".`,
+    ctx ? `Scene context: ${ctx}` : "",
+    elements ? `Key visual elements in the frame: ${elements}.` : (story.country?.name ? `Setting: ${story.country.name}.` : ""),
+    `Vertical 9:16 composition with a strong dramatic foreground subject and a deep atmospheric background; volumetric lighting and god rays, drifting haze and fine particulate, shallow depth of field, intricate textures, weathered realistic materials, somber desaturated muted color palette with one accent of warm light; painterly photojournalistic concept-art style, moody and immersive, ultra detailed.`,
+    `Absolutely no text, no captions, no letters, no numbers, no logos, no watermark, no UI, no borders, no recognizable real individual faces.`,
+  ].filter(Boolean).join(" ").slice(0, 1000);
   const url = `${POLLINATIONS_API}${encodeURIComponent(prompt)}?width=1024&height=1536&nologo=true&model=flux&seed=${(story.index ?? 1) * 7 + 3}`;
   const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(60000) });
   if (!res.ok) throw new Error(`pollinations HTTP ${res.status}`);
