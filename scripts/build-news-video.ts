@@ -260,7 +260,7 @@ function sourceFooter(story: Story): string {
   <text x="60" y="1862" font-family="Hiragino Sans" font-weight="900"
         font-size="24" fill="#F5E63B" letter-spacing="4">SOURCE</text>
   <text x="${W - 60}" y="1862" text-anchor="end" font-family="Hiragino Sans" font-weight="600"
-        font-size="20" fill="#9CA3AF" letter-spacing="1">AI VOICE · FILE PHOTOS</text>
+        font-size="20" fill="#9CA3AF" letter-spacing="1">${process.env.OPENAI_API_KEY ? "AI VOICE · AI + FILE VISUALS" : "AI VOICE · FILE PHOTOS"}</text>
   <text x="60" y="1900" font-family="Hiragino Sans" font-weight="600"
         font-size="${srcFs}" fill="#FFFFFF" letter-spacing="0"${clampAttr(srcLine, srcFs, 760, 0)}>${escape(srcLine)}</text>`;
 }

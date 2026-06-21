@@ -135,6 +135,33 @@ async function searchImages(query: string): Promise<CommonsImage[]> {
   return searchCommons(query);
 }
 
+const OPENAI_KEY = process.env.OPENAI_API_KEY || "";
+const OPENAI_IMAGES_API = "https://api.openai.com/v1/images/generations";
+
+// AI hero 背景: OPENAI_API_KEY がある時のみ、story の hero (bg-1 = コールドオープン/ループ画像) を
+// gpt-image-1 で生成し、内容を強く想起させる。ニュース信頼性のため「イラスト調・no text・実在人物なし」
+// で生成し、画面フッターは "AI + FILE VISUALS" に切替。失敗/コンテンツ拒否時は呼び出し側が stock を維持。
+async function generateAIHero(
+  story: { headline: string; summary?: string; imageQueries?: string[]; country?: { name?: string } },
+  dest: string,
+): Promise<void> {
+  const scene = (Array.isArray(story.imageQueries) && story.imageQueries[0]) || story.country?.name || "";
+  const prompt = `Atmospheric editorial news illustration, vertical 9:16, cinematic and somber, evoking this news story: "${story.headline}". ${story.summary ?? ""} Focus scene: ${scene}. Painterly photojournalistic style, muted serious tones, dramatic lighting. No text, no captions, no logos, no watermark, no recognizable real individuals.`.slice(0, 950);
+  const res = await fetch(OPENAI_IMAGES_API, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${OPENAI_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "gpt-image-1", prompt, size: "1024x1536", n: 1 }),
+  });
+  if (!res.ok) throw new Error(`openai images HTTP ${res.status}: ${(await res.text()).slice(0, 160)}`);
+  const json = await res.json() as { data?: Array<{ b64_json?: string; url?: string }> };
+  const d = json.data?.[0];
+  let buf: Buffer;
+  if (d?.b64_json) buf = Buffer.from(d.b64_json, "base64");
+  else if (d?.url) buf = Buffer.from(await (await fetch(d.url)).arrayBuffer());
+  else throw new Error("openai images: empty response");
+  await sharp(buf).resize(W, H, { fit: "cover", position: "centre" }).jpeg({ quality: 88 }).toFile(dest);
+}
+
 async function main() {
   const date = process.argv[2] ?? new Date().toISOString().slice(0, 10);
   const dir = process.env.OUT_DIR ?? path.join("output", date);
@@ -227,6 +254,18 @@ async function main() {
       if (await exists(target)) continue;
       const src = path.join(assets, `bg-${code}-s${story.index}-${savedBg[(n - 1) % savedBg.length]}.jpg`);
       await fs.copyFile(src, target).catch(() => {});
+    }
+
+    // AI hero: キーがあれば bg-1 (コールドオープン/ループ画像) を AI生成で上書き。body(bg-2..6)は Pexels のまま。
+    // 失敗/コンテンツ拒否 (戦争・実在人物等で起こりうる) 時は stock の hero を維持 (無害なフォールバック)。
+    if (OPENAI_KEY) {
+      try {
+        await generateAIHero(story, path.join(assets, `bg-${code}-s${story.index}-1.jpg`));
+        creditLines.push(`- bg-${code}-s${story.index}-1.jpg — AI illustration (OpenAI gpt-image-1)`);
+        console.log(`[broll] ${code}: AI hero generated (gpt-image-1)`);
+      } catch (e) {
+        console.warn(`[broll] AI hero gen failed (${code}): ${e instanceof Error ? e.message : e} — keeping stock hero`);
+      }
     }
 
     // 国旗 PNG
