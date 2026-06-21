@@ -135,30 +135,24 @@ async function searchImages(query: string): Promise<CommonsImage[]> {
   return searchCommons(query);
 }
 
-const OPENAI_KEY = process.env.OPENAI_API_KEY || "";
-const OPENAI_IMAGES_API = "https://api.openai.com/v1/images/generations";
+// AI hero 背景は **完全無料** の Pollinations (flux モデル・APIキー不要・費用ゼロ) で生成。
+// 既定で有効 (AI_HERO=off で無効化可)。story の hero (bg-1 = コールドオープン/ループ画像) を
+// 内容を強く想起させるイラストに。ニュース信頼性のため no text・実在人物なし、画面フッターは
+// "AI + FILE VISUALS" に切替。生成失敗/タイムアウト時は呼び出し側が stock(Pexels) hero を維持。
+const AI_HERO_ON = process.env.AI_HERO !== "off" && process.env.AI_HERO !== "0";
+const POLLINATIONS_API = "https://image.pollinations.ai/prompt/";
 
-// AI hero 背景: OPENAI_API_KEY がある時のみ、story の hero (bg-1 = コールドオープン/ループ画像) を
-// gpt-image-1 で生成し、内容を強く想起させる。ニュース信頼性のため「イラスト調・no text・実在人物なし」
-// で生成し、画面フッターは "AI + FILE VISUALS" に切替。失敗/コンテンツ拒否時は呼び出し側が stock を維持。
 async function generateAIHero(
-  story: { headline: string; summary?: string; imageQueries?: string[]; country?: { name?: string } },
+  story: { headline: string; summary?: string; imageQueries?: string[]; country?: { name?: string }; index?: number },
   dest: string,
 ): Promise<void> {
   const scene = (Array.isArray(story.imageQueries) && story.imageQueries[0]) || story.country?.name || "";
-  const prompt = `Atmospheric editorial news illustration, vertical 9:16, cinematic and somber, evoking this news story: "${story.headline}". ${story.summary ?? ""} Focus scene: ${scene}. Painterly photojournalistic style, muted serious tones, dramatic lighting. No text, no captions, no logos, no watermark, no recognizable real individuals.`.slice(0, 950);
-  const res = await fetch(OPENAI_IMAGES_API, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${OPENAI_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "gpt-image-1", prompt, size: "1024x1536", n: 1 }),
-  });
-  if (!res.ok) throw new Error(`openai images HTTP ${res.status}: ${(await res.text()).slice(0, 160)}`);
-  const json = await res.json() as { data?: Array<{ b64_json?: string; url?: string }> };
-  const d = json.data?.[0];
-  let buf: Buffer;
-  if (d?.b64_json) buf = Buffer.from(d.b64_json, "base64");
-  else if (d?.url) buf = Buffer.from(await (await fetch(d.url)).arrayBuffer());
-  else throw new Error("openai images: empty response");
+  const prompt = `Editorial news illustration, vertical, cinematic and somber, evoking: ${story.headline}. Scene: ${scene}. Photojournalistic painterly style, muted serious tones, dramatic lighting, no text, no captions, no logos, no watermark, no recognizable real people`.slice(0, 480);
+  const url = `${POLLINATIONS_API}${encodeURIComponent(prompt)}?width=1024&height=1536&nologo=true&model=flux&seed=${(story.index ?? 1) * 7 + 3}`;
+  const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(60000) });
+  if (!res.ok) throw new Error(`pollinations HTTP ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length < 2000) throw new Error("pollinations: empty/too-small image");
   await sharp(buf).resize(W, H, { fit: "cover", position: "centre" }).jpeg({ quality: 88 }).toFile(dest);
 }
 
@@ -258,11 +252,11 @@ async function main() {
 
     // AI hero: キーがあれば bg-1 (コールドオープン/ループ画像) を AI生成で上書き。body(bg-2..6)は Pexels のまま。
     // 失敗/コンテンツ拒否 (戦争・実在人物等で起こりうる) 時は stock の hero を維持 (無害なフォールバック)。
-    if (OPENAI_KEY) {
+    if (AI_HERO_ON) {
       try {
         await generateAIHero(story, path.join(assets, `bg-${code}-s${story.index}-1.jpg`));
-        creditLines.push(`- bg-${code}-s${story.index}-1.jpg — AI illustration (OpenAI gpt-image-1)`);
-        console.log(`[broll] ${code}: AI hero generated (gpt-image-1)`);
+        creditLines.push(`- bg-${code}-s${story.index}-1.jpg — AI illustration (Pollinations flux, free)`);
+        console.log(`[broll] ${code}: AI hero generated (Pollinations flux, free)`);
       } catch (e) {
         console.warn(`[broll] AI hero gen failed (${code}): ${e instanceof Error ? e.message : e} — keeping stock hero`);
       }
