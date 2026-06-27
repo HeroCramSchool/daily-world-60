@@ -28,6 +28,18 @@ const W = 1080;
 const H = 1920;
 const FPS = 30;
 
+// ─── リテンション設計フラグ (2026-06-27, 10K構成) ───
+// MOTION: 全シーンに Ken Burns (静止画スライドショーがスワイプ最大要因)。問題時 MOTION=off で即無効化。
+const MOTION = process.env.MOTION !== "off" && process.env.MOTION !== "0";
+// ズーム量。大きいほど動くが端(フッター/ストライプ)が切れる。6%で動き感と安全マージンの両立。
+const KB_ZOOM = Number(process.env.KEN_BURNS_ZOOM ?? "0.06");
+// KEYWORD_CARD: 単色の英単語スラブ(リテンションキラー)。既定 off。ナレーションに語彙節があっても描画しない。
+const KEYWORD_CARD = process.env.KEYWORD_CARD === "on";
+// 長い body cue を分割して "数秒ごとに新カット" を保証 (静止保持の回避・ペーシング)。
+const MAX_SCENE_SEC = Number(process.env.MAX_SCENE_SEC ?? "4");
+// body 背景プール (bg-2..8 = 7枚)。fetch-broll が bg-1..8 を必ず用意する。
+const BODY_BG = 7;
+
 interface Country { code: string; flag: string; name?: string; }
 interface Keyword { word: string; definitionEn: string; }
 interface Story {
@@ -87,7 +99,9 @@ async function buildOne(dir: string, story: Story) {
   const bodyCues = cues.slice(bodyStartIdx, bodyEndIdx);
 
   // ─── Word scenes ───
-  const wordCues = wordCueIdx >= 0
+  // 既定で無効 (KEYWORD_CARD=on のときのみ)。body は依然 wordCueIdx で終端するので、
+  // 仮にナレーションに語彙節が残っても本文字幕には混ざらない (その分の尺は末尾ループが吸収)。
+  const wordCues = (KEYWORD_CARD && wordCueIdx >= 0)
     ? cues.slice(wordCueIdx, outroCueIdx >= 0 ? outroCueIdx : cues.length)
     : [];
 
@@ -105,15 +119,23 @@ async function buildOne(dir: string, story: Story) {
     svg: hookSvg(story),
   });
 
-  // Body cues: 各 cue を 1 scene 化 (bg-2..6 cycle、caption 位置は交互に変化)
+  // Body cues: 長い cue は MAX_SCENE_SEC ごとに分割し、各サブシーンで bg(bg-2..8)を回す。
+  // = 数秒ごとに新しいカット＋モーションで「静止スライド」感を消す (リテンション)。
+  // 字幕テキストは cue 単位を維持 = 音声と同期を崩さない (分割は視覚カットのみ)。
+  let bgTick = 0;
   bodyCues.forEach((cue, i) => {
     const dur = cue.end - cue.start;
-    const bgN = (i % 5) + 2;
-    scenes.push({
-      id: `02-cap${(i + 1).toString().padStart(2, "0")}`,
-      dur,
-      svg: captionSvg(story, cue.text, bgN, i),
-    });
+    const parts = Math.max(1, Math.ceil(dur / MAX_SCENE_SEC));
+    const partDur = dur / parts;
+    for (let k = 0; k < parts; k++) {
+      const bgN = (bgTick % BODY_BG) + 2;
+      scenes.push({
+        id: `02-cap${(i + 1).toString().padStart(2, "0")}-${k + 1}`,
+        dur: partDur,
+        svg: captionSvg(story, cue.text, bgN, bgTick),
+      });
+      bgTick++;
+    }
   });
 
   // Word card: 各 word cue を 1 scene 化 (大字表示)
@@ -143,17 +165,20 @@ async function buildOne(dir: string, story: Story) {
 
   // ─── Render scenes ───
   const segments: string[] = [];
-  for (const sc of scenes) {
+  for (let si = 0; si < scenes.length; si++) {
+    const sc = scenes[si];
     const svgPath = path.join(dir, `_n${story.index}-${sc.id}.svg`);
     const pngPath = path.join(dir, `_n${story.index}-${sc.id}.png`);
     const mp4Path = path.join(dir, `_n${story.index}-${sc.id}.mp4`);
     await fs.writeFile(svgPath, sc.svg, "utf-8");
     await run("rsvg-convert", ["-w", String(W), "-h", String(H), svgPath, "-o", pngPath]);
     await fs.unlink(svgPath).catch(() => {});
+    // 末尾ループは静止 (zoom=1.0) = フック1フレーム目と完全一致 → 自動リピートが継ぎ目なし。
+    const isLoopTail = sc.id.startsWith("04-loop");
     await run("ffmpeg", [
       "-y", "-loop", "1", "-i", pngPath,
       "-t", Math.max(0.1, sc.dur).toFixed(3),
-      "-vf", `scale=${W}:${H},format=yuv420p`,
+      "-vf", sceneVf(sc.dur, si, isLoopTail),
       "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", String(FPS),
       mp4Path,
     ]);
@@ -219,6 +244,11 @@ async function buildOne(dir: string, story: Story) {
 
 function escape(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** 数字トークン (件数/%/金額/日付) をブランド黄でハイライト = サウンドオフで要点が即伝わる。 */
+function emphasizeNumbers(s: string): string {
+  return escape(s).replace(/([$£€]?\d[\d.,:]*%?\+?)/g, '<tspan fill="#F5E63B">$1</tspan>');
 }
 
 /** Compact source URL: domain + first 40 chars of path. */
@@ -369,22 +399,19 @@ function captionSvg(story: Story, captionText: string, bgN: number, sceneIdx = 0
     headlineSvg += `\n  <text x="60" y="${hlStartY + i * hlFit.lineHeight}" font-family="Hiragino Sans" font-weight="900"
         font-size="${hlFit.fontSize}" fill="#FFFFFF" letter-spacing="-1"${clampAttr(line, hlFit.fontSize, hlBoxW, -1)}>${escape(line)}</text>`;
   });
-  // 構成ローテ: シーンごとに caption box の位置とアクセントを交互に変える
-  // (視覚変化を作りつつ、headline 帯 (~Y460) とフッター (Y1820) には絶対に重ねない)
-  const variant = sceneIdx % 2;
-  const boxX = 40, boxY = variant === 0 ? 1260 : 1180, boxW = 1000, boxH = 520;
-  const fit = fitCaption(captionText, boxW - 80, boxH - 80);
+  // Caption box は固定位置 (Y=1240)。旧 1260/1180 交互は「ランダム」に見えて視線誘導を乱すため廃止
+  // (2026-06-27)。アクセントバーは常時。font は大きめ優先 (サウンドオフ可読性)。
+  const boxX = 40, boxY = 1240, boxW = 1000, boxH = 520;
+  const fit = fitCaption(captionText, boxW - 80, boxH - 80, [72, 64, 56, 50, 44, 38]);
   const totalH = fit.lines.length * fit.lineHeight;
   const capStartY = boxY + (boxH - totalH) / 2 + fit.fontSize;
   let capSvg = "";
   fit.lines.forEach((line, i) => {
     capSvg += `\n  <text x="540" y="${capStartY + i * fit.lineHeight}" text-anchor="middle"
         font-family="Hiragino Sans" font-weight="900"
-        font-size="${fit.fontSize}" fill="#FFFFFF" letter-spacing="0"${clampAttr(line, fit.fontSize, boxW - 80, 0)}>${escape(line)}</text>`;
+        font-size="${fit.fontSize}" fill="#FFFFFF" letter-spacing="0"${clampAttr(line, fit.fontSize, boxW - 80, 0)}>${emphasizeNumbers(line)}</text>`;
   });
-  const accent = variant === 1
-    ? `<rect x="${boxX}" y="${boxY}" width="14" height="${boxH}" fill="#F5E63B" rx="7"/>`
-    : "";
+  const accent = `<rect x="${boxX}" y="${boxY}" width="14" height="${boxH}" fill="#F5E63B" rx="7"/>`;
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   <defs>
@@ -470,9 +497,8 @@ function wordSvg(keyword: Keyword | undefined, cueText: string, cueIdx: number, 
 }
 
 /**
- * Subscribe outro: フックと同じ写真 (bg-1) の上に PLEASE SUBSCRIBE を重ねる。
- * 単色のデッドエンドカードは避けつつ、末尾に登録 CTA を明示 (ユーザー要望)。
- * 全テキストは実測フィットで枠内に収める。
+ * @deprecated 未使用 (2026-06-20 以降、末尾はループ用 hookSvg に置換)。
+ * 末尾の登録カードはデッドエンド=リテンションを削ぐため呼び出さない。回帰防止のため残置のみ。
  */
 function subscribeOutroSvg(story: Story): string {
   const code = story.country.code.toLowerCase();
@@ -511,6 +537,28 @@ function subscribeOutroSvg(story: Story): string {
 }
 
 // ─────────── Helpers ───────────
+
+/**
+ * 1シーン (静止PNG → クリップ) の映像フィルタ。
+ * MOTION 有効時は Ken Burns (中央ズーム) を全シーンに付与し、index 偶奇で push-in / pull-out を交互に。
+ * パン (x/y移動) は単画像でジッタが出やすいので中央ズームのみ採用 (低リスク・確実に動く)。
+ * 元画像を 2x に上げてからズーム後に WxH へ落とす = サブピクセル移動を吸収して滑らかに。
+ * MOTION=off で従来の静止 (scale のみ) に即フォールバック。
+ */
+function sceneVf(durSec: number, idx: number, isStatic = false): string {
+  if (!MOTION || isStatic) return `scale=${W}:${H},format=yuv420p`;
+  const frames = Math.max(2, Math.round(durSec * FPS));
+  const df = Math.max(1, frames - 1);
+  const zMax = (1 + KB_ZOOM).toFixed(4);
+  const zExpr = idx % 2 === 0
+    ? `1.0+${KB_ZOOM}*on/${df}`       // push-in (0 → +zoom)
+    : `${zMax}-${KB_ZOOM}*on/${df}`;  // pull-out (+zoom → 0)
+  return [
+    `scale=${2 * W}:${2 * H}`,
+    `zoompan=z='${zExpr}':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':fps=${FPS}:s=${W}x${H}`,
+    `format=yuv420p`,
+  ].join(",");
+}
 
 async function parseVtt(p: string): Promise<VttCue[]> {
   const text = await fs.readFile(p, "utf-8");

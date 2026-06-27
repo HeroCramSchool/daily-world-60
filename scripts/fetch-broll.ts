@@ -21,7 +21,9 @@ import sharp from "sharp";
 
 const W = 1080;
 const H = 1920;
-const BG_COUNT = 6;
+// 本文シーンの背景プール (bg-1=hero, bg-2..BG_COUNT=body)。6→8 に拡大 (2026-06-27):
+// シーン分割で本文が 6+ になると bg が見える形で反復し低品質に見える = スワイプ要因。
+const BG_COUNT = 8;
 
 interface Story {
   index: number;
@@ -104,7 +106,7 @@ const PEXELS_API = "https://api.pexels.com/v1/search";
 
 async function searchPexels(query: string): Promise<CommonsImage[]> {
   if (!PEXELS_KEY) return [];
-  const url = `${PEXELS_API}?query=${encodeURIComponent(query)}&per_page=6&orientation=portrait`;
+  const url = `${PEXELS_API}?query=${encodeURIComponent(query)}&per_page=9&orientation=portrait`;
   const res = await fetch(url, { headers: { Authorization: PEXELS_KEY, "User-Agent": USER_AGENT } });
   if (!res.ok) throw new Error(`pexels HTTP ${res.status}`);
   const json = await res.json() as {
@@ -277,7 +279,7 @@ async function main() {
     });
 
     creditLines.push("");
-    console.log(`[broll] ${code}: ${savedBg.length} unique bg saved, bg-1..6 ensured`);
+    console.log(`[broll] ${code}: ${savedBg.length} unique bg saved, bg-1..${BG_COUNT} ensured`);
   }
 
   await fs.writeFile(path.join(assets, "CREDITS.md"), creditLines.join("\n"), "utf-8");

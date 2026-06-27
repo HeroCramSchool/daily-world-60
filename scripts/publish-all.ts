@@ -132,9 +132,13 @@ async function main() {
     const ttCover = path.join(dir, `tiktok-cover-${code}.png`);
 
     const countryName = story.country.name ?? story.country.code;
-    // タイトルはフック主体に (2026-06-20): 旧「Country: 〜 | Daily World 60」は接頭/接尾が
-    // フィードでの初速を削ぐ。見出しを front-load し、発見用ハッシュタグを2つだけ付与。
-    const ytTitle = `${story.headline} #Shorts #WorldNews`;
+    // タイトルは画面1フレーム目の hookText と完全一致させる (2026-06-27):
+    //   旧「見出し全文(11-14語の受け身文)」はフィードの topic model が読む最弱の言い回し。
+    //   既存の 3-6語 hookText を front-frame・最初の発話・タイトルで揃える = 初速のレバー。
+    //   hookText が無い/長すぎる回のみ見出しにフォールバック。発見用ハッシュタグは2つだけ。
+    const hookTitle = story.hookText?.trim();
+    const titleHead = hookTitle && hookTitle.length <= 90 ? hookTitle : story.headline;
+    const ytTitle = `${titleHead} #Shorts #WorldNews`;
     const ytDesc = buildYoutubeDescription(story, scriptEn.date);
     const ytTags = [
       "World News", "Daily News", "60 Seconds", "Short News",
@@ -277,7 +281,8 @@ function buildYoutubeDescription(story: Story, date: string): string {
     "Original reporting belongs to the publisher linked above. Please verify details with the original source.",
     "Not affiliated with any government or publisher. AI-assisted voice and video editing. Images: Wikimedia Commons / agency file photos.",
     "",
-    `#WorldNews #DailyNews #60Seconds #Shorts #${story.country.code} #${story.sourceName.replace(/\s+/g, "")}`,
+    // ハッシュタグは詰め込まない (3-5が安全圏。6+は弱シグナル/無視され得る・2026-06-27)。
+    `#Shorts #WorldNews #News #${story.country.code}`,
   );
   return lines.join("\n");
 }
