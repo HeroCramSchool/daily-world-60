@@ -402,7 +402,8 @@ function captionSvg(story: Story, captionText: string, bgN: number, sceneIdx = 0
   // Caption box は固定位置 (Y=1240)。旧 1260/1180 交互は「ランダム」に見えて視線誘導を乱すため廃止
   // (2026-06-27)。アクセントバーは常時。font は大きめ優先 (サウンドオフ可読性)。
   const boxX = 40, boxY = 1240, boxW = 1000, boxH = 520;
-  const fit = fitCaption(captionText, boxW - 80, boxH - 80, [72, 64, 56, 50, 44, 38]);
+  // font は中庸サイズ (72上限は大きすぎた・Ken Burns で更に拡大して見える。2026-06-27)。
+  const fit = fitCaption(captionText, boxW - 80, boxH - 80, [56, 50, 46, 42, 38, 34]);
   const totalH = fit.lines.length * fit.lineHeight;
   const capStartY = boxY + (boxH - totalH) / 2 + fit.fontSize;
   let capSvg = "";
