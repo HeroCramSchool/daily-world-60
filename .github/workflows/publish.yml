@@ -2,11 +2,13 @@ name: Daily World 60 — Publish
 
 on:
   schedule:
-    # 1 日 3 本 = 1 バッチ × 3 本（質重視への転換 2026-06-20: 12本/日は cold-start で
-    # アルゴの個別テストと制作労力を希薄化。実測でも上位ニュースShortsは月~20本。紛争/
-    # 災害/記録に絞り「狭く厚く」= 1本ブレイクで10K狙い）。当日台本の上位トリオ(stories
-    # 1-3)を視聴者ピーク UTC 20:00-21:00 に stagger 30分で公開。GH cron は数時間遅延しうる。
+    # 1 日 6 本 = 2 バッチ × 3 本（2026-06-27: ハードトピックゲート＋単一トピック構成へ。
+    # 紛争/災害/記録に絞り「狭く厚く」= 1本ブレイクで10K狙い）。視聴者ピーク UTC 14-22 の
+    # 2窓に分散・各バッチ stagger 30分。batch1=当日Routineの stories 1-3 を 20:00、
+    # batch2=前日Routineの stories 4-6 を 14:00（Routineは18:00 UTC生成のため前日分を使う）。
+    # GH cron は数時間遅延しうる。
     - cron: '0 20 * * *'
+    - cron: '0 14 * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -181,9 +183,10 @@ jobs:
           IN_BATCH: ${{ github.event.inputs.batch }}
         run: |
           if [ -n "$SCHED" ]; then
-            # 朝昼夜 3 cron → batch と日付オフセット。batch2/3 は前日 Routine 分。
+            # 2 cron → batch と日付オフセット。batch2 は前日 Routine 分 (Routine は 18:00 UTC 生成)。
             case "$SCHED" in
               "0 20 * * *") BATCH=1; OFF=0 ;;
+              "0 14 * * *") BATCH=2; OFF=1 ;;
               *)            BATCH=1; OFF=0 ;;
             esac
             DATE=$(date -u -d "-${OFF} day" +%Y-%m-%d)
