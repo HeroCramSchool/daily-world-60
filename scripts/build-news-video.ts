@@ -36,7 +36,9 @@ const KB_ZOOM = Number(process.env.KEN_BURNS_ZOOM ?? "0.06");
 // KEYWORD_CARD: 単色の英単語スラブ(リテンションキラー)。既定 off。ナレーションに語彙節があっても描画しない。
 const KEYWORD_CARD = process.env.KEYWORD_CARD === "on";
 // 長い body cue を分割して "数秒ごとに新カット" を保証 (静止保持の回避・ペーシング)。
-const MAX_SCENE_SEC = Number(process.env.MAX_SCENE_SEC ?? "4");
+const MAX_SCENE_SEC = Number(process.env.MAX_SCENE_SEC ?? "3");
+// キネティック字幕: 1サブシーンに出す最大語数 (短いチャンクをカットごとにポン出し)。
+const MAX_WORDS_PER_CHUNK = Number(process.env.MAX_WORDS_PER_CHUNK ?? "6");
 // body 背景プール (bg-2..8 = 7枚)。fetch-broll が bg-1..8 を必ず用意する。
 const BODY_BG = 7;
 
@@ -119,20 +121,23 @@ async function buildOne(dir: string, story: Story) {
     svg: hookSvg(story),
   });
 
-  // Body cues: 長い cue は MAX_SCENE_SEC ごとに分割し、各サブシーンで bg(bg-2..8)を回す。
-  // = 数秒ごとに新しいカット＋モーションで「静止スライド」感を消す (リテンション)。
-  // 字幕テキストは cue 単位を維持 = 音声と同期を崩さない (分割は視覚カットのみ)。
+  // Body cues: キネティック字幕。各 cue を「尺(MAX_SCENE_SEC)」と「語数(MAX_WORDS_PER_CHUNK)」の
+  // 両方で割って 3-6語の短いチャンクに分割し、チャンクごとに新カット(bg-2..8循環)＋モーションで
+  // ポン出しする。= サウンドオフでも要点が次々切り替わり、静止スライド感を消す (リテンション)。
+  // 時間は均等割りなので音声とほぼ同期 (cue内の発話は概ね線形)。
   let bgTick = 0;
   bodyCues.forEach((cue, i) => {
     const dur = cue.end - cue.start;
-    const parts = Math.max(1, Math.ceil(dur / MAX_SCENE_SEC));
+    const words = cue.text.trim().split(/\s+/).filter(Boolean);
+    const parts = Math.max(1, Math.ceil(dur / MAX_SCENE_SEC), Math.ceil(words.length / MAX_WORDS_PER_CHUNK));
     const partDur = dur / parts;
+    const chunks = chunkWords(words, parts);
     for (let k = 0; k < parts; k++) {
       const bgN = (bgTick % BODY_BG) + 2;
       scenes.push({
-        id: `02-cap${(i + 1).toString().padStart(2, "0")}-${k + 1}`,
+        id: `02-cap${(i + 1).toString().padStart(2, "0")}-${(k + 1).toString().padStart(2, "0")}`,
         dur: partDur,
-        svg: captionSvg(story, cue.text, bgN, bgTick),
+        svg: captionSvg(story, chunks[k] || cue.text, bgN, bgTick),
       });
       bgTick++;
     }
@@ -249,6 +254,22 @@ function escape(s: string): string {
 /** 数字トークン (件数/%/金額/日付) をブランド黄でハイライト = サウンドオフで要点が即伝わる。 */
 function emphasizeNumbers(s: string): string {
   return escape(s).replace(/([$£€]?\d[\d.,:]*%?\+?)/g, '<tspan fill="#F5E63B">$1</tspan>');
+}
+
+/** words を n 個の語数バランスの取れたチャンクに分割 (キネティック字幕用)。 */
+function chunkWords(words: string[], n: number): string[] {
+  if (n <= 1 || words.length <= 1) return [words.join(" ")];
+  const out: string[] = [];
+  const base = Math.floor(words.length / n);
+  let rem = words.length % n;
+  let idx = 0;
+  for (let i = 0; i < n; i++) {
+    const take = base + (rem > 0 ? 1 : 0);
+    if (rem > 0) rem--;
+    out.push(words.slice(idx, idx + take).join(" "));
+    idx += take;
+  }
+  return out;
 }
 
 /** Compact source URL: domain + first 40 chars of path. */

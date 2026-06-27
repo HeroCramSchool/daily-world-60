@@ -254,6 +254,8 @@ async function main() {
 function buildYoutubeDescription(story: Story, date: string): string {
   const lines = [
     `${story.headline}`,
+    // コメント質問は折りたたみプレビューに見える上部に置く (コメント=強いエンゲージメントsignal・2026-06-27)
+    ...(story.commentQuestion ? ["", `💬 ${story.commentQuestion}`] : []),
     "",
     story.summary,
     "",
@@ -272,8 +274,6 @@ function buildYoutubeDescription(story: Story, date: string): string {
     `${date} · Daily World 60`,
     "Subscribe for daily 60-second world news from around the world.",
     "",
-    // ストーリー固有の意見質問 (コメント誘発、汎用ベイトは使わない)
-    ...(story.commentQuestion ? [`💬 ${story.commentQuestion}`, ""] : []),
     // 宛先指定シェア CTA (ダークソーシャル/DM転送向け)
     "📩 Send this to a friend who's learning English.",
     "",
