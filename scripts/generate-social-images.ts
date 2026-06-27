@@ -1,6 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
+import { fitTextBox, clampAttr } from "./lib/textfit.js";
 
 /**
  * 投稿用画像 (v11): 動画と同じ Wikipedia 背景画像 + dark overlay + 動的フォント。
@@ -26,6 +27,7 @@ interface Story {
   sourceName: string;
   sourceUrl: string;
   keyword?: { word: string; definitionEn: string };
+  hookText?: string;
 }
 interface ScriptJson { date: string; stories: Story[]; }
 
@@ -109,67 +111,69 @@ function darkenDefs(): string {
   </defs>`;
 }
 
-// ─── 縦長 1080x1920 (YT Shorts / IG Reels / TikTok 共通レイアウト) ───
-function vertical(s: Story, mmdd: string, code: string, bgN: number): string {
+// ─── 縦長 1080x1920 (YT Shorts サムネ = 動画のコールドオープン/フック1フレーム目と一致) ───
+// 旧「日付帯+TODAY'S NEWS+HEADLINE箱」の雑然レイアウトを廃止 (2026-06-27)。動画と別物だと
+// グリッド/検索で違和感が出る。背景は story 別キー bg-{code}-s{index}-1.jpg (旧 bg-{code}-1 は参照切れ)。
+function vertical(s: Story, _mmdd: string, code: string, _bgN: number): string {
   const W = 1080, H = 1920;
   const cn = (s.country.name ?? s.country.code).toUpperCase();
-  const cnFs = fitKeywordFontSize(cn, 920, 130);
+  const cnFs = fitKeywordFontSize(cn, 560, 40);
 
-  // Top yellow date stripe + TODAY'S NEWS
-  // Mid: 国名大字 + 国旗 small
-  // Bottom box: headline (fitCaption Y 1220-1700, 480px)
-  // Footer: channel + source
-  const hlFit = fitCaption(s.headline, 960, 480,
-                           [56, 50, 46, 42, 38, 34, 30, 26]);
-  const hlBoxY = 1220, hlBoxH = 480;
-  const hlStartY = hlBoxY + (hlBoxH - hlFit.lines.length * hlFit.lineHeight) / 2 + hlFit.fontSize;
-  let hlSvg = "";
-  hlFit.lines.forEach((line, i) => {
-    hlSvg += `\n  <text x="540" y="${hlStartY + i * hlFit.lineHeight}" text-anchor="middle"
-        font-family="Hiragino Sans" font-weight="900"
-        font-size="${hlFit.fontSize}" fill="#FFFFFF" letter-spacing="-1">${escape(line)}</text>`;
+  // 特大フック: hookText 優先 (大文字)。無ければ headline (文そのまま)。
+  const isShort = Boolean(s.hookText && s.hookText.trim());
+  const hookRaw = isShort ? s.hookText!.trim().toUpperCase() : s.headline;
+  const boxY = 980, boxH = 660;
+  // 動画の hookSvg と同じ実測フィット (fitTextBox) ＋ clampAttr で枠内に確実に収める (右端クリップ防止)。
+  const hFit = fitTextBox(hookRaw, 960, boxH,
+    isShort ? [120, 110, 100, 92, 84, 76, 68, 60, 52] : [76, 68, 62, 56, 50, 46, 42, 38, 34]);
+  const totalH = hFit.lines.length * hFit.lineHeight;
+  const startY = boxY + (boxH - totalH) + hFit.fontSize - Math.round(hFit.fontSize * 0.2);
+  let hookSvg = "";
+  hFit.lines.forEach((line, i) => {
+    hookSvg += `\n  <text x="60" y="${startY + i * hFit.lineHeight}" font-family="Hiragino Sans" font-weight="900"
+        font-size="${hFit.fontSize}" fill="#FFFFFF" letter-spacing="-1"${clampAttr(line, hFit.fontSize, 960, -1)}>${escape(line)}</text>`;
   });
+
+  // 国チップ: flag + name (テキストは右マージンを超えると自動圧縮)
+  const chipTextX = 208;
+  const chipMaxTextW = W - 60 - chipTextX;
+  const chipW = Math.min(W - 120, chipTextX - 60 + Math.ceil(cn.length * cnFs * 0.64) + 28);
+  const cnClamp = clampAttr(cn, cnFs, chipMaxTextW, 1);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
-  ${darkenDefs()}
-  <image href="_assets/bg-${code}-${bgN}.jpg" x="0" y="0" width="${W}" height="${H}"
+  <defs>
+    <linearGradient id="hookDarken" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#0A0A0A" stop-opacity="0.35"/>
+      <stop offset="45%" stop-color="#0A0A0A" stop-opacity="0.12"/>
+      <stop offset="62%" stop-color="#0A0A0A" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#0A0A0A" stop-opacity="0.94"/>
+    </linearGradient>
+  </defs>
+  <image href="_assets/bg-${code}-s${s.index}-1.jpg" x="0" y="0" width="${W}" height="${H}"
          preserveAspectRatio="xMidYMid slice"/>
-  <rect width="${W}" height="${H}" fill="url(#darken)"/>
+  <rect width="${W}" height="${H}" fill="url(#hookDarken)"/>
 
-  <!-- Top: date stripe (width ample for 'MAY 30 · WORLD' at 46pt + letter-spacing 6) -->
-  <rect x="60" y="220" width="640" height="86" fill="#F5E63B"/>
-  <text x="80" y="284" font-family="Hiragino Sans" font-weight="900"
-        font-size="46" fill="#0A0A0A" letter-spacing="6">${escape(mmdd)} · WORLD</text>
+  <rect x="0" y="0" width="${W}" height="60" fill="#F5E63B"/>
 
-  <!-- TODAY'S NEWS -->
-  <text x="60" y="460" font-family="Hiragino Sans" font-weight="900"
-        font-size="80" fill="#F5E63B" letter-spacing="-2">TODAY'S NEWS</text>
-
-  <!-- 国旗 + 国名 -->
-  <image href="_assets/${code}.png" x="60" y="560" width="280" height="190"
+  <!-- Country chip: flag + name -->
+  <rect x="60" y="110" width="${chipW}" height="96" rx="14" fill="#0A0A0A" fill-opacity="0.78"/>
+  <image href="_assets/${code}.png" x="84" y="128" width="96" height="60"
          preserveAspectRatio="xMidYMid meet"/>
-  <text x="380" y="740" font-family="Hiragino Sans" font-weight="900"
-        font-size="${cnFs}" fill="#FFFFFF" letter-spacing="-2">${escape(cn)}</text>
+  <text x="${chipTextX}" y="172" font-family="Hiragino Sans" font-weight="900"
+        font-size="${cnFs}" fill="#FFFFFF" letter-spacing="1"${cnClamp}>${escape(cn)}</text>
 
-  <!-- Headline 区切り -->
-  <text x="60" y="1160" font-family="Hiragino Sans" font-weight="600"
-        font-size="36" fill="#9CA3AF" letter-spacing="6">HEADLINE</text>
-  <rect x="60" y="1180" width="220" height="6" fill="#F5E63B"/>
+  ${hookSvg}
 
-  <!-- Headline box (Y 1220-1700) -->
-  <rect x="40" y="${hlBoxY}" width="1000" height="${hlBoxH}" fill="#0A0A0A" fill-opacity="0.55" rx="20"/>
-  ${hlSvg}
-
-  <!-- Footer: channel + source (Y 1740-1900) -->
-  <rect x="0" y="1740" width="${W}" height="180" fill="#0A0A0A" fill-opacity="0.92"/>
-  <rect x="0" y="1740" width="${W}" height="3" fill="#F5E63B"/>
-  <text x="540" y="1800" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
-        font-size="42" fill="#F5E63B" letter-spacing="4">DAILY WORLD 60 · @60dailyworld</text>
-  <text x="540" y="1855" text-anchor="middle" font-family="Hiragino Sans" font-weight="600"
-        font-size="22" fill="#9CA3AF" letter-spacing="2">SOURCE: ${escape(s.sourceName)} · ${escape(shortUrl(s.sourceUrl, 48))}</text>
-  <text x="540" y="1895" text-anchor="middle" font-family="Hiragino Sans" font-weight="500"
-        font-size="18" fill="#6B7280" letter-spacing="1">Educational summary · Fair use (US §107 / JP 著作権法32条)</text>
+  <!-- Source footer -->
+  <rect x="0" y="1820" width="${W}" height="100" fill="#0A0A0A" fill-opacity="0.92"/>
+  <rect x="0" y="1820" width="${W}" height="3" fill="#F5E63B"/>
+  <text x="60" y="1862" font-family="Hiragino Sans" font-weight="900"
+        font-size="24" fill="#F5E63B" letter-spacing="4">SOURCE</text>
+  <text x="${W - 60}" y="1862" text-anchor="end" font-family="Hiragino Sans" font-weight="600"
+        font-size="20" fill="#9CA3AF" letter-spacing="1">DAILY WORLD 60 · @60dailyworld</text>
+  <text x="60" y="1900" font-family="Hiragino Sans" font-weight="600"
+        font-size="20" fill="#FFFFFF" letter-spacing="0">${escape(s.sourceName)} · ${escape(shortUrl(s.sourceUrl, 52))}</text>
 </svg>`;
 }
 
@@ -191,7 +195,7 @@ function ytHorizontal(s: Story, mmdd: string, code: string, bgN: number): string
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   ${darkenDefs()}
-  <image href="_assets/bg-${code}-${bgN}.jpg" x="0" y="0" width="${W}" height="${H}"
+  <image href="_assets/bg-${code}-s${s.index}-${bgN}.jpg" x="0" y="0" width="${W}" height="${H}"
          preserveAspectRatio="xMidYMid slice"/>
   <rect width="${W}" height="${H}" fill="url(#darken)"/>
 
@@ -238,7 +242,7 @@ function square(s: Story, mmdd: string, code: string, bgN: number): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   ${darkenDefs()}
-  <image href="_assets/bg-${code}-${bgN}.jpg" x="0" y="0" width="${W}" height="${H}"
+  <image href="_assets/bg-${code}-s${s.index}-${bgN}.jpg" x="0" y="0" width="${W}" height="${H}"
          preserveAspectRatio="xMidYMid slice"/>
   <rect width="${W}" height="${H}" fill="url(#darken)"/>
 
