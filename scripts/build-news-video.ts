@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 import { fitSingleLine, fitTextBox, textWidthEm, clampAttr } from "./lib/textfit.js";
+import { MAP_W, MAP_H, worldDots, countryLonLat, lonLatToXY } from "./lib/worldmap.js";
 
 /**
  * 1 ストーリー単独動画を構築する (v8: 尺=音声長に動的化, 字幕同期 + 国旗なし body)。
@@ -41,6 +42,8 @@ const MAX_SCENE_SEC = Number(process.env.MAX_SCENE_SEC ?? "3");
 const MAX_WORDS_PER_CHUNK = Number(process.env.MAX_WORDS_PER_CHUNK ?? "6");
 // body 背景プール (bg-2..8 = 7枚)。fetch-broll が bg-1..8 を必ず用意する。
 const BODY_BG = 7;
+// 本文の最初のビートを「動くドット世界地図」にする (米国ニュース風・国へズーム)。MAP_INTRO=off で無効。
+const MAP_INTRO = process.env.MAP_INTRO !== "off" && process.env.MAP_INTRO !== "0";
 
 interface Country { code: string; flag: string; name?: string; }
 interface Keyword { word: string; definitionEn: string; }
@@ -111,8 +114,10 @@ async function buildOne(dir: string, story: Story) {
   const outroCues = outroCueIdx >= 0 ? cues.slice(outroCueIdx) : [];
 
   // ─── Scene list ───
-  type Scene = { id: string; dur: number; svg: string };
+  // fx/fy: 指定時はその焦点(フレーム比)へズームイン (地図の国へ寄る動き)。
+  type Scene = { id: string; dur: number; svg: string; fx?: number; fy?: number };
   const scenes: Scene[] = [];
+  const mapCoords = MAP_INTRO ? countryLonLat(story.country.code) : null;
 
   // Hook
   scenes.push({
@@ -133,12 +138,15 @@ async function buildOne(dir: string, story: Story) {
     const partDur = dur / parts;
     const chunks = chunkWords(words, parts);
     for (let k = 0; k < parts; k++) {
-      const bgN = (bgTick % BODY_BG) + 2;
-      scenes.push({
-        id: `02-cap${(i + 1).toString().padStart(2, "0")}-${(k + 1).toString().padStart(2, "0")}`,
-        dur: partDur,
-        svg: captionSvg(story, chunks[k] || cue.text, bgN, bgTick),
-      });
+      const id = `02-cap${(i + 1).toString().padStart(2, "0")}-${(k + 1).toString().padStart(2, "0")}`;
+      // 最初の本文ビートを地図ズームに置換 (国に座標がある時のみ)。尺は据え置き=音声同期は不変。
+      if (bgTick === 0 && mapCoords) {
+        const m = mapSvg(story, mapCoords);
+        scenes.push({ id: `02-map`, dur: partDur, svg: m.svg, fx: m.fx, fy: m.fy });
+      } else {
+        const bgN = (bgTick % BODY_BG) + 2;
+        scenes.push({ id, dur: partDur, svg: captionSvg(story, chunks[k] || cue.text, bgN, bgTick) });
+      }
       bgTick++;
     }
   });
@@ -180,10 +188,13 @@ async function buildOne(dir: string, story: Story) {
     await fs.unlink(svgPath).catch(() => {});
     // 末尾ループは静止 (zoom=1.0) = フック1フレーム目と完全一致 → 自動リピートが継ぎ目なし。
     const isLoopTail = sc.id.startsWith("04-loop");
+    const vf = sc.fx !== undefined && sc.fy !== undefined
+      ? mapVf(sc.dur, sc.fx, sc.fy)   // 地図: 国の焦点へズームイン
+      : sceneVf(sc.dur, si, isLoopTail);
     await run("ffmpeg", [
       "-y", "-loop", "1", "-i", pngPath,
       "-t", Math.max(0.1, sc.dur).toFixed(3),
-      "-vf", sceneVf(sc.dur, si, isLoopTail),
+      "-vf", vf,
       "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", String(FPS),
       mp4Path,
     ]);
@@ -580,6 +591,64 @@ function sceneVf(durSec: number, idx: number, isStatic = false): string {
     `zoompan=z='${zExpr}':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':fps=${FPS}:s=${W}x${H}`,
     `format=yuv420p`,
   ].join(",");
+}
+
+/** 地図シーン: 焦点 (fx,fy)[フレーム比] へズームイン (1.0→1.35)。中央でなく国の位置へ寄る。 */
+function mapVf(durSec: number, fx: number, fy: number): string {
+  if (!MOTION) return `scale=${W}:${H},format=yuv420p`;
+  const frames = Math.max(2, Math.round(durSec * FPS));
+  const df = Math.max(1, frames - 1);
+  const z = `1.0+0.35*on/${df}`;
+  const cx = `(${fx.toFixed(4)}*iw)`;
+  const cy = `(${fy.toFixed(4)}*ih)`;
+  return [
+    `scale=${2 * W}:${2 * H}`,
+    `zoompan=z='${z}':d=1:x='max(0,min(iw-iw/zoom,${cx}-(iw/zoom/2)))':y='max(0,min(ih-ih/zoom,${cy}-(ih/zoom/2)))':fps=${FPS}:s=${W}x${H}`,
+    `format=yuv420p`,
+  ].join(",");
+}
+
+/** 動くドット世界地図シーン (米国ニュース風・国へズーム)。{svg, fx, fy} を返す (fx/fy=マーカーのフレーム比)。 */
+function mapSvg(story: Story, lonlat: [number, number]): { svg: string; fx: number; fy: number } {
+  const scale = W / MAP_W;          // 0.75
+  const mapY0 = 660;                // 地図バンド上端
+  const [mlon, mlat] = lonlat;
+  const [mxRaw, myRaw] = lonLatToXY(mlon, mlat);
+  const fxPx = mxRaw * scale;
+  const fyPx = mapY0 + myRaw * scale;
+  const fx = fxPx / W, fy = fyPx / H;
+
+  const cn = (story.country.name ?? story.country.code).toUpperCase();
+  const cnFs = fitSingleLine(cn, 960, 116);
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+  <defs>
+    <radialGradient id="mapbg" cx="50%" cy="42%" r="80%">
+      <stop offset="0%" stop-color="#0F1B3D"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </radialGradient>
+  </defs>
+  <rect width="${W}" height="${H}" fill="url(#mapbg)"/>
+  <rect x="0" y="0" width="${W}" height="60" fill="#F5E63B"/>
+
+  <text x="60" y="360" font-family="Hiragino Sans" font-weight="900"
+        font-size="42" fill="#F5E63B" letter-spacing="6">WHERE IT'S HAPPENING</text>
+  <text x="60" y="476" font-family="Hiragino Sans" font-weight="900"
+        font-size="${cnFs}" fill="#FFFFFF" letter-spacing="-2"${clampAttr(cn, cnFs, 960, -2)}>${escape(cn)}</text>
+
+  <g transform="translate(0 ${mapY0}) scale(${scale})">
+    ${worldDots(3, 3.6, "#5B7290", 0.9)}
+  </g>
+
+  <!-- marker (国の位置) -->
+  <circle cx="${fxPx.toFixed(1)}" cy="${fyPx.toFixed(1)}" r="50" fill="none" stroke="#F5E63B" stroke-width="4" opacity="0.5"/>
+  <circle cx="${fxPx.toFixed(1)}" cy="${fyPx.toFixed(1)}" r="28" fill="none" stroke="#F5E63B" stroke-width="6" opacity="0.85"/>
+  <circle cx="${fxPx.toFixed(1)}" cy="${fyPx.toFixed(1)}" r="12" fill="#F5E63B"/>
+
+  ${sourceFooter(story)}
+</svg>`;
+  return { svg, fx, fy };
 }
 
 async function parseVtt(p: string): Promise<VttCue[]> {
