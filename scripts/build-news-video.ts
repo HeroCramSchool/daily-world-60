@@ -115,9 +115,18 @@ async function buildOne(dir: string, story: Story) {
 
   // ─── Scene list ───
   // fx/fy: 指定時はその焦点(フレーム比)へズームイン (地図の国へ寄る動き)。
-  type Scene = { id: string; dur: number; svg: string; fx?: number; fy?: number };
+  // zStart/zEnd: ビート画像シーンの連続ズーム範囲 (同じ画像を共有する cue 内チャンクで継ぎ目なく寄る)。
+  type Scene = { id: string; dur: number; svg: string; fx?: number; fy?: number; zStart?: number; zEnd?: number };
   const scenes: Scene[] = [];
   const mapCoords = MAP_INTRO ? countryLonLat(story.country.code) : null;
+
+  // ビート画像 (beat-{code}-s{index}-bN.jpg) を順に収集。各 body cue に1枚割り当てて文の内容を絵で描く。
+  // 無い回 (AI_BEATS=off / 生成失敗) は空配列 → 従来のストック背景回転にフォールバック。
+  const beatList: string[] = [];
+  for (let n = 1; n <= 12; n++) {
+    const f = `beat-${code}-s${story.index}-b${n}.jpg`;
+    if (await fs.access(path.join(dir, "_assets", f)).then(() => true).catch(() => false)) beatList.push(f);
+  }
 
   // Hook
   scenes.push({
@@ -137,15 +146,24 @@ async function buildOne(dir: string, story: Story) {
     const parts = Math.max(1, Math.ceil(dur / MAX_SCENE_SEC), Math.ceil(words.length / MAX_WORDS_PER_CHUNK));
     const partDur = dur / parts;
     const chunks = chunkWords(words, parts);
+    // この cue(=文) に対応するビート画像 (順序対応・件数差はクランプ吸収)。
+    const beatFile = beatList.length ? beatList[Math.min(i, beatList.length - 1)] : null;
     for (let k = 0; k < parts; k++) {
       const id = `02-cap${(i + 1).toString().padStart(2, "0")}-${(k + 1).toString().padStart(2, "0")}`;
       // 最初の本文ビートを地図ズームに置換 (国に座標がある時のみ)。尺は据え置き=音声同期は不変。
       if (bgTick === 0 && mapCoords) {
         const m = mapSvg(story, mapCoords);
         scenes.push({ id: `02-map`, dur: partDur, svg: m.svg, fx: m.fx, fy: m.fy });
+      } else if (beatFile) {
+        // ビート画像: cue 内の全チャンクで同じ画像を共有し、連続ズームで継ぎ目なく寄る。
+        // 画像が切り替わるのは「文(cue)が変わる時」だけ=喋っている内容と絵が一致して分かりやすい。
+        scenes.push({
+          id, dur: partDur, svg: captionSvg(story, chunks[k] || cue.text, beatFile, bgTick),
+          zStart: 1 + KB_ZOOM * (k / parts), zEnd: 1 + KB_ZOOM * ((k + 1) / parts),
+        });
       } else {
         const bgN = (bgTick % BODY_BG) + 2;
-        scenes.push({ id, dur: partDur, svg: captionSvg(story, chunks[k] || cue.text, bgN, bgTick) });
+        scenes.push({ id, dur: partDur, svg: captionSvg(story, chunks[k] || cue.text, `bg-${code}-s${story.index}-${bgN}.jpg`, bgTick) });
       }
       bgTick++;
     }
@@ -189,8 +207,10 @@ async function buildOne(dir: string, story: Story) {
     // 末尾ループは静止 (zoom=1.0) = フック1フレーム目と完全一致 → 自動リピートが継ぎ目なし。
     const isLoopTail = sc.id.startsWith("04-loop");
     const vf = sc.fx !== undefined && sc.fy !== undefined
-      ? mapVf(sc.dur, sc.fx, sc.fy)   // 地図: 国の焦点へズームイン
-      : sceneVf(sc.dur, si, isLoopTail);
+      ? mapVf(sc.dur, sc.fx, sc.fy)                       // 地図: 国の焦点へズームイン
+      : sc.zStart !== undefined
+        ? kbVf(sc.dur, sc.zStart, sc.zEnd ?? sc.zStart)   // ビート画像: cue内で連続ズーム
+        : sceneVf(sc.dur, si, isLoopTail);
     await run("ffmpeg", [
       "-y", "-loop", "1", "-i", pngPath,
       "-t", Math.max(0.1, sc.dur).toFixed(3),
@@ -414,8 +434,7 @@ function hookSvg(story: Story): string {
  *   - top: country chip + headline (compact, 国旗なし)
  *   - bottom: caption text (current cue text)
  */
-function captionSvg(story: Story, captionText: string, bgN: number, sceneIdx = 0): string {
-  const code = story.country.code.toLowerCase();
+function captionSvg(story: Story, captionText: string, bgFile: string, sceneIdx = 0): string {
   const countryName = story.country.name ?? story.country.code;
   const cnText = countryName.toUpperCase();
   // 国名行: letter-spacing 6 の分を概算で引いた幅に実測フィット + 絶対クランプ (x=60, 右マージン60 → 幅960)
@@ -455,7 +474,7 @@ function captionSvg(story: Story, captionText: string, bgN: number, sceneIdx = 0
       <stop offset="100%" stop-color="#0A0A0A" stop-opacity="0.95"/>
     </linearGradient>
   </defs>
-  <image href="_assets/bg-${code}-s${story.index}-${bgN}.jpg" x="0" y="0" width="${W}" height="${H}"
+  <image href="_assets/${bgFile}" x="0" y="0" width="${W}" height="${H}"
          preserveAspectRatio="xMidYMid slice"/>
   <rect width="${W}" height="${H}" fill="url(#darken)"/>
 
@@ -604,6 +623,19 @@ function mapVf(durSec: number, fx: number, fy: number): string {
   return [
     `scale=${2 * W}:${2 * H}`,
     `zoompan=z='${z}':d=1:x='max(0,min(iw-iw/zoom,${cx}-(iw/zoom/2)))':y='max(0,min(ih-ih/zoom,${cy}-(ih/zoom/2)))':fps=${FPS}:s=${W}x${H}`,
+    `format=yuv420p`,
+  ].join(",");
+}
+
+/** ビート画像の連続ズーム (中央)。zStart→zEnd を線形に。cue 内チャンクで継ぎ目なく寄るために使う。 */
+function kbVf(durSec: number, zStart: number, zEnd: number): string {
+  if (!MOTION) return `scale=${W}:${H},format=yuv420p`;
+  const frames = Math.max(2, Math.round(durSec * FPS));
+  const df = Math.max(1, frames - 1);
+  const z = `${zStart.toFixed(4)}+(${(zEnd - zStart).toFixed(4)})*on/${df}`;
+  return [
+    `scale=${2 * W}:${2 * H}`,
+    `zoompan=z='${z}':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':fps=${FPS}:s=${W}x${H}`,
     `format=yuv420p`,
   ].join(",");
 }

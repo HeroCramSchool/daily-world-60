@@ -142,29 +142,99 @@ async function searchImages(query: string): Promise<CommonsImage[]> {
 // 内容を強く想起させるイラストに。ニュース信頼性のため no text・実在人物なし、画面フッターは
 // "AI + FILE VISUALS" に切替。生成失敗/タイムアウト時は呼び出し側が stock(Pexels) hero を維持。
 const AI_HERO_ON = process.env.AI_HERO !== "off" && process.env.AI_HERO !== "0";
+// AI_BEATS: ナレーションの文(=ビート)ごとに1枚のAIイラストを生成し、その文の内容を絵で描く。
+// = サウンドオフでも「今喋っている事」が画面に出て分かりやすい。既定ON、AI_BEATS=off で従来のストック回転に戻す。
+const AI_BEATS_ON = process.env.AI_BEATS !== "off" && process.env.AI_BEATS !== "0";
+const MAX_BEAT_IMAGES = Number(process.env.MAX_BEAT_IMAGES ?? "8");
+// 無料 Pollinations は同時/連続リクエストに 429 を返す。逐次(1)＋リトライ/バックオフが安定。
+const BEAT_CONCURRENCY = Number(process.env.BEAT_CONCURRENCY ?? "1");
 const POLLINATIONS_API = "https://image.pollinations.ai/prompt/";
 
-async function generateAIHero(
-  story: { headline: string; summary?: string; imageQueries?: string[]; country?: { name?: string }; index?: number },
-  dest: string,
-): Promise<void> {
-  // 細密なプロンプト: 見出し + 要約の具体(数字/場所) + 複数の imageQueries + 詳細な構図/光/質感/色調/画風 + 強い negatives。
+type StoryLike = { headline: string; summary?: string; imageQueries?: string[]; country?: { name?: string }; index?: number };
+
+// 1ストーリー内は画風を固定 (hero + 全ビートで共有) してコヒーレントに。トーンは見出し/要約から判定。
+function pickTone(s: StoryLike): string {
+  const t = `${s.headline} ${s.summary ?? ""}`.toLowerCase();
+  if (/\b(war|strike|attack|missile|troops?|killed|conflict|military|invasion|clash|siege|bomb|shell|airstrike|ceasefire|frontline)\b/.test(t))
+    return "somber photojournalistic concept-art, desaturated palette, dramatic volumetric light and haze";
+  if (/\b(space|nasa|telescope|rocket|launch|satellite|quantum|robot|chip|semiconductor|\bai\b|software|tech)\b/.test(t))
+    return "clean editorial sci-fi concept illustration, cool cinematic palette, crisp rim light";
+  if (/\b(quake|earthquake|storm|flood|fire|wildfire|disaster|hurricane|cyclone|rescue|landslide|tsunami|evacuat)\b/.test(t))
+    return "dramatic photojournalistic concept-art, dust and haze, urgent muted palette";
+  if (/\b(market|economy|trade|oil|stocks?|inflation|bank|deal|tariff|election|vote|court|summit|sanction|talks)\b/.test(t))
+    return "muted editorial illustration, restrained palette, clean balanced composition";
+  return "painterly photojournalistic concept-art, somber desaturated palette, moody volumetric light";
+}
+const STYLE_TAIL = "Vertical 9:16 composition, strong foreground subject, deep atmospheric background, shallow depth of field, intricate realistic textures, ultra detailed, immersive. Absolutely no text, no captions, no letters, no numbers, no logos, no watermark, no UI, no borders, no recognizable real individual faces.";
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+async function pollinate(prompt: string, seed: number, dest: string, timeoutMs: number): Promise<void> {
+  const url = `${POLLINATIONS_API}${encodeURIComponent(prompt.slice(0, 1000))}?width=1024&height=1536&nologo=true&model=flux&seed=${seed}`;
+  // 429/5xx は無料枠のレート制限/一時障害 → バックオフして再試行。
+  const backoffs = [0, 6000, 14000];
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < backoffs.length; attempt++) {
+    if (backoffs[attempt]) await sleep(backoffs[attempt]);
+    try {
+      const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(timeoutMs) });
+      if (res.status === 429 || res.status >= 500) throw new Error(`pollinations HTTP ${res.status}`);
+      if (!res.ok) throw new Error(`pollinations HTTP ${res.status}`);
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length < 2000) throw new Error("pollinations: empty/too-small image");
+      await sharp(buf).resize(W, H, { fit: "cover", position: "centre" }).jpeg({ quality: 88 }).toFile(dest);
+      return;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+}
+
+async function generateAIHero(story: StoryLike, dest: string): Promise<void> {
   const elements = (Array.isArray(story.imageQueries) ? story.imageQueries.slice(0, 4) : [])
     .map(s => String(s).trim()).filter(Boolean).join(", ");
-  const ctx = (story.summary ?? "").replace(/\s+/g, " ").trim().slice(0, 240);
+  const ctx = (story.summary ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
   const prompt = [
     `Highly detailed cinematic editorial news illustration depicting the story: "${story.headline}".`,
     ctx ? `Scene context: ${ctx}` : "",
-    elements ? `Key visual elements in the frame: ${elements}.` : (story.country?.name ? `Setting: ${story.country.name}.` : ""),
-    `Vertical 9:16 composition with a strong dramatic foreground subject and a deep atmospheric background; volumetric lighting and god rays, drifting haze and fine particulate, shallow depth of field, intricate textures, weathered realistic materials, somber desaturated muted color palette with one accent of warm light; painterly photojournalistic concept-art style, moody and immersive, ultra detailed.`,
-    `Absolutely no text, no captions, no letters, no numbers, no logos, no watermark, no UI, no borders, no recognizable real individual faces.`,
-  ].filter(Boolean).join(" ").slice(0, 1000);
-  const url = `${POLLINATIONS_API}${encodeURIComponent(prompt)}?width=1024&height=1536&nologo=true&model=flux&seed=${(story.index ?? 1) * 7 + 3}`;
-  const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(60000) });
-  if (!res.ok) throw new Error(`pollinations HTTP ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length < 2000) throw new Error("pollinations: empty/too-small image");
-  await sharp(buf).resize(W, H, { fit: "cover", position: "centre" }).jpeg({ quality: 88 }).toFile(dest);
+    elements ? `Key visual elements: ${elements}.` : (story.country?.name ? `Setting: ${story.country.name}.` : ""),
+    `Style: ${pickTone(story)}.`, STYLE_TAIL,
+  ].filter(Boolean).join(" ");
+  await pollinate(prompt, (story.index ?? 1) * 7 + 3, dest, 60000);
+}
+
+// ビート画像: その文(=喋っている瞬間)を絵で描く。画風は hero と同じ pickTone+STYLE_TAIL で固定。
+async function generateBeatImage(story: StoryLike, beatText: string, beatIdx: number, dest: string): Promise<void> {
+  const moment = beatText.replace(/\s+/g, " ").trim().slice(0, 220);
+  const prompt = [
+    `Editorial news illustration. Depicting this exact moment: "${moment}".`,
+    `Story context: "${story.headline}".`,
+    `Style: ${pickTone(story)}.`, STYLE_TAIL,
+  ].filter(Boolean).join(" ");
+  await pollinate(prompt, (story.index ?? 1) * 100 + beatIdx, dest, 45000);
+}
+
+/** 要約を文(ビート)に分割。短すぎる断片は除外、MAX_BEAT_IMAGES で上限。 */
+function splitBeats(summary: string): string[] {
+  return (summary ?? "")
+    .replace(/\s+/g, " ").trim()
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.split(/\s+/).length >= 3)
+    .slice(0, MAX_BEAT_IMAGES);
+}
+
+/** 配列を上限並列で処理 (Pollinations のレイテンシ対策)。 */
+async function runBounded<T>(items: T[], limit: number, fn: (item: T, i: number) => Promise<void>): Promise<void> {
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      await fn(items[i], i);
+    }
+  });
+  await Promise.all(workers);
 }
 
 async function main() {
@@ -271,6 +341,25 @@ async function main() {
       } catch (e) {
         console.warn(`[broll] AI hero gen failed (${code}): ${e instanceof Error ? e.message : e} — keeping stock hero`);
       }
+    }
+
+    // ビート画像: 要約の文ごとに1枚のAIイラストを生成 (beat-{code}-s{index}-b{n}.jpg)。
+    // build-news-video が body cue i にこれを割り当て、その文の内容を絵で描く=分かりやすい。
+    // 失敗/拒否時はファイルを書かない → build 側が stock(bg) にフォールバック (黒画面なし)。
+    if (AI_BEATS_ON) {
+      const beats = splitBeats(story.summary ?? "");
+      let okBeats = 0;
+      await runBounded(beats, BEAT_CONCURRENCY, async (beatText, bi) => {
+        const dest = path.join(assets, `beat-${code}-s${story.index}-b${bi + 1}.jpg`);
+        try {
+          await generateBeatImage(story, beatText, bi, dest);
+          okBeats++;
+        } catch (e) {
+          console.warn(`[broll] beat gen failed (${code} b${bi + 1}): ${e instanceof Error ? e.message : e} — will fall back to stock`);
+        }
+      });
+      creditLines.push(`- beat-${code}-s${story.index}-b1..${okBeats}.jpg — AI beat illustrations (Pollinations flux, free)`);
+      console.log(`[broll] ${code}: ${okBeats}/${beats.length} beat images generated`);
     }
 
     // 国旗 PNG
