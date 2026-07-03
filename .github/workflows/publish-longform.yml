@@ -7,9 +7,10 @@ name: Daily World 60 — Weekly Deep Dive
 #   下の cron(Sun 21:00 UTC)が fetch→render→publish。2026-06-09 に手動 publish で初回検証済み(videoId EWi1cDIP914)。
 #   停止したい場合はこの schedule をコメントアウト。
 on:
-  schedule:
-    # Sunday 21:00 UTC = Monday 09:00 NZST (Routine の Sun 19:00 UTC の後)
-    - cron: '0 21 * * 0'
+  # 週次長尺は一時停止 (2026-07-03): 18登録chで長尺=3〜7再生と実測で死んでおり、制作を Shorts に集中。
+  # Routine trig_01Twko5e... も enabled:false 済み。再開時は両方を戻す。
+  # schedule:
+  #   - cron: '0 21 * * 0'  # Sunday 21:00 UTC = Monday 09:00 NZST
   workflow_dispatch:
     inputs:
       mode:
