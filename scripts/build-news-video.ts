@@ -44,6 +44,13 @@ const MAX_WORDS_PER_CHUNK = Number(process.env.MAX_WORDS_PER_CHUNK ?? "6");
 const BODY_BG = 7;
 // 本文の最初のビートを「動くドット世界地図」にする (米国ニュース風・国へズーム)。MAP_INTRO=off で無効。
 const MAP_INTRO = process.env.MAP_INTRO !== "off" && process.env.MAP_INTRO !== "0";
+// カラオケ字幕: voice-{code}.words.vtt (単語タイムスタンプ) がある時、発話中の単語をアクセント色に。
+const KARAOKE = process.env.KARAOKE !== "off" && process.env.KARAOKE !== "0";
+// inauthentic-content 対策のビジュアル微差: story ごとにアクセント色を輪番 (ブランド黄は stripe/国名で維持)。
+const ACCENTS = ["#F5E63B", "#FFB347", "#5EEAD4"];
+function accentFor(storyIndex: number): string {
+  return ACCENTS[Math.max(0, (storyIndex - 1)) % ACCENTS.length];
+}
 
 interface Country { code: string; flag: string; name?: string; }
 interface Keyword { word: string; definitionEn: string; }
@@ -116,9 +123,15 @@ async function buildOne(dir: string, story: Story) {
   // ─── Scene list ───
   // fx/fy: 指定時はその焦点(フレーム比)へズームイン (地図の国へ寄る動き)。
   // zStart/zEnd: ビート画像シーンの連続ズーム範囲 (同じ画像を共有する cue 内チャンクで継ぎ目なく寄る)。
-  type Scene = { id: string; dur: number; svg: string; fx?: number; fy?: number; zStart?: number; zEnd?: number };
+  // svgs/wordDurs: カラオケ字幕 (単語ごとのSVG変種を concat し、単一エンコードで連続ズーム)。
+  type Scene = { id: string; dur: number; svg?: string; svgs?: string[]; wordDurs?: number[]; fx?: number; fy?: number; zStart?: number; zEnd?: number };
   const scenes: Scene[] = [];
   const mapCoords = MAP_INTRO ? countryLonLat(story.country.code) : null;
+
+  // カラオケ用の単語タイムスタンプ (tts-per-story v2 が生成。無ければ空=従来表示)
+  const speechWords: VttCue[] = KARAOKE
+    ? await parseVtt(path.join(dir, `voice-${code}.words.vtt`)).catch(() => [] as VttCue[])
+    : [];
 
   // ビート画像 (beat-{code}-s{index}-bN.jpg) を順に収集。各 body cue に1枚割り当てて文の内容を絵で描く。
   // 無い回 (AI_BEATS=off / 生成失敗) は空配列 → 従来のストック背景回転にフォールバック。
@@ -148,23 +161,39 @@ async function buildOne(dir: string, story: Story) {
     const chunks = chunkWords(words, parts);
     // この cue(=文) に対応するビート画像 (順序対応・件数差はクランプ吸収)。
     const beatFile = beatList.length ? beatList[Math.min(i, beatList.length - 1)] : null;
+    // カラオケ: 表示トークン数と発話トークン数の差 (句読点/数値の結合等) はリサンプリングで吸収。
+    const cueWords = speechWords.filter(w => w.start >= cue.start - 0.06 && w.end <= cue.end + 0.06);
+    const displayDurs = (cueWords.length >= 2 && words.length > 0)
+      ? resampleDurs(cueWords.map(w => Math.max(0.08, w.end - w.start)), words.length)
+      : null;
+    let wordOff = 0;
     for (let k = 0; k < parts; k++) {
       const id = `02-cap${(i + 1).toString().padStart(2, "0")}-${(k + 1).toString().padStart(2, "0")}`;
+      const chunkText = chunks[k] || cue.text;
+      const nWords = chunkText.split(/\s+/).filter(Boolean).length;
+      const bgFile = beatFile ?? `bg-${code}-s${story.index}-${(bgTick % BODY_BG) + 2}.jpg`;
+      const zoom = beatFile
+        ? { zStart: 1 + KB_ZOOM * (k / parts), zEnd: 1 + KB_ZOOM * ((k + 1) / parts) }
+        : {};
       // 最初の本文ビートを地図ズームに置換 (国に座標がある時のみ)。尺は据え置き=音声同期は不変。
       if (bgTick === 0 && mapCoords) {
         const m = mapSvg(story, mapCoords);
         scenes.push({ id: `02-map`, dur: partDur, svg: m.svg, fx: m.fx, fy: m.fy });
-      } else if (beatFile) {
-        // ビート画像: cue 内の全チャンクで同じ画像を共有し、連続ズームで継ぎ目なく寄る。
-        // 画像が切り替わるのは「文(cue)が変わる時」だけ=喋っている内容と絵が一致して分かりやすい。
+      } else if (displayDurs && nWords >= 2) {
+        // カラオケ字幕: 発話中の単語をアクセント色に。チャンク内は単語SVG変種のconcat+連続ズームで単一エンコード。
+        const raw = displayDurs.slice(wordOff, wordOff + nWords);
+        const scale = partDur / raw.reduce((a, b) => a + b, 0);
         scenes.push({
-          id, dur: partDur, svg: captionSvg(story, chunks[k] || cue.text, beatFile, bgTick),
-          zStart: 1 + KB_ZOOM * (k / parts), zEnd: 1 + KB_ZOOM * ((k + 1) / parts),
+          id, dur: partDur,
+          svgs: raw.map((_, wi) => captionSvg(story, chunkText, bgFile, bgTick, wi)),
+          wordDurs: raw.map(d => d * scale),
+          zStart: (zoom as { zStart?: number }).zStart ?? 1,
+          zEnd: (zoom as { zEnd?: number }).zEnd ?? 1 + KB_ZOOM,
         });
       } else {
-        const bgN = (bgTick % BODY_BG) + 2;
-        scenes.push({ id, dur: partDur, svg: captionSvg(story, chunks[k] || cue.text, `bg-${code}-s${story.index}-${bgN}.jpg`, bgTick) });
+        scenes.push({ id, dur: partDur, svg: captionSvg(story, chunkText, bgFile, bgTick), ...zoom });
       }
+      wordOff += nWords;
       bgTick++;
     }
   });
@@ -196,28 +225,56 @@ async function buildOne(dir: string, story: Story) {
 
   // ─── Render scenes ───
   const segments: string[] = [];
+  const tmpFiles: string[] = [];
   for (let si = 0; si < scenes.length; si++) {
     const sc = scenes[si];
-    const svgPath = path.join(dir, `_n${story.index}-${sc.id}.svg`);
-    const pngPath = path.join(dir, `_n${story.index}-${sc.id}.png`);
     const mp4Path = path.join(dir, `_n${story.index}-${sc.id}.mp4`);
-    await fs.writeFile(svgPath, sc.svg, "utf-8");
-    await run("rsvg-convert", ["-w", String(W), "-h", String(H), svgPath, "-o", pngPath]);
-    await fs.unlink(svgPath).catch(() => {});
-    // 末尾ループは静止 (zoom=1.0) = フック1フレーム目と完全一致 → 自動リピートが継ぎ目なし。
     const isLoopTail = sc.id.startsWith("04-loop");
-    const vf = sc.fx !== undefined && sc.fy !== undefined
-      ? mapVf(sc.dur, sc.fx, sc.fy)                       // 地図: 国の焦点へズームイン
-      : sc.zStart !== undefined
-        ? kbVf(sc.dur, sc.zStart, sc.zEnd ?? sc.zStart)   // ビート画像: cue内で連続ズーム
-        : sceneVf(sc.dur, si, isLoopTail);
-    await run("ffmpeg", [
-      "-y", "-loop", "1", "-i", pngPath,
-      "-t", Math.max(0.1, sc.dur).toFixed(3),
-      "-vf", vf,
-      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", String(FPS),
-      mp4Path,
-    ]);
+    if (sc.svgs && sc.wordDurs) {
+      // カラオケ: 単語ごとのPNG変種を concat demuxer で並べ、fps化→連続ズームで単一エンコード。
+      const pngs: string[] = [];
+      for (let wi = 0; wi < sc.svgs.length; wi++) {
+        const svgPath = path.join(dir, `_n${story.index}-${sc.id}-w${wi}.svg`);
+        const pngPath = path.join(dir, `_n${story.index}-${sc.id}-w${wi}.png`);
+        await fs.writeFile(svgPath, sc.svgs[wi], "utf-8");
+        await run("rsvg-convert", ["-w", String(W), "-h", String(H), svgPath, "-o", pngPath]);
+        await fs.unlink(svgPath).catch(() => {});
+        pngs.push(pngPath);
+        tmpFiles.push(pngPath);
+      }
+      const listPath = path.join(dir, `_n${story.index}-${sc.id}.txt`);
+      const listBody = pngs.map((p, wi) => `file '${path.resolve(p)}'\nduration ${sc.wordDurs![wi].toFixed(3)}`).join("\n")
+        + `\nfile '${path.resolve(pngs[pngs.length - 1])}'\n`;
+      await fs.writeFile(listPath, listBody, "utf-8");
+      tmpFiles.push(listPath);
+      await run("ffmpeg", [
+        "-y", "-f", "concat", "-safe", "0", "-i", listPath,
+        "-t", Math.max(0.1, sc.dur).toFixed(3),
+        "-vf", `fps=${FPS},${kbVf(sc.dur, sc.zStart ?? 1, sc.zEnd ?? 1 + KB_ZOOM)}`,
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", String(FPS),
+        mp4Path,
+      ]);
+    } else {
+      const svgPath = path.join(dir, `_n${story.index}-${sc.id}.svg`);
+      const pngPath = path.join(dir, `_n${story.index}-${sc.id}.png`);
+      await fs.writeFile(svgPath, sc.svg ?? "", "utf-8");
+      await run("rsvg-convert", ["-w", String(W), "-h", String(H), svgPath, "-o", pngPath]);
+      await fs.unlink(svgPath).catch(() => {});
+      tmpFiles.push(pngPath);
+      // 末尾ループは静止 (zoom=1.0) = フック1フレーム目と完全一致 → 自動リピートが継ぎ目なし。
+      const vf = sc.fx !== undefined && sc.fy !== undefined
+        ? mapVf(sc.dur, sc.fx, sc.fy)                       // 地図: 国の焦点へズームイン
+        : sc.zStart !== undefined
+          ? kbVf(sc.dur, sc.zStart, sc.zEnd ?? sc.zStart)   // ビート画像: cue内で連続ズーム
+          : sceneVf(sc.dur, si, isLoopTail);
+      await run("ffmpeg", [
+        "-y", "-loop", "1", "-i", pngPath,
+        "-t", Math.max(0.1, sc.dur).toFixed(3),
+        "-vf", vf,
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", String(FPS),
+        mp4Path,
+      ]);
+    }
     segments.push(mp4Path);
   }
 
@@ -232,7 +289,10 @@ async function buildOne(dir: string, story: Story) {
   // assets/news-bed.mp3 (または BGM_PATH) が無ければ BGM なしで従来どおり。
   const bgmFile = process.env.BGM_PATH ?? path.join("assets", "news-bed.mp3");
   const hasBgm = await fs.access(bgmFile).then(() => true).catch(() => false);
-  const bgmVol = process.env.BGM_VOLUME ?? "0.10";
+  // BGM はナレーションをキーにした自動ダッキング (声の間だけ下がる)。既定0.25はダッキング前提の
+  // プリレベル (旧固定 0.10 より存在感を出しつつ声は常に前)。最終段で -14 LUFS (YouTube正規化目標)。
+  const bgmVol = process.env.BGM_VOLUME ?? "0.25";
+  const LOUDNORM = "loudnorm=I=-14:TP=-1.5:LRA=11";
 
   const muxArgs = hasBgm
     ? [
@@ -241,7 +301,9 @@ async function buildOne(dir: string, story: Story) {
         "-i", audio,
         "-stream_loop", "-1", "-i", bgmFile,
         "-filter_complex",
-        `[1:a]volume=1.0[vo];[2:a]volume=${bgmVol}[bg];[vo][bg]amix=inputs=2:duration=first:normalize=0[mix]`,
+        `[1:a]asplit=2[vo][key];[2:a]volume=${bgmVol}[bgp];` +
+        `[bgp][key]sidechaincompress=threshold=0.02:ratio=8:attack=20:release=300[bg];` +
+        `[vo][bg]amix=inputs=2:duration=first:normalize=0[mix0];[mix0]${LOUDNORM}[mix]`,
         "-map", "0:v:0", "-map", "[mix]",
         "-t", total.toFixed(2),
         "-c:v", "libx264", "-preset", "medium", "-crf", "20",
@@ -254,7 +316,8 @@ async function buildOne(dir: string, story: Story) {
         "-y",
         "-i", bgVideo,
         "-i", audio,
-        "-map", "0:v:0", "-map", "1:a:0",
+        "-filter_complex", `[1:a]${LOUDNORM}[mix]`,
+        "-map", "0:v:0", "-map", "[mix]",
         "-t", total.toFixed(2),
         "-c:v", "libx264", "-preset", "medium", "-crf", "20",
         "-c:a", "aac", "-b:a", "192k",
@@ -268,9 +331,7 @@ async function buildOne(dir: string, story: Story) {
   // Cleanup
   for (const s of segments) await fs.unlink(s).catch(() => {});
   await fs.unlink(bgVideo).catch(() => {});
-  for (const sc of scenes) {
-    await fs.unlink(path.join(dir, `_n${story.index}-${sc.id}.png`)).catch(() => {});
-  }
+  for (const f of tmpFiles) await fs.unlink(f).catch(() => {});
 
   const stat = await fs.stat(out);
   console.log(`[news] → ${out} (${(stat.size / 1024 / 1024).toFixed(2)} MB)`);
@@ -282,9 +343,34 @@ function escape(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/** 数字トークン (件数/%/金額/日付) をブランド黄でハイライト = サウンドオフで要点が即伝わる。 */
-function emphasizeNumbers(s: string): string {
-  return escape(s).replace(/([$£€]?\d[\d.,:]*%?\+?)/g, '<tspan fill="#F5E63B">$1</tspan>');
+/** 数字トークン (件数/%/金額/日付) をアクセント色でハイライト = サウンドオフで要点が即伝わる。 */
+function emphasizeNumbers(s: string, accent = "#F5E63B"): string {
+  return escape(s).replace(/([$£€]?\d[\d.,:]*%?\+?)/g, `<tspan fill="${accent}">$1</tspan>`);
+}
+
+/** カラオケ行: 単語ごとに tspan 化し、発話中 (globalIdx===highlightIdx) と数字をアクセント色に。 */
+function karaokeLine(line: string, startIdx: number, highlightIdx: number, accent: string): string {
+  return line.split(/\s+/).filter(Boolean).map((tok, j) => {
+    const hot = startIdx + j === highlightIdx || /\d/.test(tok);
+    return `<tspan fill="${hot ? accent : "#FFFFFF"}">${escape(tok)}</tspan>`;
+  }).join(" ");
+}
+
+/** 発話トークンの duration 列を表示トークン数 n に線形リサンプリング (累積時間を等分割補間)。 */
+function resampleDurs(raw: number[], n: number): number[] {
+  const total = raw.reduce((a, b) => a + b, 0);
+  if (!(total > 0) || n <= 0) return Array(Math.max(1, n)).fill(0.2);
+  const cum: number[] = [0];
+  for (const d of raw) cum.push(cum[cum.length - 1] + d);
+  const at = (f: number) => {
+    // f∈[0,1] → 累積時間 (raw インデックス空間で線形補間)
+    const x = f * raw.length;
+    const i = Math.min(raw.length - 1, Math.floor(x));
+    return cum[i] + (x - i) * raw[i];
+  };
+  const out: number[] = [];
+  for (let j = 0; j < n; j++) out.push(Math.max(0.06, at((j + 1) / n) - at(j / n)));
+  return out;
 }
 
 /** words を n 個の語数バランスの取れたチャンクに分割 (キネティック字幕用)。 */
@@ -434,7 +520,8 @@ function hookSvg(story: Story): string {
  *   - top: country chip + headline (compact, 国旗なし)
  *   - bottom: caption text (current cue text)
  */
-function captionSvg(story: Story, captionText: string, bgFile: string, sceneIdx = 0): string {
+function captionSvg(story: Story, captionText: string, bgFile: string, sceneIdx = 0, highlightIdx = -1): string {
+  const accent = accentFor(story.index);
   const countryName = story.country.name ?? story.country.code;
   const cnText = countryName.toUpperCase();
   // 国名行: letter-spacing 6 の分を概算で引いた幅に実測フィット + 絶対クランプ (x=60, 右マージン60 → 幅960)
@@ -454,16 +541,22 @@ function captionSvg(story: Story, captionText: string, bgFile: string, sceneIdx 
   // (2026-06-27)。アクセントバーは常時。font は大きめ優先 (サウンドオフ可読性)。
   const boxX = 40, boxY = 1240, boxW = 1000, boxH = 520;
   // font は中庸サイズ (72上限は大きすぎた・Ken Burns で更に拡大して見える。2026-06-27)。
-  const fit = fitCaption(captionText, boxW - 80, boxH - 80, [56, 50, 46, 42, 38, 34]);
+  // fit幅は Ken Burns 最大ズーム時 (中央基準+8%≈左右40px侵食) でも切れない 840 に (2026-07-10)。
+  const fit = fitCaption(captionText, 840, boxH - 80, [56, 50, 46, 42, 38, 34]);
   const totalH = fit.lines.length * fit.lineHeight;
   const capStartY = boxY + (boxH - totalH) / 2 + fit.fontSize;
   let capSvg = "";
+  let wordCursor = 0;
   fit.lines.forEach((line, i) => {
+    const body = highlightIdx >= 0
+      ? karaokeLine(line, wordCursor, highlightIdx, accent)
+      : emphasizeNumbers(line, accent);
+    wordCursor += line.split(/\s+/).filter(Boolean).length;
     capSvg += `\n  <text x="540" y="${capStartY + i * fit.lineHeight}" text-anchor="middle"
         font-family="Hiragino Sans" font-weight="900"
-        font-size="${fit.fontSize}" fill="#FFFFFF" letter-spacing="0"${clampAttr(line, fit.fontSize, boxW - 80, 0)}>${emphasizeNumbers(line)}</text>`;
+        font-size="${fit.fontSize}" fill="#FFFFFF" letter-spacing="0"${clampAttr(line, fit.fontSize, 840, 0)}>${body}</text>`;
   });
-  const accent = `<rect x="${boxX}" y="${boxY}" width="14" height="${boxH}" fill="#F5E63B" rx="7"/>`;
+  const accentBar = `<rect x="${boxX}" y="${boxY}" width="14" height="${boxH}" fill="${accent}" rx="7"/>`;
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   <defs>
@@ -486,7 +579,7 @@ function captionSvg(story: Story, captionText: string, bgFile: string, sceneIdx 
 
   <!-- Caption box -->
   <rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" fill="#0A0A0A" fill-opacity="0.82" rx="20"/>
-  ${accent}
+  ${accentBar}
   ${capSvg}
 
   ${sourceFooter(story)}
