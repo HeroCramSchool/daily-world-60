@@ -39,7 +39,9 @@ async function main() {
   const script: ScriptJson = JSON.parse(await fs.readFile(path.join(dir, "script-en.json"), "utf-8"));
 
   const voice = process.env.EN_VOICE ?? "en-US-AvaNeural";
-  const rate = process.env.TTS_RATE ?? "+5%";
+  // -5% ≈ 128-135 WPM: ESL理解は150WPM超で低下 (Griffiths)・BBC字幕基準160-180WPMの下側。
+  // +5%は「速すぎて見にくい」実フィードバックで撤回 (2026-07-10)。
+  const rate = process.env.TTS_RATE ?? "-5%";
 
   for (const story of script.stories) {
     const code = story.country.code.toLowerCase();

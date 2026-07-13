@@ -32,20 +32,25 @@ const FPS = 30;
 // ─── リテンション設計フラグ (2026-06-27, 10K構成) ───
 // MOTION: 全シーンに Ken Burns (静止画スライドショーがスワイプ最大要因)。問題時 MOTION=off で即無効化。
 const MOTION = process.env.MOTION !== "off" && process.env.MOTION !== "0";
-// ズーム量。大きいほど動くが端(フッター/ストライプ)が切れる。6%で動き感と安全マージンの両立。
-const KB_ZOOM = Number(process.env.KEN_BURNS_ZOOM ?? "0.06");
+// ズーム量。大きいほど動くが端が切れ、文字の可読性も落ちる。4% (長尺化したシーンで≈1%/s) に減速
+// (2026-07-10: 連続モーションはテキスト処理と競合する EEG 研究知見・「速すぎ」フィードバック反映)。
+const KB_ZOOM = Number(process.env.KEN_BURNS_ZOOM ?? "0.04");
 // KEYWORD_CARD: 単色の英単語スラブ(リテンションキラー)。既定 off。ナレーションに語彙節があっても描画しない。
 const KEYWORD_CARD = process.env.KEYWORD_CARD === "on";
-// 長い body cue を分割して "数秒ごとに新カット" を保証 (静止保持の回避・ペーシング)。
-const MAX_SCENE_SEC = Number(process.env.MAX_SCENE_SEC ?? "3");
-// キネティック字幕: 1サブシーンに出す最大語数 (短いチャンクをカットごとにポン出し)。
-const MAX_WORDS_PER_CHUNK = Number(process.env.MAX_WORDS_PER_CHUNK ?? "6");
+// 可読性ペーシング (2026-07-10 基準準拠に補正。「速すぎ」実フィードバック+Netflix/TED/BBC基準):
+// - チャンク表示は最低 MIN_CHUNK_SEC (DCMP≈1.33s/TED≈1.12s/Netflix絶対下限0.83sの安全側)
+// - 分割は5秒毎 (映画の現代ASL 4-6秒帯・Netflixテキスト最大7秒の内側)。旧3秒は倍速すぎた
+// - 1チャンク5語 (≈28字 = Netflix/TED 42字/行の内側・15CPSで約1.9秒)
+const MAX_SCENE_SEC = Number(process.env.MAX_SCENE_SEC ?? "5");
+const MAX_WORDS_PER_CHUNK = Number(process.env.MAX_WORDS_PER_CHUNK ?? "5");
+const MIN_CHUNK_SEC = Number(process.env.MIN_CHUNK_SEC ?? "1.3");
 // body 背景プール (bg-2..8 = 7枚)。fetch-broll が bg-1..8 を必ず用意する。
 const BODY_BG = 7;
 // 本文の最初のビートを「動くドット世界地図」にする (米国ニュース風・国へズーム)。MAP_INTRO=off で無効。
 const MAP_INTRO = process.env.MAP_INTRO !== "off" && process.env.MAP_INTRO !== "0";
-// カラオケ字幕: voice-{code}.words.vtt (単語タイムスタンプ) がある時、発話中の単語をアクセント色に。
-const KARAOKE = process.env.KARAOKE !== "off" && process.env.KARAOKE !== "0";
+// カラオケ字幕: 既定OFF (2026-07-10)。査読研究では単語追従ハイライトは「先読み」を阻害し
+// ESL読者の理解を下げる (Jensema 1998/Rajendran 2013)。KARAOKE=on でA/B用に再有効化可。
+const KARAOKE = process.env.KARAOKE === "on";
 // inauthentic-content 対策のビジュアル微差: story ごとにアクセント色を輪番 (ブランド黄は stripe/国名で維持)。
 const ACCENTS = ["#F5E63B", "#FFB347", "#5EEAD4"];
 function accentFor(storyIndex: number): string {
@@ -156,7 +161,10 @@ async function buildOne(dir: string, story: Story) {
   bodyCues.forEach((cue, i) => {
     const dur = cue.end - cue.start;
     const words = cue.text.trim().split(/\s+/).filter(Boolean);
-    const parts = Math.max(1, Math.ceil(dur / MAX_SCENE_SEC), Math.ceil(words.length / MAX_WORDS_PER_CHUNK));
+    // 分割数は語数/尺の要求と「最低表示 MIN_CHUNK_SEC」の両立で決める。
+    // 短い文に語が詰まっている場合は語数要求を諦めて長め表示を優先 (可読性 > 語数上限)。
+    const wantParts = Math.max(1, Math.ceil(dur / MAX_SCENE_SEC), Math.ceil(words.length / MAX_WORDS_PER_CHUNK));
+    const parts = Math.max(1, Math.min(wantParts, Math.floor(dur / MIN_CHUNK_SEC) || 1));
     const partDur = dur / parts;
     const chunks = chunkWords(words, parts);
     // この cue(=文) に対応するビート画像 (順序対応・件数差はクランプ吸収)。
@@ -171,10 +179,10 @@ async function buildOne(dir: string, story: Story) {
       const id = `02-cap${(i + 1).toString().padStart(2, "0")}-${(k + 1).toString().padStart(2, "0")}`;
       const chunkText = chunks[k] || cue.text;
       const nWords = chunkText.split(/\s+/).filter(Boolean).length;
-      const bgFile = beatFile ?? `bg-${code}-s${story.index}-${(bgTick % BODY_BG) + 2}.jpg`;
-      const zoom = beatFile
-        ? { zStart: 1 + KB_ZOOM * (k / parts), zEnd: 1 + KB_ZOOM * ((k + 1) / parts) }
-        : {};
+      // 背景は「文(cue)ごと」に1枚 = カットは文の切り替わりだけ (旧: チャンク毎カット=1.5-3秒毎は
+      // 映画ASL 4-6秒帯の倍速で、情報系には過負荷。2026-07-10 減速)。文内は連続ズームで繋ぐ。
+      const bgFile = beatFile ?? `bg-${code}-s${story.index}-${(i % BODY_BG) + 2}.jpg`;
+      const zoom = { zStart: 1 + KB_ZOOM * (k / parts), zEnd: 1 + KB_ZOOM * ((k + 1) / parts) };
       // 最初の本文ビートを地図ズームに置換 (国に座標がある時のみ)。尺は据え置き=音声同期は不変。
       if (bgTick === 0 && mapCoords) {
         const m = mapSvg(story, mapCoords);
