@@ -162,17 +162,8 @@ jobs:
       - name: Install edge-tts
         run: pip install edge-tts
 
-      # 2.5Dパララックス (rembg 前景分離)。モデル(~176MB)はキャッシュ。失敗しても静止画に降格するだけ。
-      - name: Cache rembg model
-        uses: actions/cache@v4
-        with:
-          path: ~/.u2net
-          key: u2net-v1
-
-      - name: Install rembg (parallax motion)
-        run: pip install rembg onnxruntime
-        timeout-minutes: 6
-        continue-on-error: true
+      # (2.5Dパララックスは既定OFF=不自然のため撤回・2026-07-20。PARALLAX=on 復活時は
+      #  rembg install + ~/.u2net cache をここに戻す。レシピは motion-broll スキル参照)
 
       - name: Install Node deps
         run: npm ci

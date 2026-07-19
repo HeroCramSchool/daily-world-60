@@ -146,15 +146,18 @@ const AI_HERO_ON = process.env.AI_HERO !== "off" && process.env.AI_HERO !== "0";
 // AI_BEATS: ナレーションの文(=ビート)ごとに1枚のAIイラストを生成し、その文の内容を絵で描く。
 // = サウンドオフでも「今喋っている事」が画面に出て分かりやすい。既定ON、AI_BEATS=off で従来のストック回転に戻す。
 const AI_BEATS_ON = process.env.AI_BEATS !== "off" && process.env.AI_BEATS !== "0";
-// PARALLAX: ビート画像を rembg で前景/背景に分離し、2.5Dパララックス動画 (beat-*.motion.mp4) を生成。
-// 静止画+ズームでなく「実際に動く映像」に見せる。rembg 未導入/失敗時は静かにスキップ (build側が静止画に降格)。
-const PARALLAX_ON = process.env.PARALLAX !== "off" && process.env.PARALLAX !== "0";
+// PARALLAX: 2.5Dパララックス動画生成。**既定OFF (2026-07-20)**: 切り出し合成が不自然という
+// オーナー実見フィードバックで撤回。レシピは motion-broll スキルに保存済み・PARALLAX=on で再有効化可。
+const PARALLAX_ON = process.env.PARALLAX === "on";
 const MAX_BEAT_IMAGES = Number(process.env.MAX_BEAT_IMAGES ?? "8");
 // 無料 Pollinations は同時/連続リクエストに 429 を返す。逐次(1)＋リトライ/バックオフが安定。
 const BEAT_CONCURRENCY = Number(process.env.BEAT_CONCURRENCY ?? "1");
 const POLLINATIONS_API = "https://image.pollinations.ai/prompt/";
 
-type StoryLike = { headline: string; summary?: string; imageQueries?: string[]; country?: { name?: string }; index?: number };
+type StoryLike = { headline: string; summary?: string; imageQueries?: string[]; beatVisuals?: string[]; country?: { name?: string }; index?: number };
+
+// 時代錯誤・機材誤りの防止 (実測: ホルムズの「船」が帆船で描かれる等)。全AI画像プロンプト共通。
+const ACCURACY_TAIL = "Present-day 2026 setting with factually accurate modern equipment and vehicles (modern oil tankers, container ships, warships, current military hardware and uniforms, contemporary buildings and clothing). Absolutely no anachronisms: no ancient or sailing vessels, no historical armor or robes, no medieval or fantasy elements, unless the story itself is historical.";
 
 // 1ストーリー内は画風を固定 (hero + 全ビートで共有) してコヒーレントに。トーンは見出し/要約から判定。
 function pickTone(s: StoryLike): string {
@@ -204,17 +207,25 @@ async function generateAIHero(story: StoryLike, dest: string): Promise<void> {
     `Highly detailed cinematic editorial news illustration depicting the story: "${story.headline}".`,
     ctx ? `Scene context: ${ctx}` : "",
     elements ? `Key visual elements: ${elements}.` : (story.country?.name ? `Setting: ${story.country.name}.` : ""),
+    ACCURACY_TAIL,
     `Style: ${pickTone(story)}.`, STYLE_TAIL,
   ].filter(Boolean).join(" ");
   await pollinate(prompt, (story.index ?? 1) * 7 + 3, dest, 60000);
 }
 
-// ビート画像: その文(=喋っている瞬間)を絵で描く。画風は hero と同じ pickTone+STYLE_TAIL で固定。
+// ビート画像: その文(=喋っている瞬間)を「正確に」絵で描く (2026-07-20 正確性強化)。
+// 優先順: Routine が書く beatVisuals[i] (文ごとの具体的な視覚描写・被写体/機材/場所を明示)
+//   > 要約文の生テキスト (フォールバック)。imageQueries の具体名詞も必ず注入し、
+// ACCURACY_TAIL で時代錯誤 (帆船・歴史衣装等) を禁止。画風は hero と同じ pickTone+STYLE_TAIL。
 async function generateBeatImage(story: StoryLike, beatText: string, beatIdx: number, dest: string): Promise<void> {
-  const moment = beatText.replace(/\s+/g, " ").trim().slice(0, 220);
+  const visual = (story.beatVisuals?.[beatIdx] ?? beatText).replace(/\s+/g, " ").trim().slice(0, 240);
+  const elements = (Array.isArray(story.imageQueries) ? story.imageQueries.slice(0, 3) : [])
+    .map(s => String(s).trim()).filter(Boolean).join(", ");
   const prompt = [
-    `Editorial news illustration. Depicting this exact moment: "${moment}".`,
-    `Story context: "${story.headline}".`,
+    `Accurate editorial news illustration depicting exactly this scene: "${visual}".`,
+    `News story: "${story.headline}".`,
+    elements ? `Real-world elements to depict correctly: ${elements}.` : "",
+    ACCURACY_TAIL,
     `Style: ${pickTone(story)}.`, STYLE_TAIL,
   ].filter(Boolean).join(" ");
   await pollinate(prompt, (story.index ?? 1) * 100 + beatIdx, dest, 45000);

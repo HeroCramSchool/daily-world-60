@@ -173,6 +173,7 @@ type RawStory = {
   sourceName?: string;
   sourceUrl?: string;
   imageQueries?: string[];
+  beatVisuals?: string[];
   keyword?: { word?: string; definitionEn?: string };
   hookText?: string;
   hookPattern?: string;
@@ -219,6 +220,7 @@ function normalizeScript(
       sourceUrl: s.sourceUrl ?? "",
       ...(kw ? { keyword: kw } : {}),
       ...(Array.isArray(s.imageQueries) && s.imageQueries.length ? { imageQueries: s.imageQueries } : {}),
+      ...(Array.isArray(s.beatVisuals) && s.beatVisuals.length ? { beatVisuals: s.beatVisuals } : {}),
       ...(s.hookText ? { hookText: s.hookText } : {}),
       ...(s.hookPattern ? { hookPattern: s.hookPattern } : {}),
       ...(s.commentQuestion ? { commentQuestion: s.commentQuestion } : {}),
