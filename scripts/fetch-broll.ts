@@ -180,8 +180,9 @@ const STYLE_TAIL = "Vertical 9:16 composition, strong foreground subject, deep a
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 async function pollinate(prompt: string, seed: number, dest: string, timeoutMs: number): Promise<void> {
-  // 1080x1920 直出し (旧1024x1536のcover拡大で生じる甘さを排除) + enhance=true (プロンプト拡張で描写密度UP)。
-  const url = `${POLLINATIONS_API}${encodeURIComponent(prompt.slice(0, 1000))}?width=1080&height=1920&nologo=true&enhance=true&model=flux&seed=${seed}`;
+  // 1080x1920 直出し。enhance=true は撤去 (2026-07-20): プロンプトをLLMが書き換え、題材から
+  // 逸脱した「きれいなだけの絵」になる実害を確認。プロンプトは自前で具体化する方針に。
+  const url = `${POLLINATIONS_API}${encodeURIComponent(prompt.slice(0, 1000))}?width=1080&height=1920&nologo=true&model=flux&seed=${seed}`;
   // 429/5xx は無料枠のレート制限/一時障害 → バックオフして再試行。
   const backoffs = [0, 6000, 14000];
   let lastErr: unknown;
@@ -221,13 +222,16 @@ async function generateAIHero(story: StoryLike, dest: string): Promise<void> {
 //   > 要約文の生テキスト (フォールバック)。imageQueries の具体名詞も必ず注入し、
 // ACCURACY_TAIL で時代錯誤 (帆船・歴史衣装等) を禁止。画風は hero と同じ pickTone+STYLE_TAIL。
 async function generateBeatImage(story: StoryLike, beatText: string, beatIdx: number, dest: string): Promise<void> {
+  const hasVisual = Boolean(story.beatVisuals?.[beatIdx]);
   const visual = (story.beatVisuals?.[beatIdx] ?? beatText).replace(/\s+/g, " ").trim().slice(0, 240);
-  const elements = (Array.isArray(story.imageQueries) ? story.imageQueries.slice(0, 3) : [])
-    .map(s => String(s).trim()).filter(Boolean).join(", ");
+  // imageQueries をローテしつつ2個ずつ使う (ビートごとに画が変わりつつ被写体は常に具体)。
+  const iq = Array.isArray(story.imageQueries) ? story.imageQueries.map(s => String(s).trim()).filter(Boolean) : [];
+  const elements = iq.length ? [iq[beatIdx % iq.length], iq[(beatIdx + 1) % iq.length]].filter(Boolean).join(", ") : "";
+  // 被写体アンカーを先頭に (fluxは先頭トークンを重視)。beatVisuals が無い時の要約文フォールバックは
+  // 抽象文 (特に最終の分析文) で被写体が消えるため、必ず imageQueries の具体名詞で画を固定する。
   const prompt = [
-    `Accurate editorial news illustration depicting exactly this scene: "${visual}".`,
-    `News story: "${story.headline}".`,
-    elements ? `Real-world elements to depict correctly: ${elements}.` : "",
+    elements ? `Editorial news illustration of: ${elements}.` : `Editorial news illustration for: "${story.headline}".`,
+    hasVisual ? `Exact scene: "${visual}".` : `Scene context: "${story.headline}" — ${visual}`,
     ACCURACY_TAIL,
     `Style: ${pickTone(story)}.`, STYLE_TAIL,
   ].filter(Boolean).join(" ");
