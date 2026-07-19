@@ -1,5 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { spawn } from "node:child_process";
 import sharp from "sharp";
 
 /**
@@ -145,6 +146,9 @@ const AI_HERO_ON = process.env.AI_HERO !== "off" && process.env.AI_HERO !== "0";
 // AI_BEATS: ナレーションの文(=ビート)ごとに1枚のAIイラストを生成し、その文の内容を絵で描く。
 // = サウンドオフでも「今喋っている事」が画面に出て分かりやすい。既定ON、AI_BEATS=off で従来のストック回転に戻す。
 const AI_BEATS_ON = process.env.AI_BEATS !== "off" && process.env.AI_BEATS !== "0";
+// PARALLAX: ビート画像を rembg で前景/背景に分離し、2.5Dパララックス動画 (beat-*.motion.mp4) を生成。
+// 静止画+ズームでなく「実際に動く映像」に見せる。rembg 未導入/失敗時は静かにスキップ (build側が静止画に降格)。
+const PARALLAX_ON = process.env.PARALLAX !== "off" && process.env.PARALLAX !== "0";
 const MAX_BEAT_IMAGES = Number(process.env.MAX_BEAT_IMAGES ?? "8");
 // 無料 Pollinations は同時/連続リクエストに 429 を返す。逐次(1)＋リトライ/バックオフが安定。
 const BEAT_CONCURRENCY = Number(process.env.BEAT_CONCURRENCY ?? "1");
@@ -224,6 +228,40 @@ function splitBeats(summary: string): string[] {
     .map(s => s.trim())
     .filter(s => s.split(/\s+/).length >= 3)
     .slice(0, MAX_BEAT_IMAGES);
+}
+
+/** 2.5Dパララックス: rembg で前景を切り出し、背景=遅ズーム/前景=ドリフトの2層合成で
+ *  6秒の「動く映像」クリップ (motion.mp4) を作る。失敗時は throw → 呼び出し側でスキップ。 */
+async function generateParallax(beatJpg: string, beatIdx: number): Promise<void> {
+  const fg = beatJpg.replace(/\.jpg$/, ".fg.png");
+  const motion = beatJpg.replace(/\.jpg$/, ".motion.mp4");
+  await runQuiet("python3", [path.join("scripts", "cutout.py"), beatJpg, fg]);
+  const st = await fs.stat(fg);
+  if (st.size < 5000) throw new Error("cutout produced empty foreground");
+  // 前景は6%拡大+左右ドリフト(±14px・ビートごとに方向交互)、背景は5%スローズーム。
+  const dir = beatIdx % 2 === 0 ? 1 : -1;
+  const drift = `(main_w-overlay_w)/2+${dir}*28*(t/6-0.5)`;
+  await runQuiet("ffmpeg", [
+    "-y",
+    "-loop", "1", "-t", "6", "-i", beatJpg,
+    "-loop", "1", "-t", "6", "-i", fg,
+    "-filter_complex",
+    `[0:v]scale=${2 * W}:${2 * H},zoompan=z='1.0+0.05*on/179':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':fps=30:s=${W}x${H}[bg];` +
+    `[1:v]scale=${Math.round(W * 1.06)}:${Math.round(H * 1.06)}[fgs];` +
+    `[bg][fgs]overlay=x='${drift}':y='(main_h-overlay_h)/2',format=yuv420p`,
+    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "30",
+    motion,
+  ]);
+}
+
+function runQuiet(cmd: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(cmd, args, { stdio: ["ignore", "ignore", "pipe"] });
+    let err = "";
+    proc.stderr.on("data", (d: Buffer) => { err += d.toString(); if (err.length > 4000) err = err.slice(-4000); });
+    proc.on("error", reject);
+    proc.on("close", (code: number) => (code === 0 ? resolve() : reject(new Error(`${cmd} exit ${code}: ${err.slice(-200)}`))));
+  });
 }
 
 /** 配列を上限並列で処理 (Pollinations のレイテンシ対策)。 */
@@ -361,6 +399,22 @@ async function main() {
       });
       creditLines.push(`- beat-${code}-s${story.index}-b1..${okBeats}.jpg — AI beat illustrations (Pollinations flux, free)`);
       console.log(`[broll] ${code}: ${okBeats}/${beats.length} beat images generated`);
+
+      // 2.5Dパララックス化 (rembg 前景分離 + 2層合成 → motion.mp4)。逐次・失敗はスキップ。
+      if (PARALLAX_ON && okBeats > 0) {
+        let okMotion = 0;
+        for (let bi = 0; bi < beats.length; bi++) {
+          const beatJpg = path.join(assets, `beat-${code}-s${story.index}-b${bi + 1}.jpg`);
+          if (!(await exists(beatJpg))) continue;
+          try {
+            await generateParallax(beatJpg, bi);
+            okMotion++;
+          } catch (e) {
+            console.warn(`[broll] parallax failed (${code} b${bi + 1}): ${e instanceof Error ? e.message : e} — still image fallback`);
+          }
+        }
+        console.log(`[broll] ${code}: ${okMotion}/${beats.length} parallax motion clips generated`);
+      }
     }
 
     // 国旗 PNG

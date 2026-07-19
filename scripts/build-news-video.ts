@@ -132,7 +132,7 @@ async function buildOne(dir: string, story: Story) {
   // fx/fy: 指定時はその焦点(フレーム比)へズームイン (地図の国へ寄る動き)。
   // zStart/zEnd: ビート画像シーンの連続ズーム範囲 (同じ画像を共有する cue 内チャンクで継ぎ目なく寄る)。
   // svgs/wordDurs: カラオケ字幕 (単語ごとのSVG変種を concat し、単一エンコードで連続ズーム)。
-  type Scene = { id: string; dur: number; svg?: string; svgs?: string[]; wordDurs?: number[]; fx?: number; fy?: number; zStart?: number; zEnd?: number; fadeIn?: boolean };
+  type Scene = { id: string; dur: number; svg?: string; svgs?: string[]; wordDurs?: number[]; fx?: number; fy?: number; zStart?: number; zEnd?: number; fadeIn?: boolean; motionFile?: string; motionSeek?: number };
   const scenes: Scene[] = [];
   const mapCoords = MAP_INTRO ? countryLonLat(story.country.code) : null;
 
@@ -161,7 +161,8 @@ async function buildOne(dir: string, story: Story) {
   // ポン出しする。= サウンドオフでも要点が次々切り替わり、静止スライド感を消す (リテンション)。
   // 時間は均等割りなので音声とほぼ同期 (cue内の発話は概ね線形)。
   let bgTick = 0;
-  bodyCues.forEach((cue, i) => {
+  for (let i = 0; i < bodyCues.length; i++) {
+    const cue = bodyCues[i];
     const dur = cue.end - cue.start;
     const words = cue.text.trim().split(/\s+/).filter(Boolean);
     // 分割数は語数/尺の要求と「最低表示 MIN_CHUNK_SEC」の両立で決める。
@@ -172,6 +173,11 @@ async function buildOne(dir: string, story: Story) {
     const chunks = chunkWords(words, parts);
     // この cue(=文) に対応するビート画像 (順序対応・件数差はクランプ吸収)。
     const beatFile = beatList.length ? beatList[Math.min(i, beatList.length - 1)] : null;
+    // パララックス動画があれば静止画+ズームの代わりに「動く映像」レイヤーを使う。
+    const motionFile = beatFile ? beatFile.replace(/\.jpg$/, ".motion.mp4") : null;
+    const hasMotion = motionFile
+      ? await fs.access(path.join(dir, "_assets", motionFile)).then(() => true).catch(() => false)
+      : false;
     // カラオケ: 表示トークン数と発話トークン数の差 (句読点/数値の結合等) はリサンプリングで吸収。
     const cueWords = speechWords.filter(w => w.start >= cue.start - 0.06 && w.end <= cue.end + 0.06);
     const displayDurs = (cueWords.length >= 2 && words.length > 0)
@@ -204,13 +210,20 @@ async function buildOne(dir: string, story: Story) {
           zEnd: (zoom as { zEnd?: number }).zEnd ?? 1 + KB_ZOOM,
           fadeIn,
         });
+      } else if (hasMotion && motionFile) {
+        // パララックス動画レイヤー + 透明UI(字幕/チップ/フッター)オーバーレイ。
+        // cue内チャンクは motionSeek で連続再生 (チャンク境界でモーションがリセットしない)。
+        scenes.push({
+          id, dur: partDur, svg: captionSvg(story, chunkText, "", bgTick),
+          motionFile, motionSeek: k * partDur, fadeIn,
+        });
       } else {
         scenes.push({ id, dur: partDur, svg: captionSvg(story, chunkText, bgFile, bgTick), ...zoom, fadeIn });
       }
       wordOff += nWords;
       bgTick++;
     }
-  });
+  }
 
   // Word card: 各 word cue を 1 scene 化 (大字表示)
   wordCues.forEach((cue, i) => {
@@ -265,6 +278,24 @@ async function buildOne(dir: string, story: Story) {
         "-y", "-f", "concat", "-safe", "0", "-i", listPath,
         "-t", Math.max(0.1, sc.dur).toFixed(3),
         "-vf", `fps=${FPS},${kbVf(sc.dur, sc.zStart ?? 1, sc.zEnd ?? 1 + KB_ZOOM)}${sc.fadeIn ? ",fade=t=in:st=0:d=0.22" : ""}`,
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", String(FPS),
+        mp4Path,
+      ]);
+    } else if (sc.motionFile) {
+      // パララックス動画 + 透明UIオーバーレイ (字幕/チップ/フッターは静止・映像だけが動く)。
+      const svgPath = path.join(dir, `_n${story.index}-${sc.id}.svg`);
+      const pngPath = path.join(dir, `_n${story.index}-${sc.id}.png`);
+      await fs.writeFile(svgPath, sc.svg ?? "", "utf-8");
+      await run("rsvg-convert", ["-w", String(W), "-h", String(H), svgPath, "-o", pngPath]);
+      await fs.unlink(svgPath).catch(() => {});
+      tmpFiles.push(pngPath);
+      await run("ffmpeg", [
+        "-y",
+        "-stream_loop", "-1", "-ss", (sc.motionSeek ?? 0).toFixed(2), "-i", path.join(dir, "_assets", sc.motionFile),
+        "-loop", "1", "-i", pngPath,
+        "-filter_complex",
+        `[0:v]setsar=1[b];[b][1:v]overlay=0:0${sc.fadeIn ? ",fade=t=in:st=0:d=0.22" : ""},format=yuv420p`,
+        "-t", Math.max(0.1, sc.dur).toFixed(3),
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", String(FPS),
         mp4Path,
       ]);
@@ -588,8 +619,8 @@ function captionSvg(story: Story, captionText: string, bgFile: string, sceneIdx 
       <stop offset="100%" stop-color="#0A0A0A" stop-opacity="0.95"/>
     </linearGradient>
   </defs>
-  <image href="_assets/${bgFile}" x="0" y="0" width="${W}" height="${H}"
-         preserveAspectRatio="xMidYMid slice"/>
+  ${bgFile ? `<image href="_assets/${bgFile}" x="0" y="0" width="${W}" height="${H}"
+         preserveAspectRatio="xMidYMid slice"/>` : ""}
   <rect width="${W}" height="${H}" fill="url(#darken)"/>
 
   <!-- Top: yellow stripe + country (no flag) -->
