@@ -51,6 +51,9 @@ const MAP_INTRO = process.env.MAP_INTRO !== "off" && process.env.MAP_INTRO !== "
 // カラオケ字幕: 既定OFF (2026-07-10)。査読研究では単語追従ハイライトは「先読み」を阻害し
 // ESL読者の理解を下げる (Jensema 1998/Rajendran 2013)。KARAOKE=on でA/B用に再有効化可。
 const KARAOKE = process.env.KARAOKE === "on";
+// シネマティック仕上げ (2026-07-19 品質強化): フィルムグレイン+ビネット+軽いグレードを最終muxで
+// 全編に適用 = AIスライド感を消し質感を統一。CINEMATIC=off で無効。
+const CINEMATIC = process.env.CINEMATIC !== "off" && process.env.CINEMATIC !== "0";
 // inauthentic-content 対策のビジュアル微差: story ごとにアクセント色を輪番 (ブランド黄は stripe/国名で維持)。
 const ACCENTS = ["#F5E63B", "#FFB347", "#5EEAD4"];
 function accentFor(storyIndex: number): string {
@@ -129,7 +132,7 @@ async function buildOne(dir: string, story: Story) {
   // fx/fy: 指定時はその焦点(フレーム比)へズームイン (地図の国へ寄る動き)。
   // zStart/zEnd: ビート画像シーンの連続ズーム範囲 (同じ画像を共有する cue 内チャンクで継ぎ目なく寄る)。
   // svgs/wordDurs: カラオケ字幕 (単語ごとのSVG変種を concat し、単一エンコードで連続ズーム)。
-  type Scene = { id: string; dur: number; svg?: string; svgs?: string[]; wordDurs?: number[]; fx?: number; fy?: number; zStart?: number; zEnd?: number };
+  type Scene = { id: string; dur: number; svg?: string; svgs?: string[]; wordDurs?: number[]; fx?: number; fy?: number; zStart?: number; zEnd?: number; fadeIn?: boolean };
   const scenes: Scene[] = [];
   const mapCoords = MAP_INTRO ? countryLonLat(story.country.code) : null;
 
@@ -184,9 +187,11 @@ async function buildOne(dir: string, story: Story) {
       const bgFile = beatFile ?? `bg-${code}-s${story.index}-${(i % BODY_BG) + 2}.jpg`;
       const zoom = { zStart: 1 + KB_ZOOM * (k / parts), zEnd: 1 + KB_ZOOM * ((k + 1) / parts) };
       // 最初の本文ビートを地図ズームに置換 (国に座標がある時のみ)。尺は据え置き=音声同期は不変。
+      // 文(cue)境界=背景が切り替わる箇所だけ 0.22s フェードイン (ハードカットの粗さを除去)。
+      const fadeIn = k === 0;
       if (bgTick === 0 && mapCoords) {
         const m = mapSvg(story, mapCoords);
-        scenes.push({ id: `02-map`, dur: partDur, svg: m.svg, fx: m.fx, fy: m.fy });
+        scenes.push({ id: `02-map`, dur: partDur, svg: m.svg, fx: m.fx, fy: m.fy, fadeIn: true });
       } else if (displayDurs && nWords >= 2) {
         // カラオケ字幕: 発話中の単語をアクセント色に。チャンク内は単語SVG変種のconcat+連続ズームで単一エンコード。
         const raw = displayDurs.slice(wordOff, wordOff + nWords);
@@ -197,9 +202,10 @@ async function buildOne(dir: string, story: Story) {
           wordDurs: raw.map(d => d * scale),
           zStart: (zoom as { zStart?: number }).zStart ?? 1,
           zEnd: (zoom as { zEnd?: number }).zEnd ?? 1 + KB_ZOOM,
+          fadeIn,
         });
       } else {
-        scenes.push({ id, dur: partDur, svg: captionSvg(story, chunkText, bgFile, bgTick), ...zoom });
+        scenes.push({ id, dur: partDur, svg: captionSvg(story, chunkText, bgFile, bgTick), ...zoom, fadeIn });
       }
       wordOff += nWords;
       bgTick++;
@@ -258,7 +264,7 @@ async function buildOne(dir: string, story: Story) {
       await run("ffmpeg", [
         "-y", "-f", "concat", "-safe", "0", "-i", listPath,
         "-t", Math.max(0.1, sc.dur).toFixed(3),
-        "-vf", `fps=${FPS},${kbVf(sc.dur, sc.zStart ?? 1, sc.zEnd ?? 1 + KB_ZOOM)}`,
+        "-vf", `fps=${FPS},${kbVf(sc.dur, sc.zStart ?? 1, sc.zEnd ?? 1 + KB_ZOOM)}${sc.fadeIn ? ",fade=t=in:st=0:d=0.22" : ""}`,
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", String(FPS),
         mp4Path,
       ]);
@@ -270,7 +276,7 @@ async function buildOne(dir: string, story: Story) {
       await fs.unlink(svgPath).catch(() => {});
       tmpFiles.push(pngPath);
       // 末尾ループは静止 (zoom=1.0) = フック1フレーム目と完全一致 → 自動リピートが継ぎ目なし。
-      const vf = sc.fx !== undefined && sc.fy !== undefined
+      const vfBase = sc.fx !== undefined && sc.fy !== undefined
         ? mapVf(sc.dur, sc.fx, sc.fy)                       // 地図: 国の焦点へズームイン
         : sc.zStart !== undefined
           ? kbVf(sc.dur, sc.zStart, sc.zEnd ?? sc.zStart)   // ビート画像: cue内で連続ズーム
@@ -278,7 +284,7 @@ async function buildOne(dir: string, story: Story) {
       await run("ffmpeg", [
         "-y", "-loop", "1", "-i", pngPath,
         "-t", Math.max(0.1, sc.dur).toFixed(3),
-        "-vf", vf,
+        "-vf", `${vfBase}${sc.fadeIn ? ",fade=t=in:st=0:d=0.22" : ""}`,
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", String(FPS),
         mp4Path,
       ]);
@@ -301,6 +307,12 @@ async function buildOne(dir: string, story: Story) {
   // プリレベル (旧固定 0.10 より存在感を出しつつ声は常に前)。最終段で -14 LUFS (YouTube正規化目標)。
   const bgmVol = process.env.BGM_VOLUME ?? "0.25";
   const LOUDNORM = "loudnorm=I=-14:TP=-1.5:LRA=11";
+  // シネマティック仕上げ: 軽いコントラスト/彩度グレード + ビネット + 時間変化するフィルムグレイン。
+  // AI静止画の「のっぺり感」を消し全シーンの質感を統一する (CINEMATIC=off で無効)。
+  const vChain = CINEMATIC
+    ? `[0:v]eq=contrast=1.05:saturation=1.12,vignette=PI/5.5,noise=alls=3:allf=t[vout];`
+    : "";
+  const vMap = CINEMATIC ? "[vout]" : "0:v:0";
 
   const muxArgs = hasBgm
     ? [
@@ -309,10 +321,11 @@ async function buildOne(dir: string, story: Story) {
         "-i", audio,
         "-stream_loop", "-1", "-i", bgmFile,
         "-filter_complex",
+        vChain +
         `[1:a]asplit=2[vo][key];[2:a]volume=${bgmVol}[bgp];` +
         `[bgp][key]sidechaincompress=threshold=0.02:ratio=8:attack=20:release=300[bg];` +
         `[vo][bg]amix=inputs=2:duration=first:normalize=0[mix0];[mix0]${LOUDNORM}[mix]`,
-        "-map", "0:v:0", "-map", "[mix]",
+        "-map", vMap, "-map", "[mix]",
         "-t", total.toFixed(2),
         "-c:v", "libx264", "-preset", "medium", "-crf", "20",
         "-c:a", "aac", "-b:a", "192k",
@@ -324,8 +337,8 @@ async function buildOne(dir: string, story: Story) {
         "-y",
         "-i", bgVideo,
         "-i", audio,
-        "-filter_complex", `[1:a]${LOUDNORM}[mix]`,
-        "-map", "0:v:0", "-map", "[mix]",
+        "-filter_complex", vChain + `[1:a]${LOUDNORM}[mix]`,
+        "-map", vMap, "-map", "[mix]",
         "-t", total.toFixed(2),
         "-c:v", "libx264", "-preset", "medium", "-crf", "20",
         "-c:a", "aac", "-b:a", "192k",

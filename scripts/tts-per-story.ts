@@ -38,7 +38,8 @@ async function main() {
   const dir = process.env.OUT_DIR ?? path.join("output", date);
   const script: ScriptJson = JSON.parse(await fs.readFile(path.join(dir, "script-en.json"), "utf-8"));
 
-  const voice = process.env.EN_VOICE ?? "en-US-AvaNeural";
+  // AndrewMultilingual = edge-tts で最も自然なプロソディの報道向き男性voice (2026-07-19 品質強化)。
+  const voice = process.env.EN_VOICE ?? "en-US-AndrewMultilingualNeural";
   // -5% ≈ 128-135 WPM: ESL理解は150WPM超で低下 (Griffiths)・BBC字幕基準160-180WPMの下側。
   // +5%は「速すぎて見にくい」実フィードバックで撤回 (2026-07-10)。
   const rate = process.env.TTS_RATE ?? "-5%";

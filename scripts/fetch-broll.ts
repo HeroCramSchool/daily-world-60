@@ -170,7 +170,8 @@ const STYLE_TAIL = "Vertical 9:16 composition, strong foreground subject, deep a
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 async function pollinate(prompt: string, seed: number, dest: string, timeoutMs: number): Promise<void> {
-  const url = `${POLLINATIONS_API}${encodeURIComponent(prompt.slice(0, 1000))}?width=1024&height=1536&nologo=true&model=flux&seed=${seed}`;
+  // 1080x1920 直出し (旧1024x1536のcover拡大で生じる甘さを排除) + enhance=true (プロンプト拡張で描写密度UP)。
+  const url = `${POLLINATIONS_API}${encodeURIComponent(prompt.slice(0, 1000))}?width=1080&height=1920&nologo=true&enhance=true&model=flux&seed=${seed}`;
   // 429/5xx は無料枠のレート制限/一時障害 → バックオフして再試行。
   const backoffs = [0, 6000, 14000];
   let lastErr: unknown;
