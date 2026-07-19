@@ -114,8 +114,11 @@ async function main() {
   // 3 ストーリーごとに YouTube / Instagram / TikTok 投稿
   for (const story of scriptEn.stories) {
     // 過去に投稿済み(重複)なら skip (FORCE_REPUBLISH 時は無視)
-    if (!forceRepublish && isDuplicate(story.headline, story.country.code, date, ledgerRecent, yesterdayHeadlines)) {
-      console.log(`[publish] SKIP story ${story.index} (${story.country.code}): duplicate of recently posted headline`);
+    const dupCheck = forceRepublish
+      ? { dup: false as const }
+      : isDuplicate(story.headline, story.country.code, date, ledgerRecent, yesterdayHeadlines);
+    if (dupCheck.dup) {
+      console.log(`[publish] SKIP story ${story.index} (${story.country.code}): duplicate (sim=${dupCheck.sim?.toFixed(2)}) of "${dupCheck.matched}"`);
       (results.perStory as Record<string, unknown>)[story.country.code.toLowerCase()] = {
         story: story.index,
         country: story.country.code,
@@ -417,19 +420,39 @@ function jaccard(a: Set<string>, b: Set<string>): number {
 
 // 重複判定: (1) 国問わず強いテキスト一致(>=0.45) (2) 同一国×中程度一致(>=0.3, 直近3日)
 //   → 継続ニュース(同じ国の同じ出来事)の言い換えも捕捉する
-function isDuplicate(headline: string, code: string, date: string, ledgerRecent: LedgerEntry[], yesterdayHeadlines: string[]): boolean {
+/** 数字トークン集合が両方に存在し、共通が無い = 「新しい数字の続報」(Routine の新展開限定と整合)。 */
+function numbersDiffer(a: string, b: string): boolean {
+  const nums = (s: string) => new Set((s.match(/\d[\d,.]*/g) ?? []).map(n => n.replace(/[,.]/g, "")));
+  const na = nums(a), nb = nums(b);
+  if (na.size === 0 || nb.size === 0) return false;
+  for (const n of na) if (nb.has(n)) return false;
+  return true;
+}
+
+/** 誤爆修正 (2026-07-20): 旧閾値 (全体0.45/14日・同国0.3/3日) は戦争続報chでは共通語
+ *  (Ukraine/Russian/ships等) だけで一致し、正当な新展開までバッチごと全滅させていた
+ *  (実害: 7/19夜バッチ3/3スキップ=W杯決勝当日の動画含め0本投稿)。
+ *  このチェックは「同一イベントの文字通りの再投稿」を防ぐ安全網に限定する:
+ *  - ほぼ同一見出し (>=0.75) は常に重複
+ *  - 直近2日 >=0.55 / 同国3日 >=0.45 は、数字が異なる続報なら通す */
+function isDuplicate(headline: string, code: string, date: string, ledgerRecent: LedgerEntry[], yesterdayHeadlines: string[]): { dup: boolean; matched?: string; sim?: number } {
   const cur = normalize(headline);
-  for (const h of [...ledgerRecent.map(e => e.headline), ...yesterdayHeadlines]) {
-    if (jaccard(cur, normalize(h)) >= 0.45) return true;
-  }
+  const cutoff2 = new Date(`${date}T00:00:00Z`).getTime() - 2 * 86400000;
   const cutoff3 = new Date(`${date}T00:00:00Z`).getTime() - 3 * 86400000;
-  for (const e of ledgerRecent) {
-    if ((e.code ?? "").toLowerCase() !== code.toLowerCase()) continue;
-    const t = new Date(`${e.date}T00:00:00Z`).getTime();
-    if (Number.isFinite(t) && t < cutoff3) continue;
-    if (jaccard(cur, normalize(e.headline)) >= 0.3) return true;
+  const all: Array<{ h: string; code?: string; t: number }> = [
+    ...ledgerRecent.map(e => ({ h: e.headline, code: e.code, t: new Date(`${e.date}T00:00:00Z`).getTime() })),
+    ...yesterdayHeadlines.map(h => ({ h, t: cutoff2 })),
+  ];
+  for (const e of all) {
+    const sim = jaccard(cur, normalize(e.h));
+    if (sim >= 0.75) return { dup: true, matched: e.h, sim };
+    const fresh = numbersDiffer(headline, e.h);
+    if (!fresh && Number.isFinite(e.t) && e.t >= cutoff2 && sim >= 0.55) return { dup: true, matched: e.h, sim };
+    if (!fresh && (e.code ?? "").toLowerCase() === code.toLowerCase() && Number.isFinite(e.t) && e.t >= cutoff3 && sim >= 0.45) {
+      return { dup: true, matched: e.h, sim };
+    }
   }
-  return false;
+  return { dup: false };
 }
 
 // ─── 投稿済み台帳 (posted-ledger.json): 実際に投稿した見出しを永続化し、
