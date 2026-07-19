@@ -149,6 +149,9 @@ const AI_BEATS_ON = process.env.AI_BEATS !== "off" && process.env.AI_BEATS !== "
 // PARALLAX: 2.5Dパララックス動画生成。**既定OFF (2026-07-20)**: 切り出し合成が不自然という
 // オーナー実見フィードバックで撤回。レシピは motion-broll スキルに保存済み・PARALLAX=on で再有効化可。
 const PARALLAX_ON = process.env.PARALLAX === "on";
+// STYLIZE: 実写ストック(Pexels/Commons)を「AIイラスト風」に加工してAI生成ビート画像とトーン統一。
+// 既定ON (2026-07-20 オーナー要望)。STYLIZE=off で素の実写に戻る。
+const STYLIZE_ON = process.env.STYLIZE !== "off" && process.env.STYLIZE !== "0";
 const MAX_BEAT_IMAGES = Number(process.env.MAX_BEAT_IMAGES ?? "8");
 // 無料 Pollinations は同時/連続リクエストに 429 を返す。逐次(1)＋リトライ/バックオフが安定。
 const BEAT_CONCURRENCY = Number(process.env.BEAT_CONCURRENCY ?? "1");
@@ -567,10 +570,21 @@ async function downloadAndCrop(url: string, dest: string): Promise<void> {
   const fg = await sharp(buf)
     .resize(W, H, { fit: "inside" })
     .toBuffer();
-  await sharp(bg)
+  const composed = await sharp(bg)
     .composite([{ input: fg, gravity: "centre" }])
-    .jpeg({ quality: 86 })
-    .toFile(dest);
+    .toBuffer();
+  if (STYLIZE_ON) {
+    // 実写ストックを「AIイラスト風」に統一 (2026-07-20): median=筆致的な平滑 → 彩度/明度ブースト →
+    // 再シャープでエッジを立てる = AI生成ビート画像とトーンが揃い、実写とイラストの混在感を消す。
+    await sharp(composed)
+      .median(5)
+      .modulate({ saturation: 1.3, brightness: 1.04 })
+      .sharpen({ sigma: 1.4 })
+      .jpeg({ quality: 86 })
+      .toFile(dest);
+  } else {
+    await sharp(composed).jpeg({ quality: 86 }).toFile(dest);
+  }
 }
 
 /** Commons から何も取れなかった時の単色フォールバック (黒画面回避)。 */
