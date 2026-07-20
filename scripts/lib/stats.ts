@@ -79,12 +79,19 @@ export async function saveHistory(history: History, drive?: drive_v3.Drive, fold
     await drive.files.update({ fileId, media: { mimeType: "application/json", body } });
     return fileId;
   }
-  const created = await drive.files.create({
-    requestBody: { name: HISTORY_NAME, parents: [folderId] },
-    media: { mimeType: "application/json", body },
-    fields: "id",
-  });
-  return created.data.id ?? undefined;
+  // 注意: WIF の SA は My Drive に新規ファイルを作れない (storage quota エラー)。
+  // stats-history.json / winning-patterns.md / stats-report.md はオーナーが一度
+  // 作成済み (2026-07-20) なので、通常ここには到達しない。
+  try {
+    const created = await drive.files.create({
+      requestBody: { name: HISTORY_NAME, parents: [folderId] },
+      media: { mimeType: "application/json", body },
+      fields: "id",
+    });
+    return created.data.id ?? undefined;
+  } catch (e) {
+    throw new Error(`${HISTORY_NAME} create failed — service accounts cannot own new My Drive files; create it once as the folder owner. (${e})`);
+  }
 }
 
 /** Drive のテキストファイルを name で上書き保存 (無ければ作成)。レポート出力用。 */
@@ -97,8 +104,12 @@ export async function upsertTextFile(drive: drive_v3.Drive, folderId: string, na
   const fileId = r.data.files?.[0]?.id;
   if (fileId) {
     await drive.files.update({ fileId, media: { mimeType, body: content } });
-  } else {
+    return;
+  }
+  try {
     await drive.files.create({ requestBody: { name, parents: [folderId] }, media: { mimeType, body: content } });
+  } catch (e) {
+    throw new Error(`${name} create failed — service accounts cannot own new My Drive files; create it once as the folder owner. (${e})`);
   }
 }
 
