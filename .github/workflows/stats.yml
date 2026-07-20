@@ -1,0 +1,51 @@
+name: Daily World 60 — Stats Loop
+
+# 勝ちパターン学習ループ (視聴数収集 → 分析 → winning-patterns.md を Drive へ)。
+# Routine (18:00 UTC 生成) が読む直前の 17:30 UTC に毎日実行。
+# 認証は Drive のみ (WIF)。YouTube 側は RSS + watch ページで認証不要。
+
+on:
+  schedule:
+    - cron: '30 17 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: dw60-stats
+  cancel-in-progress: false
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DRIVE_FOLDER_NAME: "Daily World 60"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF, keyless)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Collect view snapshots (RSS + watch pages)
+        run: npx tsx scripts/collect-stats.ts
+
+      - name: Analyze winners -> winning-patterns.md
+        run: npx tsx scripts/analyze-winners.ts
