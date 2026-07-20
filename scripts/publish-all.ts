@@ -182,7 +182,17 @@ async function main() {
       }
     }
     console.log(`[publish] ${code} YouTube:`, isOk(ytRes) ? "✓" : isSkipped(ytRes) ? "⏭" : `✗ ${getErr(ytRes)}`);
-    if (isOk(ytRes) && !isSkipped(ytRes)) newlyPosted.push({ date, code, headline: story.headline });
+    if (isOk(ytRes) && !isSkipped(ytRes)) {
+      // videoId/hook* は stats ループ (collect-stats.ts) が動画と台本を突き合わせる唯一の経路。
+      // run-results-*.json の Drive アップロードは SA の storage quota 制限で新規作成できず機能していない。
+      const vid = (ytRes as { videoId?: string }).videoId;
+      newlyPosted.push({
+        date, code, headline: story.headline,
+        ...(vid ? { videoId: vid } : {}),
+        ...(story.hookPattern ? { hookPattern: story.hookPattern } : {}),
+        ...(story.hookText ? { hookText: story.hookText } : {}),
+      });
+    }
 
     let igRes: unknown;
     if (shouldSkip("instagram")) {
@@ -459,7 +469,7 @@ function isDuplicate(headline: string, code: string, date: string, ledgerRecent:
 //     翌日・別バッチ・手動投稿分も含めて重複を防ぐ ───
 const LEDGER_NAME = "posted-ledger.json";
 const LEDGER_DAYS = 14;
-interface LedgerEntry { date: string; code: string; headline: string; }
+interface LedgerEntry { date: string; code: string; headline: string; videoId?: string; hookPattern?: string; hookText?: string; }
 
 async function loadLedger(): Promise<{ entries: LedgerEntry[]; fileId?: string }> {
   const folderName = process.env.DRIVE_FOLDER_NAME ?? "Daily World 60";

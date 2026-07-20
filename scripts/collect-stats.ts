@@ -69,11 +69,11 @@ async function main() {
     await new Promise(r => setTimeout(r, 1500));
   }
 
-  // ── 3. run-results 突き合わせでメタデータ付与 (Drive がある時のみ) ──
+  // ── 3. posted-ledger.json 突き合わせでメタデータ付与 (Drive がある時のみ) ──
   if (drive && folderId) {
-    await enrichFromRunResults(drive, folderId, history, now);
+    await enrichFromLedger(drive, folderId, history, now);
   } else {
-    console.log(`[stats] STATS_LOCAL_FILE mode: skipping run-results enrichment`);
+    console.log(`[stats] STATS_LOCAL_FILE mode: skipping ledger enrichment`);
   }
 
   // ── 4. スナップショット上限 (動画あたり 120 = 日次で4ヶ月分) ──
@@ -85,62 +85,49 @@ async function main() {
   console.log(`[stats] saved: ${Object.keys(history.videos).length} videos tracked (${nVideosBefore} before)`);
 }
 
-async function enrichFromRunResults(drive: drive_v3.Drive, folderId: string, history: History, now: number): Promise<void> {
-  // 30日試しても見つからない動画は諦める (毎日全期間を list し続けない)
+async function enrichFromLedger(drive: drive_v3.Drive, folderId: string, history: History, now: number): Promise<void> {
+  // run-results-*.json は SA の storage quota 制限 (新規作成不可) で Drive に存在しない。
+  // 代わりに publish-all.ts が毎回 update する posted-ledger.json (2026-07-20 から
+  // videoId/hookPattern/hookText 入り) を唯一のメタデータソースにする。
   const missing = Object.values(history.videos).filter(v =>
     (!v.code || !v.headline) && ageHours(v, now) <= TRACK_DAYS * 24,
   );
   if (!missing.length) return;
 
-  // 動画の公開日とその前日の run-results を見る (batch2 は前日台本 = 前日名のファイル)
-  const dates = new Set<string>();
-  for (const v of missing) {
-    const d = new Date(v.publishedAt);
-    if (Number.isNaN(d.getTime())) continue;
-    dates.add(d.toISOString().slice(0, 10));
-    dates.add(new Date(d.getTime() - 86400000).toISOString().slice(0, 10));
+  const r = await drive.files.list({
+    q: `'${folderId}' in parents and name = 'posted-ledger.json' and trashed = false`,
+    fields: "files(id)",
+    orderBy: "modifiedTime desc",
+    pageSize: 1,
+  });
+  const id = r.data.files?.[0]?.id;
+  if (!id) {
+    console.warn(`[stats] enrich: posted-ledger.json not found`);
+    return;
+  }
+  let entries: Array<{ date?: string; code?: string; headline?: string; videoId?: string; hookPattern?: string; hookText?: string }> = [];
+  try {
+    const res = await drive.files.get({ fileId: id, alt: "media" }, { responseType: "text" });
+    const parsed = JSON.parse(res.data as unknown as string);
+    if (Array.isArray(parsed?.entries)) entries = parsed.entries;
+  } catch {
+    console.warn(`[stats] enrich: failed to parse posted-ledger.json`);
+    return;
   }
 
-  const byVideoId = new Map<string, { code: string; headline?: string; hookPattern?: string; hookText?: string; scriptDate?: string }>();
-  for (const date of dates) {
-    // scheduled run の実ファイル名は run-results-{date}-b{1,2}.json (OUT_DIR=output/{date}-b{batch})。
-    // 旧形式 run-results-{date}.json も拾うため contains で両方リストする。
-    const r = await drive.files.list({
-      q: `'${folderId}' in parents and name contains 'run-results-${date}' and trashed = false`,
-      fields: "files(id, name)",
-      orderBy: "modifiedTime desc",
-      pageSize: 10,
-    });
-    for (const f of r.data.files ?? []) {
-      try {
-        const res = await drive.files.get({ fileId: f.id!, alt: "media" }, { responseType: "text" });
-        const json = JSON.parse(res.data as unknown as string) as {
-          perStory?: Record<string, { headline?: string; hookPattern?: string; hookText?: string; youtube?: { videoId?: string } }>;
-        };
-        for (const [code, s] of Object.entries(json.perStory ?? {})) {
-          const vid = s.youtube?.videoId;
-          if (vid && !byVideoId.has(vid)) {
-            byVideoId.set(vid, { code, headline: s.headline, hookPattern: s.hookPattern, hookText: s.hookText, scriptDate: date });
-          }
-        }
-      } catch {
-        console.warn(`[stats] enrich: failed to parse ${f.name}`);
-      }
-    }
-  }
-
+  const byVideoId = new Map(entries.filter(e => e.videoId).map(e => [e.videoId!, e]));
   let enriched = 0;
   for (const v of missing) {
     const meta = byVideoId.get(v.videoId);
     if (!meta) continue;
-    v.code = meta.code;
+    v.code = meta.code ?? v.code;
     v.headline = meta.headline ?? v.headline;
     v.hookPattern = meta.hookPattern ?? v.hookPattern;
     v.hookText = meta.hookText ?? v.hookText;
-    v.scriptDate = meta.scriptDate ?? v.scriptDate;
+    v.scriptDate = meta.date ?? v.scriptDate;
     enriched++;
   }
-  console.log(`[stats] enrich: ${enriched}/${missing.length} videos matched from ${dates.size} run-results dates`);
+  console.log(`[stats] enrich: ${enriched}/${missing.length} matched from ledger (${byVideoId.size} entries with videoId)`);
 }
 
 main().catch(e => {
