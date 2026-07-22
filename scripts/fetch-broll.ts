@@ -157,6 +157,14 @@ const MAX_BEAT_IMAGES = Number(process.env.MAX_BEAT_IMAGES ?? "8");
 const BEAT_CONCURRENCY = Number(process.env.BEAT_CONCURRENCY ?? "1");
 const POLLINATIONS_API = "https://image.pollinations.ai/prompt/";
 
+// ハイブリッド画質 (2026-07-23): FAL_KEY があれば **hero 画像だけ** fal.ai の高品質モデル
+// (既定 FLUX.2 pro) で生成し、ビート画像は無料の Pollinations のまま。hero は1フレーム目/
+// ループ画像で最も目立つので、月~180枚だけ有料化しても $8-15/月。FAL_KEY 未設定なら従来の
+// 完全無料経路 (Pollinations) にそのままフォールバック。FLUX.2 pro は検閲が緩く紛争/災害の
+// ニュース題材も描ける (Google 系 Nano Banana は実在人物/暴力を拒否するため hero には不適)。
+const FAL_KEY = process.env.FAL_KEY?.trim();
+const FAL_HERO_MODEL = process.env.FAL_HERO_MODEL ?? "fal-ai/flux-2-pro";
+
 type StoryLike = { headline: string; summary?: string; imageQueries?: string[]; beatVisuals?: string[]; country?: { name?: string }; index?: number };
 
 // 時代錯誤・機材誤りの防止 (実測: ホルムズの「船」が帆船で描かれる等)。全AI画像プロンプト共通。
@@ -203,7 +211,43 @@ async function pollinate(prompt: string, seed: number, dest: string, timeoutMs: 
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
 
-async function generateAIHero(story: StoryLike, dest: string): Promise<void> {
+/** fal.ai の高品質モデルで hero を生成 (FAL_KEY 必須)。失敗/未設定は false を返し呼び出し側が無料経路へ。 */
+async function falHero(prompt: string, seed: number, dest: string): Promise<boolean> {
+  if (!FAL_KEY) return false;
+  try {
+    const res = await fetch(`https://fal.run/${FAL_HERO_MODEL}`, {
+      method: "POST",
+      headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: prompt.slice(0, 2000),
+        image_size: { width: 1080, height: 1920 },
+        seed,
+        num_images: 1,
+        output_format: "jpeg",
+        // ニュース (紛争/災害/実在の場所) が unattended CI で拒否されないよう検閲を緩める。
+        enable_safety_checker: false,
+        safety_tolerance: "5",
+      }),
+      signal: AbortSignal.timeout(90000),
+    });
+    if (!res.ok) throw new Error(`fal HTTP ${res.status}`);
+    const json = (await res.json()) as { images?: Array<{ url?: string }> };
+    const url = json.images?.[0]?.url;
+    if (!url) throw new Error("fal: no image url in response");
+    const img = await fetch(url, { signal: AbortSignal.timeout(60000) });
+    if (!img.ok) throw new Error(`fal image download HTTP ${img.status}`);
+    const buf = Buffer.from(await img.arrayBuffer());
+    if (buf.length < 2000) throw new Error("fal: empty/too-small image");
+    await sharp(buf).resize(W, H, { fit: "cover", position: "centre" }).jpeg({ quality: 90 }).toFile(dest);
+    return true;
+  } catch (e) {
+    console.warn(`[broll] fal hero failed (${e instanceof Error ? e.message : e}) — falling back to free Pollinations`);
+    return false;
+  }
+}
+
+/** hero 画像を生成し、使ったエンジン表示名を返す。FAL_KEY があれば fal.ai を優先、失敗時は無料へ。 */
+async function generateAIHero(story: StoryLike, dest: string): Promise<string> {
   const elements = (Array.isArray(story.imageQueries) ? story.imageQueries.slice(0, 4) : [])
     .map(s => String(s).trim()).filter(Boolean).join(", ");
   const ctx = (story.summary ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
@@ -214,7 +258,10 @@ async function generateAIHero(story: StoryLike, dest: string): Promise<void> {
     ACCURACY_TAIL,
     `Style: ${pickTone(story)}.`, STYLE_TAIL,
   ].filter(Boolean).join(" ");
-  await pollinate(prompt, (story.index ?? 1) * 7 + 3, dest, 60000);
+  const seed = (story.index ?? 1) * 7 + 3;
+  if (await falHero(prompt, seed, dest)) return `fal.ai ${FAL_HERO_MODEL}`;
+  await pollinate(prompt, seed, dest, 60000);
+  return "Pollinations, free";
 }
 
 // ビート画像: その文(=喋っている瞬間)を「正確に」絵で描く (2026-07-20 正確性強化)。
@@ -392,9 +439,9 @@ async function main() {
     // 失敗/コンテンツ拒否 (戦争・実在人物等で起こりうる) 時は stock の hero を維持 (無害なフォールバック)。
     if (AI_HERO_ON) {
       try {
-        await generateAIHero(story, path.join(assets, `bg-${code}-s${story.index}-1.jpg`));
-        creditLines.push(`- bg-${code}-s${story.index}-1.jpg — AI illustration (Pollinations flux, free)`);
-        console.log(`[broll] ${code}: AI hero generated (Pollinations flux, free)`);
+        const engine = await generateAIHero(story, path.join(assets, `bg-${code}-s${story.index}-1.jpg`));
+        creditLines.push(`- bg-${code}-s${story.index}-1.jpg — AI illustration (${engine})`);
+        console.log(`[broll] ${code}: AI hero generated (${engine})`);
       } catch (e) {
         console.warn(`[broll] AI hero gen failed (${code}): ${e instanceof Error ? e.message : e} — keeping stock hero`);
       }

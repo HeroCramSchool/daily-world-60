@@ -84,6 +84,10 @@ jobs:
 
       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
 
+      # 画像ハイブリッド: FAL_KEY があれば hero 画像だけ fal.ai (FLUX.2 pro) で高品質化。
+      # 未設定なら fetch-broll が自動で無料 Pollinations にフォールバック (何も壊れない)。
+      FAL_KEY: ${{ secrets.FAL_KEY }}
+
       YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
       YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
       YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
