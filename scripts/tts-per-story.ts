@@ -38,7 +38,13 @@ async function main() {
   const dir = process.env.OUT_DIR ?? path.join("output", date);
   const script: ScriptJson = JSON.parse(await fs.readFile(path.join(dir, "script-en.json"), "utf-8"));
 
-  // AndrewMultilingual = edge-tts で最も自然なプロソディの報道向き男性voice (2026-07-19 品質強化)。
+  // TTS_ENGINE=kokoro (既定・2026-07-23): Kokoro-82M を自前実行 (無料・Apache-2.0・
+  // 単語タイムスタンプ native)。edge-tts より自然で、非公式 MS エンドポイント依存も外れる。
+  // TTS_ENGINE=edge で従来の edge-tts に戻せる。整合失敗時のフォールバックは常に edge-tts。
+  const engine = (process.env.TTS_ENGINE ?? "kokoro").toLowerCase();
+  // Kokoro voice: am_michael/am_onyx/am_fenrir 等(米男)・bm_george 等(英男)。KOKORO_VOICE で変更。
+  const kokoroVoice = process.env.KOKORO_VOICE ?? "am_michael";
+  // AndrewMultilingual = edge-tts で最も自然なプロソディの報道向き男性voice。edge時 + フォールバック時に使用。
   const voice = process.env.EN_VOICE ?? "en-US-AndrewMultilingualNeural";
   // -5% ≈ 128-135 WPM: ESL理解は150WPM超で低下 (Griffiths)・BBC字幕基準160-180WPMの下側。
   // +5%は「速すぎて見にくい」実フィードバックで撤回 (2026-07-10)。
@@ -51,16 +57,30 @@ async function main() {
     const wordsVtt = path.join(dir, `voice-${code}.words.vtt`);
 
     const narration = Script.toStoryNarration(story);
-    console.log(`[tts] ${code}: ${narration.split(/\s+/).length} words (rate ${rate})`);
+    const engineLabel = engine === "kokoro" ? `kokoro:${kokoroVoice}` : `edge:${voice}`;
+    console.log(`[tts] ${code}: ${narration.split(/\s+/).length} words (${engineLabel}, rate ${rate})`);
 
     // 単語単位字幕つきで一発生成 (audio と word timing が同一runで一致)。
-    // v7 CLI は --words-in-cue を廃止したため Python API 経由 (tts-words.py)。
+    // kokoro: tts-kokoro.py (native token timestamps) / edge: tts-words.py (WordBoundary)。
+    // kokoro が丸ごと失敗 (依存/モデル取得エラー等) したら edge にエンジン降格 (本数ゼロ防止)。
     const textFile = path.join(dir, `_narration-${code}.txt`);
     await fs.writeFile(textFile, narration, "utf-8");
-    await run("python3", [
-      path.join("scripts", "tts-words.py"),
-      voice, rate, textFile, mp3, wordsVtt,
-    ]).finally(() => fs.unlink(textFile).catch(() => {}));
+    try {
+      if (engine === "kokoro") {
+        await run("python3", [path.join("scripts", "tts-kokoro.py"), kokoroVoice, rate, textFile, mp3, wordsVtt]);
+      } else {
+        await run("python3", [path.join("scripts", "tts-words.py"), voice, rate, textFile, mp3, wordsVtt]);
+      }
+    } catch (e) {
+      if (engine === "kokoro") {
+        console.warn(`[tts] ${code}: kokoro synth failed (${e instanceof Error ? e.message : e}) — falling back to edge-tts`);
+        await run("python3", [path.join("scripts", "tts-words.py"), voice, rate, textFile, mp3, wordsVtt]);
+      } else {
+        throw e;
+      }
+    } finally {
+      await fs.unlink(textFile).catch(() => {});
+    }
 
     // 単語キュー → ナレーション原文との整合で「文単位」にグループ化した従来形式の vtt を自前生成。
     // (edge-tts の WordBoundary は句読点を落とすため、句読点ベースでは文境界が取れない)

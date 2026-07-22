@@ -152,15 +152,43 @@ jobs:
           ok=""
           for i in 1 2 3; do
             sudo timeout 180 apt-get update \
-              && sudo timeout 300 apt-get install -y ffmpeg librsvg2-bin xvfb \
+              && sudo timeout 300 apt-get install -y ffmpeg librsvg2-bin xvfb espeak-ng \
               && ok=1 && break
             echo "apt attempt $i failed/timed out — retrying"; sleep 15
           done
           [ -n "$ok" ] || { echo "apt failed after 3 attempts"; exit 1; }
           command -v ffmpeg >/dev/null && command -v rsvg-convert >/dev/null
 
-      - name: Install edge-tts
+      - name: Install edge-tts (fallback voice engine)
         run: pip install edge-tts
+
+      # Kokoro-82M = 既定の無料 TTS (2026-07-23)。~340MB モデル + spaCy en_core_web_sm を
+      # HF/pip キャッシュ。espeak-ng は misaki の固有名詞フォールバック G2P 用 (apt で導入済)。
+      - name: Cache Kokoro / HuggingFace models + pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/pip
+          key: kokoro-hf-v1
+
+      - name: Install Kokoro TTS (free voice engine)
+        timeout-minutes: 10
+        run: |
+          # CPU-only torch: default PyPI torch pulls the ~2.5GB CUDA build → blows CI disk/timeout.
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install "kokoro>=0.9,<1.0" soundfile
+          python -m spacy download en_core_web_sm || pip install en_core_web_sm
+          # misaki の bundled espeakng_loader は環境依存で壊れることがあるため、
+          # apt 版 espeak-ng を明示指定 (phonemizer が env を尊重する)。
+          LIB=$(find /usr/lib /lib -name 'libespeak-ng.so*' 2>/dev/null | head -1)
+          PHON=$(find /usr/lib /usr/share /lib -name 'phontab' 2>/dev/null | head -1)
+          if [ -n "$LIB" ]; then echo "PHONEMIZER_ESPEAK_LIBRARY=$LIB" >> $GITHUB_ENV; fi
+          if [ -n "$PHON" ]; then
+            DATA=$(dirname "$PHON")
+            echo "ESPEAK_DATA_PATH=$DATA" >> $GITHUB_ENV
+            echo "ESPEAKNG_DATA_PATH=$DATA" >> $GITHUB_ENV
+          fi
 
       # (2.5Dパララックスは既定OFF=不自然のため撤回・2026-07-20。PARALLAX=on 復活時は
       #  rembg install + ~/.u2net cache をここに戻す。レシピは motion-broll スキル参照)
