@@ -156,7 +156,7 @@ jobs:
           ok=""
           for i in 1 2 3; do
             sudo timeout 180 apt-get update \
-              && sudo timeout 300 apt-get install -y ffmpeg librsvg2-bin xvfb espeak-ng \
+              && sudo timeout 300 apt-get install -y ffmpeg librsvg2-bin xvfb \
               && ok=1 && break
             echo "apt attempt $i failed/timed out — retrying"; sleep 15
           done
@@ -167,8 +167,11 @@ jobs:
         run: pip install edge-tts
 
       # Kokoro-82M = 既定の無料 TTS (2026-07-23)。~340MB モデル + spaCy en_core_web_sm を
-      # HF/pip キャッシュ。espeak-ng は misaki の固有名詞フォールバック G2P 用 (apt で導入済)。
+      # HF/pip キャッシュ。espeak-ng は misaki 同梱の espeakng_loader (linux prebuilt so+data)
+      # が固有名詞の G2P フォールバックに使う = システムへの apt 導入も env 設定も不要。
+      # TTS を使わない publish/delete モードでは重量インストールを丸ごとスキップ。
       - name: Cache Kokoro / HuggingFace models + pip
+        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
         uses: actions/cache@v4
         with:
           path: |
@@ -177,22 +180,15 @@ jobs:
           key: kokoro-hf-v1
 
       - name: Install Kokoro TTS (free voice engine)
+        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
         timeout-minutes: 10
         run: |
           # CPU-only torch: default PyPI torch pulls the ~2.5GB CUDA build → blows CI disk/timeout.
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install "kokoro>=0.9,<1.0" soundfile
-          python -m spacy download en_core_web_sm || pip install en_core_web_sm
-          # misaki の bundled espeakng_loader は環境依存で壊れることがあるため、
-          # apt 版 espeak-ng を明示指定 (phonemizer が env を尊重する)。
-          LIB=$(find /usr/lib /lib -name 'libespeak-ng.so*' 2>/dev/null | head -1)
-          PHON=$(find /usr/lib /usr/share /lib -name 'phontab' 2>/dev/null | head -1)
-          if [ -n "$LIB" ]; then echo "PHONEMIZER_ESPEAK_LIBRARY=$LIB" >> $GITHUB_ENV; fi
-          if [ -n "$PHON" ]; then
-            DATA=$(dirname "$PHON")
-            echo "ESPEAK_DATA_PATH=$DATA" >> $GITHUB_ENV
-            echo "ESPEAKNG_DATA_PATH=$DATA" >> $GITHUB_ENV
-          fi
+          # en_core_web_sm は misaki の英語トークナイズ用。裸名の pip fallback は無い(PyPI 404)ので
+          # spacy download を最大3回リトライ (瞬断対策)。
+          for i in 1 2 3; do python -m spacy download en_core_web_sm && break || sleep 10; done
 
       # (2.5Dパララックスは既定OFF=不自然のため撤回・2026-07-20。PARALLAX=on 復活時は
       #  rembg install + ~/.u2net cache をここに戻す。レシピは motion-broll スキル参照)
