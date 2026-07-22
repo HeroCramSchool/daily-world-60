@@ -220,9 +220,10 @@ async function falHero(prompt: string, seed: number, dest: string): Promise<bool
       headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt: prompt.slice(0, 2000),
-        image_size: { width: 1080, height: 1920 },
+        // FLUX.2 pro は width/height に multiple_of:16 を要求 (1080 は不適合 → 422)。
+        // 16の倍数の 1088x1920 で生成し、下の sharp cover-crop で 1080x1920 に確定させる。
+        image_size: { width: 1088, height: 1920 },
         seed,
-        num_images: 1,
         output_format: "jpeg",
         // ニュース (紛争/災害/実在の場所) が unattended CI で拒否されないよう検閲を緩める。
         enable_safety_checker: false,
