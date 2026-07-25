@@ -178,6 +178,11 @@ type RawStory = {
   hookText?: string;
   hookPattern?: string;
   commentQuestion?: string;
+  format?: string;
+  mapFocus?: { lon?: number; lat?: number };
+  mapMarkers?: Array<{ lon?: number; lat?: number; label?: string; kind?: string }>;
+  mapDay?: string | number;
+  mapCounter?: string;
 };
 
 function normalizeScript(
@@ -224,6 +229,11 @@ function normalizeScript(
       ...(s.hookText ? { hookText: s.hookText } : {}),
       ...(s.hookPattern ? { hookPattern: s.hookPattern } : {}),
       ...(s.commentQuestion ? { commentQuestion: s.commentQuestion } : {}),
+      ...(s.format ? { format: s.format } : {}),
+      ...(s.mapFocus ? { mapFocus: s.mapFocus } : {}),
+      ...(Array.isArray(s.mapMarkers) && s.mapMarkers.length ? { mapMarkers: s.mapMarkers } : {}),
+      ...(s.mapDay !== undefined && s.mapDay !== null ? { mapDay: s.mapDay } : {}),
+      ...(s.mapCounter ? { mapCounter: s.mapCounter } : {}),
     };
   });
 

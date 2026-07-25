@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { spawn } from "node:child_process";
 import { fitSingleLine, fitTextBox, textWidthEm, clampAttr } from "./lib/textfit.js";
 import { MAP_W, MAP_H, worldDots, countryLonLat, lonLatToXY } from "./lib/worldmap.js";
+import { laneFromStory, mapFrameSvg } from "./lib/mapscene.js";
 
 /**
  * 1 ストーリー単独動画を構築する (v8: 尺=音声長に動的化, 字幕同期 + 国旗なし body)。
@@ -54,6 +55,10 @@ const KARAOKE = process.env.KARAOKE === "on";
 // シネマティック仕上げ (2026-07-19 品質強化): フィルムグレイン+ビネット+軽いグレードを最終muxで
 // 全編に適用 = AIスライド感を消し質感を統一。CINEMATIC=off で無効。
 const CINEMATIC = process.env.CINEMATIC !== "off" && process.env.CINEMATIC !== "0";
+// SFX: シーン切替 whoosh + フック→本文の impact を ffmpeg lavfi で完全合成 (外部素材ゼロ =
+// ライセンス/Content ID リスクなし)。声より十分下 (既定 0.4 → loudnorm 前段)。SFX=off で無効。
+const SFX_ON = process.env.SFX !== "off" && process.env.SFX !== "0";
+const SFX_VOL = process.env.SFX_VOLUME ?? "0.4";
 // inauthentic-content 対策のビジュアル微差: story ごとにアクセント色を輪番 (ブランド黄は stripe/国名で維持)。
 const ACCENTS = ["#F5E63B", "#FFB347", "#5EEAD4"];
 function accentFor(storyIndex: number): string {
@@ -73,6 +78,12 @@ interface Story {
   /** 3-6語の画面用フック (数字入り推奨)。無ければ headline で代用。 */
   hookText?: string;
   hookPattern?: string;
+  /** 地図フランチャイズレーン (2026-07-26): mapMarkers があれば本文背景を動く紛争地図にする。 */
+  format?: string;
+  mapFocus?: { lon?: number; lat?: number };
+  mapMarkers?: Array<{ lon?: number; lat?: number; label?: string; kind?: string }>;
+  mapDay?: string | number;
+  mapCounter?: string;
 }
 interface ScriptJson {
   date: string;
@@ -149,6 +160,30 @@ async function buildOne(dir: string, story: Story) {
     if (await fs.access(path.join(dir, "_assets", f)).then(() => true).catch(() => false)) beatList.push(f);
   }
 
+  // ─── 地図フランチャイズレーン (2026-07-26): mapMarkers があれば本文背景を「動く紛争地図」にする ───
+  // cue が進むごとにマーカーが増え (progressive reveal)、チャンク内は脈動フレーム4種の循環 + 連続ズーム。
+  // 実測で勝っている地図形式 (History on Maps 等) の自動化。ビート画像より正確でAPI依存もゼロ。
+  const mapLane = laneFromStory(story);
+  const mapFramesByReveal = new Map<number, string[]>();
+  if (mapLane) {
+    const PULSES = [0.15, 0.45, 0.75, 1.0];
+    for (let ci = 0; ci < bodyCues.length; ci++) {
+      const reveal = Math.min(ci + 1, mapLane.markers.length);
+      if (mapFramesByReveal.has(reveal)) continue;
+      const files: string[] = [];
+      for (let fi = 0; fi < PULSES.length; fi++) {
+        const name = `map-${code}-s${story.index}-r${reveal}-f${fi}.png`;
+        const svgPath = path.join(dir, `_map-${code}-r${reveal}-f${fi}.svg`);
+        await fs.writeFile(svgPath, mapFrameSvg(mapLane, reveal, PULSES[fi], accentFor(story.index)), "utf-8");
+        await run("rsvg-convert", ["-w", String(W), "-h", String(H), svgPath, "-o", path.join(dir, "_assets", name)]);
+        await fs.unlink(svgPath).catch(() => {});
+        files.push(name);
+      }
+      mapFramesByReveal.set(reveal, files);
+    }
+    console.log(`[news] ${code}: map lane ON (${mapLane.markers.length} markers, ${mapFramesByReveal.size} reveal states)`);
+  }
+
   // Hook
   scenes.push({
     id: "01-hook",
@@ -195,7 +230,22 @@ async function buildOne(dir: string, story: Story) {
       // 最初の本文ビートを地図ズームに置換 (国に座標がある時のみ)。尺は据え置き=音声同期は不変。
       // 文(cue)境界=背景が切り替わる箇所だけ 0.22s フェードイン (ハードカットの粗さを除去)。
       const fadeIn = k === 0;
-      if (bgTick === 0 && mapCoords) {
+      // この cue の地図フレーム群 (map lane 時のみ)。reveal は cue 進行で増える。
+      const mapFrames = mapLane
+        ? mapFramesByReveal.get(Math.min(i + 1, mapLane.markers.length)) ?? null
+        : null;
+      if (mapFrames) {
+        // 脈動フレームを循環 (~0.45s/フレーム) + cue 内連続ズーム。字幕/ヘッダは captionSvg のまま。
+        const nF = Math.min(8, Math.max(4, Math.round(partDur / 0.45)));
+        const frameFiles = Array.from({ length: nF }, (_, fi) => mapFrames[fi % mapFrames.length]);
+        scenes.push({
+          id, dur: partDur,
+          svgs: frameFiles.map(f => captionSvg(story, chunkText, f, bgTick)),
+          wordDurs: frameFiles.map(() => partDur / nF),
+          zStart: zoom.zStart, zEnd: zoom.zEnd,
+          fadeIn,
+        });
+      } else if (bgTick === 0 && mapCoords) {
         const m = mapSvg(story, mapCoords);
         scenes.push({ id: `02-map`, dur: partDur, svg: m.svg, fx: m.fx, fy: m.fy, fadeIn: true });
       } else if (displayDurs && nWords >= 2) {
@@ -330,6 +380,22 @@ async function buildOne(dir: string, story: Story) {
   await run("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", listFile, "-c", "copy", bgVideo]);
   await fs.unlink(listFile).catch(() => {});
 
+  // SFX トラック: 各 body cue 開始に whoosh (カット強調・最大10)、フック終了に impact。
+  // cue 時刻はナレーション秒 = 映像タイムラインと一致 (シーン尺は cue 由来のため)。
+  let sfxFile: string | null = null;
+  if (SFX_ON) {
+    try {
+      const events: Array<{ t: number; kind: "whoosh" | "impact" }> = [
+        { t: tHookEnd, kind: "impact" },
+        ...bodyCues.slice(1, 11).map(c => ({ t: c.start, kind: "whoosh" as const })),
+      ].filter(e => e.t > 0.05 && e.t < total - 0.3);
+      sfxFile = await buildSfxTrack(dir, code, events, total);
+    } catch (e) {
+      console.warn(`[news] ${code}: SFX build failed (${e instanceof Error ? e.message : e}) — mixing without SFX`);
+      sfxFile = null;
+    }
+  }
+
   // BGM (news bed) をナレーションの下に低音量でミックス。
   // assets/news-bed.mp3 (または BGM_PATH) が無ければ BGM なしで従来どおり。
   const bgmFile = process.env.BGM_PATH ?? path.join("assets", "news-bed.mp3");
@@ -345,39 +411,42 @@ async function buildOne(dir: string, story: Story) {
     : "";
   const vMap = CINEMATIC ? "[vout]" : "0:v:0";
 
-  const muxArgs = hasBgm
-    ? [
-        "-y",
-        "-i", bgVideo,
-        "-i", audio,
-        "-stream_loop", "-1", "-i", bgmFile,
-        "-filter_complex",
-        vChain +
-        `[1:a]asplit=2[vo][key];[2:a]volume=${bgmVol}[bgp];` +
-        `[bgp][key]sidechaincompress=threshold=0.02:ratio=8:attack=20:release=300[bg];` +
-        `[vo][bg]amix=inputs=2:duration=first:normalize=0[mix0];[mix0]${LOUDNORM}[mix]`,
-        "-map", vMap, "-map", "[mix]",
-        "-t", total.toFixed(2),
-        "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-        "-c:a", "aac", "-b:a", "192k",
-        "-pix_fmt", "yuv420p",
-        "-r", String(FPS),
-        out,
-      ]
-    : [
-        "-y",
-        "-i", bgVideo,
-        "-i", audio,
-        "-filter_complex", vChain + `[1:a]${LOUDNORM}[mix]`,
-        "-map", vMap, "-map", "[mix]",
-        "-t", total.toFixed(2),
-        "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-        "-c:a", "aac", "-b:a", "192k",
-        "-pix_fmt", "yuv420p",
-        "-r", String(FPS),
-        out,
-      ];
+  // 入力: 0=video, 1=voice, (+bgm), (+sfx)。組み合わせで音声グラフを組む。
+  const inputArgs: string[] = ["-i", bgVideo, "-i", audio];
+  if (hasBgm) inputArgs.push("-stream_loop", "-1", "-i", bgmFile);
+  if (sfxFile) inputArgs.push("-i", sfxFile);
+  const sfxIdx = hasBgm ? 3 : 2;
+  const DUCK = `sidechaincompress=threshold=0.02:ratio=8:attack=20:release=300`;
+  let audioGraph: string;
+  if (hasBgm && sfxFile) {
+    audioGraph =
+      `[1:a]asplit=2[vo][key];[2:a]volume=${bgmVol}[bgp];[bgp][key]${DUCK}[bg];` +
+      `[${sfxIdx}:a]volume=${SFX_VOL}[sfx];` +
+      `[vo][bg][sfx]amix=inputs=3:duration=first:normalize=0[mix0];[mix0]${LOUDNORM}[mix]`;
+  } else if (hasBgm) {
+    audioGraph =
+      `[1:a]asplit=2[vo][key];[2:a]volume=${bgmVol}[bgp];[bgp][key]${DUCK}[bg];` +
+      `[vo][bg]amix=inputs=2:duration=first:normalize=0[mix0];[mix0]${LOUDNORM}[mix]`;
+  } else if (sfxFile) {
+    audioGraph =
+      `[${sfxIdx}:a]volume=${SFX_VOL}[sfx];` +
+      `[1:a][sfx]amix=inputs=2:duration=first:normalize=0[mix0];[mix0]${LOUDNORM}[mix]`;
+  } else {
+    audioGraph = `[1:a]${LOUDNORM}[mix]`;
+  }
+  const muxArgs = [
+    "-y", ...inputArgs,
+    "-filter_complex", vChain + audioGraph,
+    "-map", vMap, "-map", "[mix]",
+    "-t", total.toFixed(2),
+    "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+    "-c:a", "aac", "-b:a", "192k",
+    "-pix_fmt", "yuv420p",
+    "-r", String(FPS),
+    out,
+  ];
   if (hasBgm) console.log(`[news] ${code}: mixing BGM (${bgmFile}, vol ${bgmVol})`);
+  if (sfxFile) console.log(`[news] ${code}: mixing SFX (vol ${SFX_VOL})`);
   await run("ffmpeg", muxArgs);
 
   // Cleanup
@@ -589,9 +658,9 @@ function captionSvg(story: Story, captionText: string, bgFile: string, sceneIdx 
     headlineSvg += `\n  <text x="60" y="${hlStartY + i * hlFit.lineHeight}" font-family="Hiragino Sans" font-weight="900"
         font-size="${hlFit.fontSize}" fill="#FFFFFF" letter-spacing="-1"${clampAttr(line, hlFit.fontSize, hlBoxW, -1)}>${escape(line)}</text>`;
   });
-  // Caption box は固定位置 (Y=1240)。旧 1260/1180 交互は「ランダム」に見えて視線誘導を乱すため廃止
-  // (2026-06-27)。アクセントバーは常時。font は大きめ優先 (サウンドオフ可読性)。
-  const boxX = 40, boxY = 1240, boxW = 1000, boxH = 520;
+  // Caption box は固定位置。Y=1240→1150 (2026-07-26): 字幕を画面の 55-78% 帯へ寄せ、
+  // 下部 20% の Shorts UI 帯 (シークバー/ボタン) との重なりを減らす (2026 実測スペック準拠)。
+  const boxX = 40, boxY = 1150, boxW = 1000, boxH = 520;
   // font は中庸サイズ (72上限は大きすぎた・Ken Burns で更に拡大して見える。2026-06-27)。
   // fit幅は Ken Burns 最大ズーム時 (中央基準+8%≈左右40px侵食) でも切れない 840 に (2026-07-10)。
   const fit = fitCaption(captionText, 840, boxH - 80, [56, 50, 46, 42, 38, 34]);
@@ -865,6 +934,58 @@ function ffprobeDuration(file: string): Promise<number> {
     });
   });
 }
+/**
+ * SFX 素材を ffmpeg lavfi で合成 (whoosh=ピンクノイズ帯域スイープ / impact=低域サイン+クリック)。
+ * 外部素材ゼロ = ライセンス/Content ID リスクなし。素材は run ごとに1回だけ生成して再利用。
+ */
+async function ensureSfxSamples(dir: string): Promise<{ whoosh: string; impact: string }> {
+  const whoosh = path.join(dir, "_sfx-whoosh.wav");
+  const impact = path.join(dir, "_sfx-impact.wav");
+  if (!(await fs.access(whoosh).then(() => true).catch(() => false))) {
+    await run("ffmpeg", [
+      "-y", "-f", "lavfi", "-i", "anoisesrc=d=0.4:c=pink:a=0.6",
+      "-af", "highpass=f=600,lowpass=f=5000,afade=t=in:st=0:d=0.15,afade=t=out:st=0.2:d=0.2",
+      "-ar", "44100", whoosh,
+    ]);
+  }
+  if (!(await fs.access(impact).then(() => true).catch(() => false))) {
+    await run("ffmpeg", [
+      "-y",
+      "-f", "lavfi", "-i", "sine=f=55:d=0.7",
+      "-f", "lavfi", "-i", "anoisesrc=d=0.06:c=white:a=0.4",
+      "-filter_complex",
+      "[0:a]afade=t=out:st=0.03:d=0.65[low];[1:a]lowpass=f=1200[clk];" +
+      "[low][clk]amix=inputs=2:duration=longest:normalize=0,volume=1.2[a]",
+      "-map", "[a]", "-ar", "44100", impact,
+    ]);
+  }
+  return { whoosh, impact };
+}
+
+/** イベント時刻列から1本の SFX トラック (_sfx-{code}.wav, 全尺) を組み立てる。 */
+async function buildSfxTrack(
+  dir: string, code: string,
+  events: Array<{ t: number; kind: "whoosh" | "impact" }>, totalSec: number,
+): Promise<string | null> {
+  if (!events.length) return null;
+  const { whoosh, impact } = await ensureSfxSamples(dir);
+  const out = path.join(dir, `_sfx-${code}.wav`);
+  const args: string[] = ["-y"];
+  for (const e of events) args.push("-i", e.kind === "impact" ? impact : whoosh);
+  const delayed = events.map((e, i) => {
+    const ms = Math.max(0, Math.round(e.t * 1000));
+    return `[${i}:a]adelay=${ms}|${ms}[e${i}]`;
+  });
+  const labels = events.map((_, i) => `[e${i}]`).join("");
+  args.push(
+    "-filter_complex",
+    `${delayed.join(";")};${labels}amix=inputs=${events.length}:duration=longest:normalize=0,apad[a]`,
+    "-map", "[a]", "-t", totalSec.toFixed(2), "-ar", "44100", out,
+  );
+  await run("ffmpeg", args);
+  return out;
+}
+
 function run(cmd: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const proc = spawn(cmd, args, { stdio: ["ignore", "inherit", "inherit"] });

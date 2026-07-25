@@ -72,6 +72,28 @@ export function lonLatToXY(lon: number, lat: number): [number, number] {
   return [((lon + 180) / 360) * MAP_W, ((90 - lat) / 180) * MAP_H];
 }
 
+/**
+ * 地域ビューポート内の陸地ドット群 (mapscene 用)。project は lon/lat→画面座標。
+ * ピッチはスパン比例 (約42列) なのでどの倍率でも密度が一定 = ズームしても粗くならない。
+ */
+export function worldDotsInRegion(
+  lonMin: number, lonMax: number, latMin: number, latMax: number,
+  project: (lon: number, lat: number) => [number, number],
+  fill = "#5B7290", opacity = 0.9,
+): string {
+  const step = Math.max(0.2, (lonMax - lonMin) / 42);
+  const r = Math.max(4, Math.min(11, 460 * step / (lonMax - lonMin)));
+  let s = `<g fill="${fill}" opacity="${opacity}">`;
+  for (let lat = latMax; lat >= latMin; lat -= step) {
+    for (let lon = lonMin; lon <= lonMax; lon += step) {
+      if (!isLand(lon, lat)) continue;
+      const [x, y] = project(lon, lat);
+      s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}"/>`;
+    }
+  }
+  return s + `</g>`;
+}
+
 /** 陸地ドット群を <circle> で返す (viewBox 0 0 MAP_W MAP_H 内)。 */
 export function worldDots(stepDeg = 3, r = 3.4, fill = "#5B7290", opacity = 0.9): string {
   let s = `<g fill="${fill}" opacity="${opacity}">`;
