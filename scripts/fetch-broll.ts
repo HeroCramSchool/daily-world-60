@@ -390,9 +390,18 @@ async function generateBeatImage(story: StoryLike, beatText: string, beatIdx: nu
   const elements = iq.length ? [iq[beatIdx % iq.length], iq[(beatIdx + 1) % iq.length]].filter(Boolean).join(", ") : "";
   // 被写体アンカーを先頭に (fluxは先頭トークンを重視)。beatVisuals が無い時の要約文フォールバックは
   // 抽象文 (特に最終の分析文) で被写体が消えるため、必ず imageQueries の具体名詞で画を固定する。
+  // 構図ローテーション (2026-07-26 オーナーFB「AI写真がほぼ一緒」): 文ごとに撮り方を強制的に
+  // 変える。被写体が似ていても 引き/寄り/人物/ローアングル で画面の見た目が変わる。
+  const SHOTS = [
+    "Composition: wide aerial establishing shot from above, showing the whole scene and its surroundings.",
+    "Composition: ground-level close-up of the most important physical detail, shallow depth of field.",
+    "Composition: medium shot with people in frame, human faces and gestures carrying the emotion.",
+    "Composition: dramatic low-angle wide shot, strong foreground silhouette against the sky.",
+  ];
   const prompt = [
     elements ? `Editorial news illustration of: ${elements}.` : `Editorial news illustration for: "${story.headline}".`,
     hasVisual ? `Exact scene: "${visual}".` : `Scene context: "${story.headline}" — ${visual}`,
+    SHOTS[beatIdx % SHOTS.length],
     ACCURACY_TAIL,
     `Style: ${pickTone(story)}.`, STYLE_TAIL,
   ].filter(Boolean).join(" ");

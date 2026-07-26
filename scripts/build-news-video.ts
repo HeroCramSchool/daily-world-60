@@ -35,7 +35,9 @@ const FPS = 30;
 const MOTION = process.env.MOTION !== "off" && process.env.MOTION !== "0";
 // ズーム量。大きいほど動くが端が切れ、文字の可読性も落ちる。4% (長尺化したシーンで≈1%/s) に減速
 // (2026-07-10: 連続モーションはテキスト処理と競合する EEG 研究知見・「速すぎ」フィードバック反映)。
-const KB_ZOOM = Number(process.env.KEN_BURNS_ZOOM ?? "0.04");
+// Ken Burns ズームは既定オフ (2026-07-26 オーナーFB「地図のズームなどズームはいらない」)。
+// 動きは Seedance 実動画 + 地図マーカー + 字幕チャンク + SFX が担う。KEN_BURNS_ZOOM=0.04 で復活可。
+const KB_ZOOM = Number(process.env.KEN_BURNS_ZOOM ?? "0");
 // KEYWORD_CARD: 単色の英単語スラブ(リテンションキラー)。既定 off。ナレーションに語彙節があっても描画しない。
 const KEYWORD_CARD = process.env.KEYWORD_CARD === "on";
 // 可読性ペーシング (2026-07-10 基準準拠に補正。「速すぎ」実フィードバック+Netflix/TED/BBC基準):
@@ -48,7 +50,8 @@ const MIN_CHUNK_SEC = Number(process.env.MIN_CHUNK_SEC ?? "1.3");
 // body 背景プール (bg-2..8 = 7枚)。fetch-broll が bg-1..8 を必ず用意する。
 const BODY_BG = 7;
 // 本文の最初のビートを「動くドット世界地図」にする (米国ニュース風・国へズーム)。MAP_INTRO=off で無効。
-const MAP_INTRO = process.env.MAP_INTRO !== "off" && process.env.MAP_INTRO !== "0";
+// 旧・国ズーム地図イントロは既定オフ (2026-07-26): 地図レーンに置換され、ズーム自体も不要FB。
+const MAP_INTRO = process.env.MAP_INTRO === "on";
 // カラオケ字幕: 既定OFF (2026-07-10)。査読研究では単語追従ハイライトは「先読み」を阻害し
 // ESL読者の理解を下げる (Jensema 1998/Rajendran 2013)。KARAOKE=on でA/B用に再有効化可。
 const KARAOKE = process.env.KARAOKE === "on";
@@ -834,7 +837,7 @@ function subscribeOutroSvg(story: Story): string {
  * MOTION=off で従来の静止 (scale のみ) に即フォールバック。
  */
 function sceneVf(durSec: number, idx: number, isStatic = false): string {
-  if (!MOTION || isStatic) return `scale=${W}:${H},format=yuv420p`;
+  if (!MOTION || isStatic || KB_ZOOM <= 0) return `scale=${W}:${H},format=yuv420p`;
   const frames = Math.max(2, Math.round(durSec * FPS));
   const df = Math.max(1, frames - 1);
   const zMax = (1 + KB_ZOOM).toFixed(4);
@@ -865,6 +868,9 @@ function mapVf(durSec: number, fx: number, fy: number): string {
 
 /** ビート画像の連続ズーム (中央)。zStart→zEnd を線形に。cue 内チャンクで継ぎ目なく寄るために使う。 */
 function kbVf(durSec: number, zStart: number, zEnd: number): string {
+  if (!MOTION || (Math.abs(zStart - 1) < 1e-6 && Math.abs(zEnd - 1) < 1e-6)) {
+    return `scale=${W}:${H},format=yuv420p`;
+  }
   if (!MOTION) return `scale=${W}:${H},format=yuv420p`;
   const frames = Math.max(2, Math.round(durSec * FPS));
   const df = Math.max(1, frames - 1);
