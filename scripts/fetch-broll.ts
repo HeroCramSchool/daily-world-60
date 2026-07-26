@@ -165,11 +165,12 @@ const POLLINATIONS_API = "https://image.pollinations.ai/prompt/";
 const FAL_KEY = process.env.FAL_KEY?.trim();
 const FAL_HERO_MODEL = process.env.FAL_HERO_MODEL ?? "fal-ai/flux-2-pro";
 // AI動画: hero 静止画 → 5秒モーションクリップ。FAL_KEY がある時のみ。FAL_MOTION=off で画像のみ。
-// 既定 = Gemini Omni Flash (AA i2vアリーナ絶対1位・オーナー選定 2026-07-26)。720p ~$0.13/秒 ≈ $0.65/5秒。
-// Google系はニュース紛争画像を拒否しうる → 失敗は静止画に無害降格し、ログで拒否率を監視して
-// 高ければ Kling 3.0 (fal-ai/kling-video/v3/standard/image-to-video) 等へ env 切替する運用。
+// 既定 = Seedance 1.0 Pro Fast = 最安 ($0.11/5秒 720p ≈ 月$10 at 3本/日)。オーナー承認の段階運用
+// (2026-07-26): まず最安で「動く映像の効果」自体を再生数で検証 → 効果が出たら絶対画質1位の
+// Gemini Omni Flash (google/gemini-omni-flash/image-to-video・$0.65/5秒) へ FAL_MOTION_MODEL で格上げ。
+// 拒否/失敗は静止画に無害降格。他候補: Kling 3.0 = fal-ai/kling-video/v3/standard/image-to-video ($0.42/5s)。
 const FAL_MOTION_ON = process.env.FAL_MOTION !== "off" && process.env.FAL_MOTION !== "0";
-const FAL_MOTION_MODEL = process.env.FAL_MOTION_MODEL ?? "google/gemini-omni-flash/image-to-video";
+const FAL_MOTION_MODEL = process.env.FAL_MOTION_MODEL ?? "fal-ai/bytedance/seedance/v1/pro/fast/image-to-video";
 
 type StoryLike = { headline: string; summary?: string; imageQueries?: string[]; beatVisuals?: string[]; country?: { name?: string }; index?: number };
 
