@@ -165,12 +165,12 @@ const POLLINATIONS_API = "https://image.pollinations.ai/prompt/";
 const FAL_KEY = process.env.FAL_KEY?.trim();
 const FAL_HERO_MODEL = process.env.FAL_HERO_MODEL ?? "fal-ai/flux-2-pro";
 // AI動画: hero 静止画 → 5秒モーションクリップ。FAL_KEY がある時のみ。FAL_MOTION=off で画像のみ。
-// 既定 = Seedance 1.0 Pro Fast = 最安 ($0.11/5秒 720p ≈ 月$10 at 3本/日)。オーナー承認の段階運用
-// (2026-07-26): まず最安で「動く映像の効果」自体を再生数で検証 → 効果が出たら絶対画質1位の
-// Gemini Omni Flash (google/gemini-omni-flash/image-to-video・$0.65/5秒) へ FAL_MOTION_MODEL で格上げ。
-// 拒否/失敗は静止画に無害降格。他候補: Kling 3.0 = fal-ai/kling-video/v3/standard/image-to-video ($0.42/5s)。
+// 既定 = Kling 3.0 standard (2026-07-27 オーナー選定: Seedance 1.0 は不自然)。i2v の「元画像を
+// 変えない忠実さ」実測最強・audio off で $0.42/5秒 ≈ 月$38 at 3本/日。生成 5-10分のため
+// queue.fal.run 方式 (sync だと接続維持が持たない)。他候補: Seedance 1.0 Pro Fast ($0.11) /
+// Gemini Omni Flash ($0.65)。拒否/失敗は静止画に無害降格。
 const FAL_MOTION_ON = process.env.FAL_MOTION !== "off" && process.env.FAL_MOTION !== "0";
-const FAL_MOTION_MODEL = process.env.FAL_MOTION_MODEL ?? "fal-ai/bytedance/seedance/v1/pro/fast/image-to-video";
+const FAL_MOTION_MODEL = process.env.FAL_MOTION_MODEL ?? "fal-ai/kling-video/v3/standard/image-to-video";
 
 type StoryLike = { headline: string; summary?: string; imageQueries?: string[]; beatVisuals?: string[]; heroMotion?: string; country?: { name?: string }; index?: number };
 
@@ -290,65 +290,148 @@ async function falHero(prompt: string, seed: number, dest: string): Promise<bool
   }
 }
 
-/** hero 静止画 → 5秒モーション mp4 (fal Seedance i2v)。失敗/未設定は false (静止画のまま = 無害)。
- *  動画生成は数十秒かかるため sync fal.run + 長め timeout。生成物は hook + ループ末尾で使われる。 */
+/** hero 静止画 → 5秒モーション mp4。失敗/未設定は false (静止画のまま = 無害)。
+ *  Kling 3.0 (既定) は生成 5-10 分 → queue.fal.run submit→poll→result。他モデルは sync fal.run。
+ *  プロンプトは検証済み Kling i2v 文法 (2026-07-27 調査): 動きのみ記述 (外観再記述はドリフトの
+ *  主因)・カメラ1ムーブ・速度語必須 (スローモー偏向対策)・静止指定・終端 settle。 */
+
+// Kling 検証済み負プロンプト (デフォルト "blur, distort, and low quality" のニュース向け拡張)
+const KLING_NEGATIVE = "blur, distortion, morphing, warping, melting objects, extra limbs, deformed face, floating objects, new objects appearing, background shifting, sudden cut, flicker, slow motion, text, watermark, low quality";
+
+/** queue.fal.run: submit → status ポーリング → result。Kling 系の長時間生成用。 */
+async function falQueueRun(model: string, body: Record<string, unknown>, timeoutMs: number): Promise<Record<string, unknown>> {
+  const submit = await fetch(`https://queue.fal.run/${model}`, {
+    method: "POST",
+    headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(60000),
+  });
+  if (!submit.ok) {
+    const detail = await submit.text().catch(() => "");
+    throw Object.assign(new Error(`fal queue submit HTTP ${submit.status}${detail ? ` ${detail.slice(0, 200)}` : ""}`), { status: submit.status });
+  }
+  const sub = (await submit.json()) as { status_url?: string; response_url?: string };
+  if (!sub.status_url || !sub.response_url) throw new Error("fal queue: missing status/response url");
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    await sleep(10000);
+    if (Date.now() > deadline) throw new Error(`fal queue: timeout after ${Math.round(timeoutMs / 60000)}min`);
+    const st = await fetch(sub.status_url, {
+      headers: { Authorization: `Key ${FAL_KEY}` }, signal: AbortSignal.timeout(30000),
+    }).catch(() => null);
+    if (!st || !st.ok) continue;
+    const sj = (await st.json()) as { status?: string };
+    if (sj.status === "COMPLETED") break;
+    if (sj.status && !["IN_QUEUE", "IN_PROGRESS", "COMPLETED"].includes(sj.status)) {
+      throw new Error(`fal queue: status ${sj.status}`);
+    }
+  }
+  const resp = await fetch(sub.response_url, {
+    headers: { Authorization: `Key ${FAL_KEY}` }, signal: AbortSignal.timeout(60000),
+  });
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => "");
+    throw new Error(`fal queue result HTTP ${resp.status}${detail ? ` ${detail.slice(0, 200)}` : ""}`);
+  }
+  return (await resp.json()) as Record<string, unknown>;
+}
+
+/** Kling i2v プロンプト: [カメラ1ムーブ(固定)] [動き+速度語] [静止指定+一貫性+終端]。30-80語。 */
+function klingMotionPrompt(story: StoryLike): string {
+  const custom = story.heroMotion?.trim();
+  const move = custom
+    ? custom.replace(/\s+/g, " ").slice(0, 260).replace(/[.,\s]*$/, ".")
+    : "Thick smoke drifts slowly upward, flames flicker, distant lights blink softly.";
+  return [
+    "Static camera, tripod shot.",
+    move,
+    "All motion is continuous and subtle at real-time speed.",
+    "Everything else in the frame remains completely still. Consistent lighting, maintains exact appearance throughout, then the motion settles.",
+  ].join(" ");
+}
+
 async function falHeroMotion(story: StoryLike, heroJpg: string, destMp4: string): Promise<boolean> {
   if (!FAL_KEY || !FAL_MOTION_ON) return false;
   try {
     const img = await fs.readFile(heroJpg);
     const dataUri = `data:image/jpeg;base64,${img.toString("base64")}`;
-    // モーション指示の優先順: Routine の heroMotion (調査事実に基づく精密な動きの記述)
-    // > beatVisuals[0] (シーン内容) + 汎用アンビエント。i2v ベストプラクティス構文:
-    // 被写体の動き → カメラ固定 → 速度/物理 → 質感 → 禁止事項。カメラ移動と過剰モーションが
-    // 不自然さの主因のため camera_fixed + 「実映像の速度」を明示 (2026-07-26 オーナーFB)。
-    const custom = story.heroMotion?.trim();
-    const sceneMotion = custom
-      ? `Motion to animate: ${custom.slice(0, 300)}`
-      : `Scene: ${(story.beatVisuals?.[0] ?? story.headline ?? "news scene").slice(0, 200)}. Animate only the ambient elements that plausibly move: drifting smoke, rippling water, flickering emergency lights, fabric in the wind, distant people or vehicles moving naturally.`;
-    const motionPrompt = [
-      sceneMotion,
-      `Camera: locked-off tripod shot, absolutely no camera movement, no zoom, no pan.`,
-      `Motion quality: slow, subtle, continuous, physically accurate, real-world speed like genuine news b-roll footage.`,
-      `Photorealistic live-action, consistent lighting and colors, sharp focus throughout.`,
-      `Keep the exact original composition. Do not change, add or remove any objects, faces, text or colors. No scene change, no morphing, no warping, no distortion.`,
-    ].join(" ");
-    // モデル別スキーマ: Omni Flash は {prompt, image_url, aspect_ratio, duration} のみ
-    // (未知フィールドは 422 リスク = FLUX.2 レビューの教訓)。Seedance 系は resolution/seed 等も可。
+    const isKling = FAL_MOTION_MODEL.includes("kling-video");
     const isGemini = FAL_MOTION_MODEL.includes("gemini-omni-flash");
-    const bodyFull = isGemini
-      ? { prompt: motionPrompt, image_url: dataUri, aspect_ratio: "9:16", duration: "5" }
-      : {
-          prompt: motionPrompt, image_url: dataUri, resolution: "720p", duration: "5",
-          aspect_ratio: "9:16", seed: (story.index ?? 1) * 7 + 3, enable_safety_checker: false,
-          // カメラ移動は i2v の warping/不自然さの主因 → モデル側でも固定 (Seedance 系のみ対応)
-          camera_fixed: true,
-        };
-    const post = (body: Record<string, unknown>) => fetch(`https://fal.run/${FAL_MOTION_MODEL}`, {
-      method: "POST",
-      headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(240000),
-    });
-    let res = await post(bodyFull);
-    if (res.status === 403) {
-      // チャージ直後の残高同期ラグ (実測) → 20秒待って一度だけ再試行
-      await sleep(20000);
-      res = await post(bodyFull);
+
+    let videoUrl: string | undefined;
+    if (isKling) {
+      // 検証済みスキーマ (2026-07-27): 必須は start_image_url (image_url ではない)・duration は
+      // 文字列 enum・generate_audio 明示 false (無指定だと単価1.5倍)・aspect は入力画像を継承。
+      const bodyOf = (prompt: string) => ({
+        prompt,
+        start_image_url: dataUri,
+        duration: "5",
+        generate_audio: false,
+        negative_prompt: KLING_NEGATIVE,
+        cfg_scale: 0.6,
+      });
+      let json: Record<string, unknown>;
+      try {
+        json = await falQueueRun(FAL_MOTION_MODEL, bodyOf(klingMotionPrompt(story)), 12 * 60000);
+      } catch (e) {
+        const status = (e as { status?: number }).status;
+        if (status === 403) {
+          await sleep(20000); // チャージ直後の残高同期ラグ (実測)
+          json = await falQueueRun(FAL_MOTION_MODEL, bodyOf(klingMotionPrompt(story)), 12 * 60000);
+        } else if (status === 422) {
+          // Kling 上流モデレーション (実測報告あり) → 兵器/爆発語を除去した間接表現で1回だけ再試行
+          console.warn(`[broll] fal motion 422 (moderation?) — retrying with scrubbed motion prompt`);
+          json = await falQueueRun(FAL_MOTION_MODEL, bodyOf(scrubViolence(klingMotionPrompt(story))), 12 * 60000);
+        } else {
+          throw e;
+        }
+      }
+      videoUrl = (json as { video?: { url?: string } }).video?.url;
+    } else {
+      // Seedance / Omni Flash 系: 生成が速いので従来どおり sync fal.run
+      const custom = story.heroMotion?.trim();
+      const sceneMotion = custom
+        ? `Motion to animate: ${custom.slice(0, 300)}`
+        : `Scene: ${(story.beatVisuals?.[0] ?? story.headline ?? "news scene").slice(0, 200)}. Animate only the ambient elements that plausibly move: drifting smoke, rippling water, flickering emergency lights, fabric in the wind, distant people or vehicles moving naturally.`;
+      const motionPrompt = [
+        sceneMotion,
+        `Camera: locked-off tripod shot, absolutely no camera movement, no zoom, no pan.`,
+        `Motion quality: slow, subtle, continuous, physically accurate, real-world speed like genuine news b-roll footage.`,
+        `Keep the exact original composition. Do not change, add or remove any objects, faces, text or colors. No scene change, no morphing, no warping, no distortion.`,
+      ].join(" ");
+      const bodyFull = isGemini
+        ? { prompt: motionPrompt, image_url: dataUri, aspect_ratio: "9:16", duration: "5" }
+        : {
+            prompt: motionPrompt, image_url: dataUri, resolution: "720p", duration: "5",
+            aspect_ratio: "9:16", seed: (story.index ?? 1) * 7 + 3, enable_safety_checker: false,
+            camera_fixed: true,
+          };
+      const post = (body: Record<string, unknown>) => fetch(`https://fal.run/${FAL_MOTION_MODEL}`, {
+        method: "POST",
+        headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(240000),
+      });
+      let res = await post(bodyFull);
+      if (res.status === 403) {
+        await sleep(20000);
+        res = await post(bodyFull);
+      }
+      if (res.status === 422) {
+        const detail = await res.text().catch(() => "");
+        console.warn(`[broll] fal motion 422 detail: ${detail.slice(0, 300)} — retrying minimal {prompt, image_url}`);
+        res = await post({ prompt: motionPrompt, image_url: dataUri });
+      }
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        throw new Error(`fal motion HTTP ${res.status}${detail ? ` ${detail.slice(0, 200)}` : ""}`);
+      }
+      const json = (await res.json()) as { video?: { url?: string } };
+      videoUrl = json.video?.url;
     }
-    if (res.status === 422) {
-      // スキーマ不一致 (aspect_ratio/duration の型違い等) → 最小ボディで一度だけ自己回復リトライ。
-      const detail = await res.text().catch(() => "");
-      console.warn(`[broll] fal motion 422 detail: ${detail.slice(0, 300)} — retrying minimal {prompt, image_url}`);
-      res = await post({ prompt: motionPrompt, image_url: dataUri });
-    }
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      throw new Error(`fal motion HTTP ${res.status}${detail ? ` ${detail.slice(0, 200)}` : ""}`);
-    }
-    const json = (await res.json()) as { video?: { url?: string } };
-    const url = json.video?.url;
-    if (!url) throw new Error("fal motion: no video url");
-    const vid = await fetch(url, { signal: AbortSignal.timeout(120000) });
+
+    if (!videoUrl) throw new Error("fal motion: no video url");
+    const vid = await fetch(videoUrl, { signal: AbortSignal.timeout(120000) });
     if (!vid.ok) throw new Error(`fal motion download HTTP ${vid.status}`);
     const buf = Buffer.from(await vid.arrayBuffer());
     if (buf.length < 50000) throw new Error("fal motion: too-small video");
@@ -472,6 +555,8 @@ async function main() {
 
   const script: ScriptJson = JSON.parse(await fs.readFile(path.join(dir, "script-en.json"), "utf-8"));
 
+  // hero モーションは生成 5-10 分 (Kling) → 全ストーリー分を並行で回し、最後に待つ。
+  const motionJobs: Promise<void>[] = [];
   const creditLines: string[] = [
     "# Image Credits (auto-fetched: Pexels primary, Wikimedia Commons fallback)",
     "",
@@ -567,11 +652,14 @@ async function main() {
         creditLines.push(`- bg-${code}-s${story.index}-1.jpg — AI illustration (${engine})`);
         console.log(`[broll] ${code}: AI hero generated (${engine})`);
         // hero を5秒モーション化 (FAL_KEY 時のみ)。成功時 build がフック/ループで動画を使う。
+        // 並行実行: promise を貯めて main 末尾で待つ (Kling は1本5-10分・直列だとCI予算超過)。
         const motionMp4 = path.join(assets, `hero-${code}-s${story.index}.motion.mp4`);
-        if (await falHeroMotion(story, heroJpg, motionMp4)) {
-          creditLines.push(`- hero-${code}-s${story.index}.motion.mp4 — AI motion clip (fal.ai ${FAL_MOTION_MODEL})`);
-          console.log(`[broll] ${code}: hero motion clip generated (fal.ai Seedance)`);
-        }
+        motionJobs.push((async () => {
+          if (await falHeroMotion(story, heroJpg, motionMp4)) {
+            creditLines.push(`- hero-${code}-s${story.index}.motion.mp4 — AI motion clip (fal.ai ${FAL_MOTION_MODEL})`);
+            console.log(`[broll] ${code}: hero motion clip generated (${FAL_MOTION_MODEL})`);
+          }
+        })());
       } catch (e) {
         console.warn(`[broll] AI hero gen failed (${code}): ${e instanceof Error ? e.message : e} — keeping stock hero`);
       }
@@ -621,6 +709,10 @@ async function main() {
     console.log(`[broll] ${code}: ${savedBg.length} unique bg saved, bg-1..${BG_COUNT} ensured`);
   }
 
+  if (motionJobs.length) {
+    console.log(`[broll] waiting for ${motionJobs.length} hero motion job(s)...`);
+    await Promise.all(motionJobs);
+  }
   await fs.writeFile(path.join(assets, "CREDITS.md"), creditLines.join("\n"), "utf-8");
   console.log(`[broll] done → ${assets}`);
 }
