@@ -160,16 +160,15 @@ async function buildOne(dir: string, story: Story) {
     if (await fs.access(path.join(dir, "_assets", f)).then(() => true).catch(() => false)) beatList.push(f);
   }
 
-  // ─── 地図フランチャイズレーン (2026-07-26): mapMarkers があれば本文背景を「動く紛争地図」にする ───
-  // cue が進むごとにマーカーが増え (progressive reveal)、チャンク内は脈動フレーム4種の循環 + 連続ズーム。
-  // 実測で勝っている地図形式 (History on Maps 等) の自動化。ビート画像より正確でAPI依存もゼロ。
+  // ─── 地図フランチャイズシーン (2026-07-26 / 同日ハイブリッド化) ───
+  // オーナー実見FB「全く絵がないので面白みもわかりやすさもない」を受け、地図は**本文の最初の
+  // 1シーンだけ** (どこで起きたかの確立 + シリーズの顔)。残りの本文は従来どおり文ごとの
+  // AI ビート画像 = 絵で見せる。地図シーン内でマーカーが順次出現→脈動 (1シーンに凝縮)。
   const mapLane = laneFromStory(story);
   const mapFramesByReveal = new Map<number, string[]>();
   if (mapLane) {
     const PULSES = [0.15, 0.45, 0.75, 1.0];
-    for (let ci = 0; ci < bodyCues.length; ci++) {
-      const reveal = Math.min(ci + 1, mapLane.markers.length);
-      if (mapFramesByReveal.has(reveal)) continue;
+    for (let reveal = 1; reveal <= mapLane.markers.length; reveal++) {
       const files: string[] = [];
       for (let fi = 0; fi < PULSES.length; fi++) {
         const name = `map-${code}-s${story.index}-r${reveal}-f${fi}.png`;
@@ -181,8 +180,26 @@ async function buildOne(dir: string, story: Story) {
       }
       mapFramesByReveal.set(reveal, files);
     }
-    console.log(`[news] ${code}: map lane ON (${mapLane.markers.length} markers, ${mapFramesByReveal.size} reveal states)`);
+    console.log(`[news] ${code}: map scene ON (${mapLane.markers.length} markers, first body cue only)`);
   }
+
+  /** 地図シーンのフレーム列。appear=true: マーカーを1つずつ出現 (2フレーム/個) → 残りは全表示脈動。
+   *  appear=false (cue 0 の2チャンク目以降): 出現を繰り返さず全表示の脈動のみ。 */
+  const buildMapSequence = (nFrames: number, appear: boolean): string[] => {
+    if (!mapLane) return [];
+    const M = mapLane.markers.length;
+    const seq: string[] = [];
+    if (appear) {
+      for (let r = 1; r <= M; r++) {
+        const fr = mapFramesByReveal.get(r)!;
+        seq.push(fr[0], fr[2]);
+      }
+    }
+    const full = mapFramesByReveal.get(M)!;
+    let pi = 0;
+    while (seq.length < Math.max(nFrames, appear ? M * 2 : 4)) seq.push(full[pi++ % full.length]);
+    return seq;
+  };
 
   // Hook
   scenes.push({
@@ -230,18 +247,16 @@ async function buildOne(dir: string, story: Story) {
       // 最初の本文ビートを地図ズームに置換 (国に座標がある時のみ)。尺は据え置き=音声同期は不変。
       // 文(cue)境界=背景が切り替わる箇所だけ 0.22s フェードイン (ハードカットの粗さを除去)。
       const fadeIn = k === 0;
-      // この cue の地図フレーム群 (map lane 時のみ)。reveal は cue 進行で増える。
-      const mapFrames = mapLane
-        ? mapFramesByReveal.get(Math.min(i + 1, mapLane.markers.length)) ?? null
-        : null;
-      if (mapFrames) {
-        // 脈動フレームを循環 (~0.45s/フレーム) + cue 内連続ズーム。字幕/ヘッダは captionSvg のまま。
-        const nF = Math.min(8, Math.max(4, Math.round(partDur / 0.45)));
-        const frameFiles = Array.from({ length: nF }, (_, fi) => mapFrames[fi % mapFrames.length]);
+      // 地図シーンは本文の最初の cue だけ (ハイブリッド: 以降は AI ビート画像 = 絵で見せる)。
+      const useMap = mapLane !== null && i === 0;
+      if (useMap) {
+        // マーカー順次出現 (~0.45s/フレーム) + cue 内連続ズーム。字幕/ヘッダは captionSvg のまま。
+        const nF = Math.min(10, Math.max(4, Math.round(partDur / 0.45)));
+        const frameFiles = buildMapSequence(nF, k === 0);
         scenes.push({
           id, dur: partDur,
           svgs: frameFiles.map(f => captionSvg(story, chunkText, f, bgTick)),
-          wordDurs: frameFiles.map(() => partDur / nF),
+          wordDurs: frameFiles.map(() => partDur / frameFiles.length),
           zStart: zoom.zStart, zEnd: zoom.zEnd,
           fadeIn,
         });
