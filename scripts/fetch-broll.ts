@@ -222,23 +222,33 @@ async function pollinate(prompt: string, seed: number, dest: string, timeoutMs: 
 async function falHero(prompt: string, seed: number, dest: string): Promise<boolean> {
   if (!FAL_KEY) return false;
   try {
-    const res = await fetch(`https://fal.run/${FAL_HERO_MODEL}`, {
+    const post = (body: Record<string, unknown>) => fetch(`https://fal.run/${FAL_HERO_MODEL}`, {
       method: "POST",
       headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt: prompt.slice(0, 2000),
-        // FLUX.2 pro は width/height に multiple_of:16 を要求 (1080 は不適合 → 422)。
-        // 16の倍数の 1088x1920 で生成し、下の sharp cover-crop で 1080x1920 に確定させる。
-        image_size: { width: 1088, height: 1920 },
-        seed,
-        output_format: "jpeg",
-        // ニュース (紛争/災害/実在の場所) が unattended CI で拒否されないよう検閲を緩める。
-        enable_safety_checker: false,
-        safety_tolerance: "5",
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(90000),
     });
-    if (!res.ok) throw new Error(`fal HTTP ${res.status}`);
+    // FLUX.2 pro は width/height に multiple_of:16 を要求 (1080 は不適合 → 422)。
+    // 16の倍数の 1088x1920 で生成し、下の sharp cover-crop で 1080x1920 に確定させる。
+    let res = await post({
+      prompt: prompt.slice(0, 2000),
+      image_size: { width: 1088, height: 1920 },
+      seed,
+      output_format: "jpeg",
+      // ニュース (紛争/災害/実在の場所) が unattended CI で拒否されないよう検閲を緩める。
+      enable_safety_checker: false,
+      safety_tolerance: "5",
+    });
+    if (res.status === 422) {
+      // スキーマ不一致 → 原因特定のため応答本文をログし、最小ボディで一度だけ自己回復リトライ。
+      const detail = await res.text().catch(() => "");
+      console.warn(`[broll] fal hero 422 detail: ${detail.slice(0, 300)} — retrying minimal body`);
+      res = await post({ prompt: prompt.slice(0, 2000), image_size: { width: 1088, height: 1920 } });
+    }
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`fal HTTP ${res.status}${detail ? ` ${detail.slice(0, 200)}` : ""}`);
+    }
     const json = (await res.json()) as { images?: Array<{ url?: string }> };
     const url = json.images?.[0]?.url;
     if (!url) throw new Error("fal: no image url in response");
@@ -285,10 +295,14 @@ async function falHeroMotion(story: StoryLike, heroJpg: string, destMp4: string)
     let res = await post(bodyFull);
     if (res.status === 422) {
       // スキーマ不一致 (aspect_ratio/duration の型違い等) → 最小ボディで一度だけ自己回復リトライ。
-      console.warn(`[broll] fal motion 422 with full body — retrying minimal {prompt, image_url}`);
+      const detail = await res.text().catch(() => "");
+      console.warn(`[broll] fal motion 422 detail: ${detail.slice(0, 300)} — retrying minimal {prompt, image_url}`);
       res = await post({ prompt: motionPrompt, image_url: dataUri });
     }
-    if (!res.ok) throw new Error(`fal motion HTTP ${res.status}`);
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`fal motion HTTP ${res.status}${detail ? ` ${detail.slice(0, 200)}` : ""}`);
+    }
     const json = (await res.json()) as { video?: { url?: string } };
     const url = json.video?.url;
     if (!url) throw new Error("fal motion: no video url");
