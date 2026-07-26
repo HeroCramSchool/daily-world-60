@@ -1,95 +1,137 @@
 {
+ "date": "2026-06-19",
+ "scriptEn": {
   "date": "2026-06-19",
-  "scriptEn": {
-    "date": "2026-06-19",
-    "language": "en",
-    "hook": "The latest from Ukraine: three nights of Russian strikes, and a deadly exchange.",
-    "stories": [
-      {
-        "index": 1,
-        "country": { "code": "UA", "flag": "🇺🇦", "name": "Ukraine" },
-        "headline": "Russian glide bombs damage over 40 homes in Kharkiv",
-        "summary": "Russian glide bombs hit Kharkiv overnight, damaging more than 40 homes and injuring at least 6 civilians across the city. The widespread strikes show how Russia keeps targeting residential areas far behind the front line, leaving ordinary families without safe shelter.",
-        "sourceName": "Kyiv Independent",
-        "sourceUrl": "https://kyivindependent.com/russian-attack-damages-over-40-homes-in-kharkiv-injures-6/",
-        "imageQueries": ["Kharkiv", "damaged building", "Ukrainian rescue workers", "apartment block"],
-        "hookText": "40 HOMES HIT IN ONE NIGHT",
-        "hookPattern": "number",
-        "commentQuestion": "Should cities like Kharkiv get stronger air defense first?"
-      },
-      {
-        "index": 2,
-        "country": { "code": "RU", "flag": "🇷🇺", "name": "Russia" },
-        "headline": "Three killed in Ukraine a day after Moscow drone attack",
-        "summary": "One day after a Ukrainian drone attack killed a child in Moscow, Russian forces struck back and killed 3 civilians in Ukraine, with more people injured nationwide. The fast exchange shows how each strike now triggers another, pulling both capitals into the war.",
-        "sourceName": "Al Jazeera",
-        "sourceUrl": "https://www.aljazeera.com/news/2026/6/19/three-killed-in-ukraine-a-day-after-drone-attack-kills-child-in-moscow",
-        "imageQueries": ["Moscow", "drone", "Kremlin", "night city skyline"],
-        "hookText": "MOSCOW HIT, THEN UKRAINE",
-        "hookPattern": "curiosity",
-        "commentQuestion": "Do strikes on Moscow make Russia hit back harder?"
-      },
-      {
-        "index": 3,
-        "country": { "code": "UA", "flag": "🇺🇦", "name": "Ukraine" },
-        "headline": "Russian strikes kill 11 and injure 63 across Ukraine",
-        "summary": "Russia launched 90 Shahed drones overnight; Ukraine downed 79 but nine hit their targets. An 8-year-old girl was among 3 killed in Dnipropetrovsk, with more deaths in Sumy and Kherson. In total 11 people died and 63 were injured, showing the rising civilian toll.",
-        "sourceName": "Kyiv Independent",
-        "sourceUrl": "https://kyivindependent.com/11-killed-63-injured-in-russian-strikes-across-ukraine-over-past-day-as-drones-target-foreign-ships-in-odesa-oblast/",
-        "imageQueries": ["Shahed drone", "Dnipro Ukraine", "air defense", "Ukrainian civilians"],
-        "hookText": "90 DRONES IN ONE NIGHT",
-        "hookPattern": "number",
-        "commentQuestion": "How can the world better protect Ukrainian children from these drones?"
-      }
-    ],
-    "todaysWord": {
-      "word": "casualty",
-      "definitionEn": "a person killed or injured in a war or accident",
-      "definitionJp": "戦争や事故で死傷した人（死傷者）"
+  "language": "en",
+  "hook": "The latest from Ukraine: three nights of Russian strikes, and a deadly exchange.",
+  "stories": [
+   {
+    "index": 1,
+    "country": {
+     "code": "UA",
+     "flag": "🇺🇦",
+     "name": "Ukraine"
     },
-    "close": "That's the latest from Ukraine. Follow for more.",
-    "estimatedSeconds": 60
-  },
-  "scriptJp": {
-    "date": "2026-06-19",
-    "language": "jp",
-    "hook": "",
-    "stories": [
-      {
-        "index": 1,
-        "country": { "code": "UA", "flag": "🇺🇦", "name": "ウクライナ" },
-        "headline": "ハルキウで露の滑空爆弾、住宅40棟以上が損壊",
-        "summary": "ロシアの滑空爆弾が夜間にハルキウを直撃し、40棟を超える住宅が損壊、市民少なくとも6人が負傷した。前線から離れた住宅地が再び標的となり、多くの家族が安全な住まいを失った。",
-        "sourceName": "Kyiv Independent",
-        "sourceUrl": "https://kyivindependent.com/russian-attack-damages-over-40-homes-in-kharkiv-injures-6/"
-      },
-      {
-        "index": 2,
-        "country": { "code": "RU", "flag": "🇷🇺", "name": "ロシア" },
-        "headline": "モスクワへのドローン攻撃翌日、ウクライナで3人死亡",
-        "summary": "ウクライナのドローンがモスクワで子ども1人を死亡させた翌日、ロシアが報復としてウクライナで市民3人を殺害し、各地で負傷者も出た。一撃が次の一撃を呼び、首都どうしが戦火に引き込まれている。",
-        "sourceName": "Al Jazeera",
-        "sourceUrl": "https://www.aljazeera.com/news/2026/6/19/three-killed-in-ukraine-a-day-after-drone-attack-kills-child-in-moscow"
-      },
-      {
-        "index": 3,
-        "country": { "code": "UA", "flag": "🇺🇦", "name": "ウクライナ" },
-        "headline": "ロシアの攻撃でウクライナ全土の11人死亡、63人負傷",
-        "summary": "ロシアは夜間にShahedドローン90機を発射し、ウクライナは79機を撃墜したが9機が着弾した。ドニプロペトロウシクでは8歳の少女を含む3人が死亡。全土で計11人が亡くなり、63人が負傷した。",
-        "sourceName": "Kyiv Independent",
-        "sourceUrl": "https://kyivindependent.com/11-killed-63-injured-in-russian-strikes-across-ukraine-over-past-day-as-drones-target-foreign-ships-in-odesa-oblast/"
-      }
+    "headline": "Russian glide bombs damage over 40 homes in Kharkiv",
+    "summary": "Russian glide bombs hit Kharkiv overnight, damaging more than 40 homes and injuring at least 6 civilians across the city. The widespread strikes show how Russia keeps targeting residential areas far behind the front line, leaving ordinary families without safe shelter.",
+    "sourceName": "Kyiv Independent",
+    "sourceUrl": "https://kyivindependent.com/russian-attack-damages-over-40-homes-in-kharkiv-injures-6/",
+    "imageQueries": [
+     "Kharkiv",
+     "damaged building",
+     "Ukrainian rescue workers",
+     "apartment block"
     ],
-    "todaysWord": {
-      "word": "casualty",
-      "definitionEn": "a person killed or injured in a war or accident",
-      "definitionJp": "戦争や事故で死傷した人（死傷者）"
+    "hookText": "40 HOMES HIT IN ONE NIGHT",
+    "hookPattern": "number",
+    "commentQuestion": "Should cities like Kharkiv get stronger air defense first?",
+    "heroMotion": "thick black smoke drifts slowly upward and to the left from the damaged buildings, small flames flicker inside windows, dust settles, a distant emergency light blinks red-blue"
+   },
+   {
+    "index": 2,
+    "country": {
+     "code": "RU",
+     "flag": "🇷🇺",
+     "name": "Russia"
     },
-    "close": ""
+    "headline": "Three killed in Ukraine a day after Moscow drone attack",
+    "summary": "One day after a Ukrainian drone attack killed a child in Moscow, Russian forces struck back and killed 3 civilians in Ukraine, with more people injured nationwide. The fast exchange shows how each strike now triggers another, pulling both capitals into the war.",
+    "sourceName": "Al Jazeera",
+    "sourceUrl": "https://www.aljazeera.com/news/2026/6/19/three-killed-in-ukraine-a-day-after-drone-attack-kills-child-in-moscow",
+    "imageQueries": [
+     "Moscow",
+     "drone",
+     "Kremlin",
+     "night city skyline"
+    ],
+    "hookText": "MOSCOW HIT, THEN UKRAINE",
+    "hookPattern": "curiosity",
+    "commentQuestion": "Do strikes on Moscow make Russia hit back harder?",
+    "heroMotion": "smoke columns rise slowly on the horizon, papers and light debris shift in a weak wind on the street, a soldier's jacket flutters slightly"
+   },
+   {
+    "index": 3,
+    "country": {
+     "code": "UA",
+     "flag": "🇺🇦",
+     "name": "Ukraine"
+    },
+    "headline": "Russian strikes kill 11 and injure 63 across Ukraine",
+    "summary": "Russia launched 90 Shahed drones overnight; Ukraine downed 79 but nine hit their targets. An 8-year-old girl was among 3 killed in Dnipropetrovsk, with more deaths in Sumy and Kherson. In total 11 people died and 63 were injured, showing the rising civilian toll.",
+    "sourceName": "Kyiv Independent",
+    "sourceUrl": "https://kyivindependent.com/11-killed-63-injured-in-russian-strikes-across-ukraine-over-past-day-as-drones-target-foreign-ships-in-odesa-oblast/",
+    "imageQueries": [
+     "Shahed drone",
+     "Dnipro Ukraine",
+     "air defense",
+     "Ukrainian civilians"
+    ],
+    "hookText": "90 DRONES IN ONE NIGHT",
+    "hookPattern": "number",
+    "commentQuestion": "How can the world better protect Ukrainian children from these drones?",
+    "heroMotion": "rippling dark water moves gently, thin smoke trails drift right, distant vehicle headlights flicker across the scene"
+   }
+  ],
+  "todaysWord": {
+   "word": "casualty",
+   "definitionEn": "a person killed or injured in a war or accident",
+   "definitionJp": "戦争や事故で死傷した人（死傷者）"
   },
-  "sourceUrls": [
-    "https://kyivindependent.com/russian-attack-damages-over-40-homes-in-kharkiv-injures-6/",
-    "https://www.aljazeera.com/news/2026/6/19/three-killed-in-ukraine-a-day-after-drone-attack-kills-child-in-moscow",
-    "https://kyivindependent.com/11-killed-63-injured-in-russian-strikes-across-ukraine-over-past-day-as-drones-target-foreign-ships-in-odesa-oblast/"
-  ]
+  "close": "That's the latest from Ukraine. Follow for more.",
+  "estimatedSeconds": 60
+ },
+ "scriptJp": {
+  "date": "2026-06-19",
+  "language": "jp",
+  "hook": "",
+  "stories": [
+   {
+    "index": 1,
+    "country": {
+     "code": "UA",
+     "flag": "🇺🇦",
+     "name": "ウクライナ"
+    },
+    "headline": "ハルキウで露の滑空爆弾、住宅40棟以上が損壊",
+    "summary": "ロシアの滑空爆弾が夜間にハルキウを直撃し、40棟を超える住宅が損壊、市民少なくとも6人が負傷した。前線から離れた住宅地が再び標的となり、多くの家族が安全な住まいを失った。",
+    "sourceName": "Kyiv Independent",
+    "sourceUrl": "https://kyivindependent.com/russian-attack-damages-over-40-homes-in-kharkiv-injures-6/"
+   },
+   {
+    "index": 2,
+    "country": {
+     "code": "RU",
+     "flag": "🇷🇺",
+     "name": "ロシア"
+    },
+    "headline": "モスクワへのドローン攻撃翌日、ウクライナで3人死亡",
+    "summary": "ウクライナのドローンがモスクワで子ども1人を死亡させた翌日、ロシアが報復としてウクライナで市民3人を殺害し、各地で負傷者も出た。一撃が次の一撃を呼び、首都どうしが戦火に引き込まれている。",
+    "sourceName": "Al Jazeera",
+    "sourceUrl": "https://www.aljazeera.com/news/2026/6/19/three-killed-in-ukraine-a-day-after-drone-attack-kills-child-in-moscow"
+   },
+   {
+    "index": 3,
+    "country": {
+     "code": "UA",
+     "flag": "🇺🇦",
+     "name": "ウクライナ"
+    },
+    "headline": "ロシアの攻撃でウクライナ全土の11人死亡、63人負傷",
+    "summary": "ロシアは夜間にShahedドローン90機を発射し、ウクライナは79機を撃墜したが9機が着弾した。ドニプロペトロウシクでは8歳の少女を含む3人が死亡。全土で計11人が亡くなり、63人が負傷した。",
+    "sourceName": "Kyiv Independent",
+    "sourceUrl": "https://kyivindependent.com/11-killed-63-injured-in-russian-strikes-across-ukraine-over-past-day-as-drones-target-foreign-ships-in-odesa-oblast/"
+   }
+  ],
+  "todaysWord": {
+   "word": "casualty",
+   "definitionEn": "a person killed or injured in a war or accident",
+   "definitionJp": "戦争や事故で死傷した人（死傷者）"
+  },
+  "close": ""
+ },
+ "sourceUrls": [
+  "https://kyivindependent.com/russian-attack-damages-over-40-homes-in-kharkiv-injures-6/",
+  "https://www.aljazeera.com/news/2026/6/19/three-killed-in-ukraine-a-day-after-drone-attack-kills-child-in-moscow",
+  "https://kyivindependent.com/11-killed-63-injured-in-russian-strikes-across-ukraine-over-past-day-as-drones-target-foreign-ships-in-odesa-oblast/"
+ ]
 }

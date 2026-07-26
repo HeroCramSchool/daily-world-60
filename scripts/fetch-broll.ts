@@ -172,7 +172,7 @@ const FAL_HERO_MODEL = process.env.FAL_HERO_MODEL ?? "fal-ai/flux-2-pro";
 const FAL_MOTION_ON = process.env.FAL_MOTION !== "off" && process.env.FAL_MOTION !== "0";
 const FAL_MOTION_MODEL = process.env.FAL_MOTION_MODEL ?? "fal-ai/bytedance/seedance/v1/pro/fast/image-to-video";
 
-type StoryLike = { headline: string; summary?: string; imageQueries?: string[]; beatVisuals?: string[]; country?: { name?: string }; index?: number };
+type StoryLike = { headline: string; summary?: string; imageQueries?: string[]; beatVisuals?: string[]; heroMotion?: string; country?: { name?: string }; index?: number };
 
 // 時代錯誤・機材誤りの防止 (実測: ホルムズの「船」が帆船で描かれる等)。全AI画像プロンプト共通。
 const ACCURACY_TAIL = "Present-day 2026 setting with factually accurate modern equipment and vehicles (modern oil tankers, container ships, warships, current military hardware and uniforms, contemporary buildings and clothing). Absolutely no anachronisms: no ancient or sailing vessels, no historical armor or robes, no medieval or fantasy elements, unless the story itself is historical.";
@@ -297,11 +297,20 @@ async function falHeroMotion(story: StoryLike, heroJpg: string, destMp4: string)
   try {
     const img = await fs.readFile(heroJpg);
     const dataUri = `data:image/jpeg;base64,${img.toString("base64")}`;
+    // モーション指示の優先順: Routine の heroMotion (調査事実に基づく精密な動きの記述)
+    // > beatVisuals[0] (シーン内容) + 汎用アンビエント。i2v ベストプラクティス構文:
+    // 被写体の動き → カメラ固定 → 速度/物理 → 質感 → 禁止事項。カメラ移動と過剰モーションが
+    // 不自然さの主因のため camera_fixed + 「実映像の速度」を明示 (2026-07-26 オーナーFB)。
+    const custom = story.heroMotion?.trim();
+    const sceneMotion = custom
+      ? `Motion to animate: ${custom.slice(0, 300)}`
+      : `Scene: ${(story.beatVisuals?.[0] ?? story.headline ?? "news scene").slice(0, 200)}. Animate only the ambient elements that plausibly move: drifting smoke, rippling water, flickering emergency lights, fabric in the wind, distant people or vehicles moving naturally.`;
     const motionPrompt = [
-      `Subtle cinematic live-action motion for a news broadcast: gentle camera drift, ambient movement`,
-      `(smoke drifting, water moving, light flickering, people or vehicles moving slightly).`,
-      `Scene: ${String(story.headline ?? "").slice(0, 140)}.`,
-      `No new objects, no text, no scene change, keep the original composition.`,
+      sceneMotion,
+      `Camera: locked-off tripod shot, absolutely no camera movement, no zoom, no pan.`,
+      `Motion quality: slow, subtle, continuous, physically accurate, real-world speed like genuine news b-roll footage.`,
+      `Photorealistic live-action, consistent lighting and colors, sharp focus throughout.`,
+      `Keep the exact original composition. Do not change, add or remove any objects, faces, text or colors. No scene change, no morphing, no warping, no distortion.`,
     ].join(" ");
     // モデル別スキーマ: Omni Flash は {prompt, image_url, aspect_ratio, duration} のみ
     // (未知フィールドは 422 リスク = FLUX.2 レビューの教訓)。Seedance 系は resolution/seed 等も可。
@@ -311,6 +320,8 @@ async function falHeroMotion(story: StoryLike, heroJpg: string, destMp4: string)
       : {
           prompt: motionPrompt, image_url: dataUri, resolution: "720p", duration: "5",
           aspect_ratio: "9:16", seed: (story.index ?? 1) * 7 + 3, enable_safety_checker: false,
+          // カメラ移動は i2v の warping/不自然さの主因 → モデル側でも固定 (Seedance 系のみ対応)
+          camera_fixed: true,
         };
     const post = (body: Record<string, unknown>) => fetch(`https://fal.run/${FAL_MOTION_MODEL}`, {
       method: "POST",

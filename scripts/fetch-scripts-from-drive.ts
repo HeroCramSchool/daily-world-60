@@ -183,6 +183,7 @@ type RawStory = {
   mapMarkers?: Array<{ lon?: number; lat?: number; label?: string; kind?: string }>;
   mapDay?: string | number;
   mapCounter?: string;
+  heroMotion?: string;
 };
 
 function normalizeScript(
@@ -234,6 +235,7 @@ function normalizeScript(
       ...(Array.isArray(s.mapMarkers) && s.mapMarkers.length ? { mapMarkers: s.mapMarkers } : {}),
       ...(s.mapDay !== undefined && s.mapDay !== null ? { mapDay: s.mapDay } : {}),
       ...(s.mapCounter ? { mapCounter: s.mapCounter } : {}),
+      ...(s.heroMotion ? { heroMotion: s.heroMotion } : {}),
     };
   });
 
