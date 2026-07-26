@@ -201,12 +201,15 @@ async function buildOne(dir: string, story: Story) {
     return seq;
   };
 
-  // Hook
-  scenes.push({
-    id: "01-hook",
-    dur: tHookEnd,
-    svg: hookSvg(story),
-  });
+  // Hook: hero motion clip (fal Seedance i2v・FAL_KEY 時のみ fetch-broll が生成) があれば
+  // 静止画 Ken Burns の代わりに「実際に動く」ヒーロー映像 + 透明UIオーバーレイ。無ければ従来。
+  const heroMotion = `hero-${code}-s${story.index}.motion.mp4`;
+  const hasHeroMotion = await fs.access(path.join(dir, "_assets", heroMotion)).then(() => true).catch(() => false);
+  if (hasHeroMotion) {
+    scenes.push({ id: "01-hook", dur: tHookEnd, svg: hookSvg(story, true), motionFile: heroMotion, motionSeek: 0 });
+  } else {
+    scenes.push({ id: "01-hook", dur: tHookEnd, svg: hookSvg(story) });
+  }
 
   // Body cues: キネティック字幕。各 cue を「尺(MAX_SCENE_SEC)」と「語数(MAX_WORDS_PER_CHUNK)」の
   // 両方で割って 3-6語の短いチャンクに分割し、チャンクごとに新カット(bg-2..8循環)＋モーションで
@@ -304,7 +307,11 @@ async function buildOne(dir: string, story: Story) {
   // 再視聴を誘発)。旧「PLEASE SUBSCRIBE」の死に区間は廃止 (2026-06-20 リテンション改善)。尺も短くキャップ。
   if (outroCues.length) {
     const outroDur = outroCues.reduce((acc, c) => acc + (c.end - c.start), 0);
-    scenes.push({ id: "04-loop", dur: Math.max(1.2, Math.min(2.5, outroDur)), svg: hookSvg(story) });
+    if (hasHeroMotion) {
+      scenes.push({ id: "04-loop", dur: Math.max(1.2, Math.min(2.5, outroDur)), svg: hookSvg(story, true), motionFile: heroMotion, motionSeek: 0 });
+    } else {
+      scenes.push({ id: "04-loop", dur: Math.max(1.2, Math.min(2.5, outroDur)), svg: hookSvg(story) });
+    }
   }
 
   // 端数 (audio + 0.4s pad) は最終シーンに吸収させる
@@ -591,7 +598,7 @@ function wrap(text: string, maxChars: number, maxLines = 5): string[] {
  *   - 特大フックテキスト (hookText 3-6語、無ければ headline)
  *   - 国旗+国名は左上の小チップに格下げ
  */
-function hookSvg(story: Story): string {
+function hookSvg(story: Story, noBg = false): string {
   const code = story.country.code.toLowerCase();
   const countryName = story.country.name ?? story.country.code;
   const cnText = countryName.toUpperCase();
@@ -631,8 +638,8 @@ function hookSvg(story: Story): string {
     </linearGradient>
   </defs>
   <!-- Dramatic photo is the hero -->
-  <image href="_assets/bg-${code}-s${story.index}-1.jpg" x="0" y="0" width="${W}" height="${H}"
-         preserveAspectRatio="xMidYMid slice"/>
+${noBg ? "" : `  <image href="_assets/bg-${code}-s${story.index}-1.jpg" x="0" y="0" width="${W}" height="${H}"
+         preserveAspectRatio="xMidYMid slice"/>`}
   <rect width="${W}" height="${H}" fill="url(#hookDarken)"/>
 
   <rect x="0" y="0" width="${W}" height="60" fill="#F5E63B"/>

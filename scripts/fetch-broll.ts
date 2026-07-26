@@ -164,6 +164,10 @@ const POLLINATIONS_API = "https://image.pollinations.ai/prompt/";
 // ニュース題材も描ける (Google 系 Nano Banana は実在人物/暴力を拒否するため hero には不適)。
 const FAL_KEY = process.env.FAL_KEY?.trim();
 const FAL_HERO_MODEL = process.env.FAL_HERO_MODEL ?? "fal-ai/flux-2-pro";
+// AI動画: hero 静止画 → 5秒モーションクリップ (Seedance 1.0 Pro Fast i2v)。FAL_KEY がある時のみ。
+// 720pで1本 ~$0.11 → 3本/日 ≈ $10/月。FAL_MOTION=off で画像のみに戻せる。
+const FAL_MOTION_ON = process.env.FAL_MOTION !== "off" && process.env.FAL_MOTION !== "0";
+const FAL_MOTION_MODEL = process.env.FAL_MOTION_MODEL ?? "fal-ai/bytedance/seedance/v1/pro/fast/image-to-video";
 
 type StoryLike = { headline: string; summary?: string; imageQueries?: string[]; beatVisuals?: string[]; country?: { name?: string }; index?: number };
 
@@ -243,6 +247,49 @@ async function falHero(prompt: string, seed: number, dest: string): Promise<bool
     return true;
   } catch (e) {
     console.warn(`[broll] fal hero failed (${e instanceof Error ? e.message : e}) — falling back to free Pollinations`);
+    return false;
+  }
+}
+
+/** hero 静止画 → 5秒モーション mp4 (fal Seedance i2v)。失敗/未設定は false (静止画のまま = 無害)。
+ *  動画生成は数十秒かかるため sync fal.run + 長め timeout。生成物は hook + ループ末尾で使われる。 */
+async function falHeroMotion(story: StoryLike, heroJpg: string, destMp4: string): Promise<boolean> {
+  if (!FAL_KEY || !FAL_MOTION_ON) return false;
+  try {
+    const img = await fs.readFile(heroJpg);
+    const dataUri = `data:image/jpeg;base64,${img.toString("base64")}`;
+    const motionPrompt = [
+      `Subtle cinematic live-action motion for a news broadcast: gentle camera drift, ambient movement`,
+      `(smoke drifting, water moving, light flickering, people or vehicles moving slightly).`,
+      `Scene: ${String(story.headline ?? "").slice(0, 140)}.`,
+      `No new objects, no text, no scene change, keep the original composition.`,
+    ].join(" ");
+    const res = await fetch(`https://fal.run/${FAL_MOTION_MODEL}`, {
+      method: "POST",
+      headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: motionPrompt,
+        image_url: dataUri,
+        resolution: "720p",
+        duration: "5",
+        aspect_ratio: "9:16",
+        seed: (story.index ?? 1) * 7 + 3,
+        enable_safety_checker: false,
+      }),
+      signal: AbortSignal.timeout(240000),
+    });
+    if (!res.ok) throw new Error(`fal motion HTTP ${res.status}`);
+    const json = (await res.json()) as { video?: { url?: string } };
+    const url = json.video?.url;
+    if (!url) throw new Error("fal motion: no video url");
+    const vid = await fetch(url, { signal: AbortSignal.timeout(120000) });
+    if (!vid.ok) throw new Error(`fal motion download HTTP ${vid.status}`);
+    const buf = Buffer.from(await vid.arrayBuffer());
+    if (buf.length < 50000) throw new Error("fal motion: too-small video");
+    await fs.writeFile(destMp4, buf);
+    return true;
+  } catch (e) {
+    console.warn(`[broll] fal hero motion failed (${e instanceof Error ? e.message : e}) — keeping still hero`);
     return false;
   }
 }
@@ -440,9 +487,16 @@ async function main() {
     // 失敗/コンテンツ拒否 (戦争・実在人物等で起こりうる) 時は stock の hero を維持 (無害なフォールバック)。
     if (AI_HERO_ON) {
       try {
-        const engine = await generateAIHero(story, path.join(assets, `bg-${code}-s${story.index}-1.jpg`));
+        const heroJpg = path.join(assets, `bg-${code}-s${story.index}-1.jpg`);
+        const engine = await generateAIHero(story, heroJpg);
         creditLines.push(`- bg-${code}-s${story.index}-1.jpg — AI illustration (${engine})`);
         console.log(`[broll] ${code}: AI hero generated (${engine})`);
+        // hero を5秒モーション化 (FAL_KEY 時のみ)。成功時 build がフック/ループで動画を使う。
+        const motionMp4 = path.join(assets, `hero-${code}-s${story.index}.motion.mp4`);
+        if (await falHeroMotion(story, heroJpg, motionMp4)) {
+          creditLines.push(`- hero-${code}-s${story.index}.motion.mp4 — AI motion clip (fal.ai ${FAL_MOTION_MODEL})`);
+          console.log(`[broll] ${code}: hero motion clip generated (fal.ai Seedance)`);
+        }
       } catch (e) {
         console.warn(`[broll] AI hero gen failed (${code}): ${e instanceof Error ? e.message : e} — keeping stock hero`);
       }
