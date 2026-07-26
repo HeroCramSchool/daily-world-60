@@ -164,10 +164,12 @@ const POLLINATIONS_API = "https://image.pollinations.ai/prompt/";
 // ニュース題材も描ける (Google 系 Nano Banana は実在人物/暴力を拒否するため hero には不適)。
 const FAL_KEY = process.env.FAL_KEY?.trim();
 const FAL_HERO_MODEL = process.env.FAL_HERO_MODEL ?? "fal-ai/flux-2-pro";
-// AI動画: hero 静止画 → 5秒モーションクリップ (Seedance 1.0 Pro Fast i2v)。FAL_KEY がある時のみ。
-// 720pで1本 ~$0.11 → 3本/日 ≈ $10/月。FAL_MOTION=off で画像のみに戻せる。
+// AI動画: hero 静止画 → 5秒モーションクリップ。FAL_KEY がある時のみ。FAL_MOTION=off で画像のみ。
+// 既定 = Gemini Omni Flash (AA i2vアリーナ絶対1位・オーナー選定 2026-07-26)。720p ~$0.13/秒 ≈ $0.65/5秒。
+// Google系はニュース紛争画像を拒否しうる → 失敗は静止画に無害降格し、ログで拒否率を監視して
+// 高ければ Kling 3.0 (fal-ai/kling-video/v3/standard/image-to-video) 等へ env 切替する運用。
 const FAL_MOTION_ON = process.env.FAL_MOTION !== "off" && process.env.FAL_MOTION !== "0";
-const FAL_MOTION_MODEL = process.env.FAL_MOTION_MODEL ?? "fal-ai/bytedance/seedance/v1/pro/fast/image-to-video";
+const FAL_MOTION_MODEL = process.env.FAL_MOTION_MODEL ?? "google/gemini-omni-flash/image-to-video";
 
 type StoryLike = { headline: string; summary?: string; imageQueries?: string[]; beatVisuals?: string[]; country?: { name?: string }; index?: number };
 
@@ -264,20 +266,27 @@ async function falHeroMotion(story: StoryLike, heroJpg: string, destMp4: string)
       `Scene: ${String(story.headline ?? "").slice(0, 140)}.`,
       `No new objects, no text, no scene change, keep the original composition.`,
     ].join(" ");
-    const res = await fetch(`https://fal.run/${FAL_MOTION_MODEL}`, {
+    // モデル別スキーマ: Omni Flash は {prompt, image_url, aspect_ratio, duration} のみ
+    // (未知フィールドは 422 リスク = FLUX.2 レビューの教訓)。Seedance 系は resolution/seed 等も可。
+    const isGemini = FAL_MOTION_MODEL.includes("gemini-omni-flash");
+    const bodyFull = isGemini
+      ? { prompt: motionPrompt, image_url: dataUri, aspect_ratio: "9:16", duration: "5" }
+      : {
+          prompt: motionPrompt, image_url: dataUri, resolution: "720p", duration: "5",
+          aspect_ratio: "9:16", seed: (story.index ?? 1) * 7 + 3, enable_safety_checker: false,
+        };
+    const post = (body: Record<string, unknown>) => fetch(`https://fal.run/${FAL_MOTION_MODEL}`, {
       method: "POST",
       headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt: motionPrompt,
-        image_url: dataUri,
-        resolution: "720p",
-        duration: "5",
-        aspect_ratio: "9:16",
-        seed: (story.index ?? 1) * 7 + 3,
-        enable_safety_checker: false,
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(240000),
     });
+    let res = await post(bodyFull);
+    if (res.status === 422) {
+      // スキーマ不一致 (aspect_ratio/duration の型違い等) → 最小ボディで一度だけ自己回復リトライ。
+      console.warn(`[broll] fal motion 422 with full body — retrying minimal {prompt, image_url}`);
+      res = await post({ prompt: motionPrompt, image_url: dataUri });
+    }
     if (!res.ok) throw new Error(`fal motion HTTP ${res.status}`);
     const json = (await res.json()) as { video?: { url?: string } };
     const url = json.video?.url;

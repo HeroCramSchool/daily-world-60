@@ -366,7 +366,7 @@ async function buildOne(dir: string, story: Story) {
         "-stream_loop", "-1", "-ss", (sc.motionSeek ?? 0).toFixed(2), "-i", path.join(dir, "_assets", sc.motionFile),
         "-loop", "1", "-i", pngPath,
         "-filter_complex",
-        `[0:v]setsar=1[b];[b][1:v]overlay=0:0${sc.fadeIn ? ",fade=t=in:st=0:d=0.22" : ""},format=yuv420p`,
+        `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1[b];[b][1:v]overlay=0:0${sc.fadeIn ? ",fade=t=in:st=0:d=0.22" : ""},format=yuv420p`,
         "-t", Math.max(0.1, sc.dur).toFixed(3),
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", String(FPS),
         mp4Path,
