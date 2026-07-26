@@ -218,6 +218,20 @@ async function pollinate(prompt: string, seed: number, dest: string, timeoutMs: 
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
 
+// fal の入力コンテンツチェッカーは紛争ニュースの語彙 (bombs/strike/killed 等) を弾く
+// (2026-07-26 実測: content_policy_violation)。検閲422時は暴力語彙を中立的な視覚語に
+// 置換したプロンプトで一度だけ再試行する (シーンの絵としての情報は保つ)。
+const VIOLENCE_RE = /\b(wars?|warfare|attack(?:s|ed|ing)?|strikes?|struck|bomb(?:s|ed|ing)?|missiles?|kill(?:s|ed|ing)?|dead|deaths?|casualt(?:y|ies)|blood(?:y)?|combat|battles?|shell(?:s|ed|ing)?|explosions?|blasts?|troops?|soldiers?|weapons?|guns?|invasion|offensive|warships?|military hardware)\b/gi;
+
+function scrubViolence(prompt: string): string {
+  return prompt
+    .replace(VIOLENCE_RE, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.])/g, "$1")
+    .replace(/,\s*,/g, ",")
+    .trim();
+}
+
 /** fal.ai の高品質モデルで hero を生成 (FAL_KEY 必須)。失敗/未設定は false を返し呼び出し側が無料経路へ。 */
 async function falHero(prompt: string, seed: number, dest: string): Promise<boolean> {
   if (!FAL_KEY) return false;
@@ -230,8 +244,8 @@ async function falHero(prompt: string, seed: number, dest: string): Promise<bool
     });
     // FLUX.2 pro は width/height に multiple_of:16 を要求 (1080 は不適合 → 422)。
     // 16の倍数の 1088x1920 で生成し、下の sharp cover-crop で 1080x1920 に確定させる。
-    let res = await post({
-      prompt: prompt.slice(0, 2000),
+    const fullBody = (pr: string) => ({
+      prompt: pr.slice(0, 2000),
       image_size: { width: 1088, height: 1920 },
       seed,
       output_format: "jpeg",
@@ -239,11 +253,23 @@ async function falHero(prompt: string, seed: number, dest: string): Promise<bool
       enable_safety_checker: false,
       safety_tolerance: "5",
     });
+    let res = await post(fullBody(prompt));
+    if (res.status === 403) {
+      // チャージ直後の残高同期ラグ (実測: "User is locked. Exhausted balance" が数十秒残る)
+      await sleep(20000);
+      res = await post(fullBody(prompt));
+    }
     if (res.status === 422) {
-      // スキーマ不一致 → 原因特定のため応答本文をログし、最小ボディで一度だけ自己回復リトライ。
       const detail = await res.text().catch(() => "");
-      console.warn(`[broll] fal hero 422 detail: ${detail.slice(0, 300)} — retrying minimal body`);
-      res = await post({ prompt: prompt.slice(0, 2000), image_size: { width: 1088, height: 1920 } });
+      console.warn(`[broll] fal hero 422 detail: ${detail.slice(0, 300)}`);
+      if (detail.includes("content_policy")) {
+        // 入力検閲: 暴力語彙を除去したサニタイズ版で再試行
+        console.warn(`[broll] fal hero: retrying with violence-scrubbed prompt`);
+        res = await post(fullBody(scrubViolence(prompt)));
+      } else {
+        // スキーマ不一致: 最小ボディで再試行
+        res = await post({ prompt: prompt.slice(0, 2000), image_size: { width: 1088, height: 1920 } });
+      }
     }
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
@@ -293,6 +319,11 @@ async function falHeroMotion(story: StoryLike, heroJpg: string, destMp4: string)
       signal: AbortSignal.timeout(240000),
     });
     let res = await post(bodyFull);
+    if (res.status === 403) {
+      // チャージ直後の残高同期ラグ (実測) → 20秒待って一度だけ再試行
+      await sleep(20000);
+      res = await post(bodyFull);
+    }
     if (res.status === 422) {
       // スキーマ不一致 (aspect_ratio/duration の型違い等) → 最小ボディで一度だけ自己回復リトライ。
       const detail = await res.text().catch(() => "");
