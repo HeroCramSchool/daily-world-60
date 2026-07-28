@@ -13,7 +13,7 @@ import type { drive_v3 } from "googleapis";
  */
 
 const FOLDER_NAME = process.env.DRIVE_FOLDER_NAME ?? "Daily World 60";
-const WATCH_FALLBACK_DAYS = 14;
+const WATCH_FALLBACK_DAYS = 21;
 
 async function main() {
   const now = Date.now();

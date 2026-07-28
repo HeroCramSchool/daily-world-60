@@ -14,9 +14,11 @@ import type { drive_v3 } from "googleapis";
  */
 
 const FOLDER_NAME = process.env.DRIVE_FOLDER_NAME ?? "Daily World 60";
-const COHORT_DAYS = 21;
+// 実測補正 (2026-07-28): 動画は1-2週かけて伸びるので 48h 比較は無意味だった
+// (若い動画 vs 成熟動画を比べていた)。7日時点で比較し、7日未満はコホートから除外。
+const COHORT_DAYS = 35;
 const MIN_COHORT = 8;
-const AT_HOURS = 48;
+const AT_HOURS = 168;
 
 type Row = {
   v: VideoStat;
@@ -119,8 +121,8 @@ async function main() {
     patterns = [
       `# Winning Patterns (auto, ${today})`,
       ``,
-      `直近${COHORT_DAYS}日 ${cohort.length}本を公開48h時点の視聴数で比較 (中央値 ${med})。`,
-      `公開視聴数は絶対値が水増しされるため相対比較のみ。`,
+      `直近${COHORT_DAYS}日 ${cohort.length}本を公開7日時点の視聴数で比較 (中央値 ${med})。`,
+      `公開視聴数は絶対値が水増しされるため相対比較のみ。本chは1-2週で伸びるため7日時点で評価。`,
       ``,
       `## 勝ち (>=2x中央値)`,
       ...(winners.length ? winners.sort((a, b) => b.at48! - a.at48!).map(fmt) : ["- なし"]),
@@ -144,13 +146,13 @@ async function main() {
   const report = [
     `# DW60 stats report (auto, ${today})`,
     ``,
-    `| title | code | published | views@48h | now | age(d) |`,
+    `| title | code | published | views@7d | now | age(d) |`,
     `|---|---|---|---|---|---|`,
     ...tracked.map(r =>
       `| ${r.v.title.replace(/ #Shorts.*$/, "").replace(/\|/g, "/").slice(0, 48)} | ${r.v.code ?? "?"} | ${r.v.publishedAt.slice(0, 10)} | ${r.at48 ?? "-"} | ${r.current} | ${r.ageDays.toFixed(1)} |`,
     ),
     ``,
-    `追跡 ${tracked.length} 本 / 履歴 ${rows.length} 本。views@48h "-" = 追跡開始前公開などで48h時点の値が無い動画。`,
+    `追跡 ${tracked.length} 本 / 履歴 ${rows.length} 本。views@7d "-" = 7日時点の値が無い動画 (追跡開始前公開/まだ7日未満)。`,
     `公開14日を超えた動画は視聴数の更新を停止するため now は最終記録値。`,
   ].join("\n");
 

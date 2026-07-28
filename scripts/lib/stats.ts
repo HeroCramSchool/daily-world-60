@@ -10,7 +10,10 @@ import type { drive_v3 } from "googleapis";
 
 export const HISTORY_NAME = "stats-history.json";
 export const CHANNEL_ID = process.env.YT_CHANNEL_ID ?? "UCDRss308_F5cXUftvHLhkBA";
-export const TRACK_DAYS = 30;
+// 実測 (2026-07-28 Studio 照合): 本チャンネルの Shorts は公開後1-2週かけて伸びる
+// (例「DAY 5: US STRIKES IRAN AGAIN」= 公開翌日3回 → 9日後1,383回)。
+// 48h評価は若い動画を過小評価し誤った結論を出すため、追跡窓を延長。
+export const TRACK_DAYS = 45;
 
 export type Snapshot = { t: string; views: number };
 
