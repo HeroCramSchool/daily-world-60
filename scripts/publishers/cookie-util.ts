@@ -30,7 +30,7 @@ export function normalizeCookies(raw: Array<Record<string, unknown>>): Cookie[] 
     else if (ss === "strict" || ss === "Strict") cookie.sameSite = "Strict";
     // null / unstrict / "unspecified" → 省略（Playwright がデフォルト適用）
 
-    return cookie as Cookie;
+    return cookie as unknown as Cookie;
   });
 }
 

@@ -73,7 +73,7 @@ export async function launchStealthContext(profileDir: string): Promise<BrowserC
     const origQuery = window.navigator.permissions.query.bind(window.navigator.permissions);
     window.navigator.permissions.query = (params: PermissionDescriptor) => {
       if (params.name === "notifications") {
-        return Promise.resolve({ state: "default" } as PermissionStatus);
+        return Promise.resolve({ state: "default" } as unknown as PermissionStatus);
       }
       return origQuery(params);
     };

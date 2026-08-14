@@ -101,11 +101,11 @@ async function main() {
   const script: ScriptJson = JSON.parse(await fs.readFile(path.join(dir, "script-en.json"), "utf-8"));
 
   for (const story of script.stories) {
-    await buildOne(dir, story);
+    await buildOne(dir, story, date);
   }
 }
 
-async function buildOne(dir: string, story: Story) {
+async function buildOne(dir: string, story: Story, date: string) {
   const code = story.country.code.toLowerCase();
   const audio = path.join(dir, `voice-${code}.mp3`);
   const vtt = path.join(dir, `voice-${code}.vtt`);
@@ -411,7 +411,7 @@ async function buildOne(dir: string, story: Story) {
   if (SFX_ON) {
     try {
       const events: Array<{ t: number; kind: "whoosh" | "impact" }> = [
-        { t: tHookEnd, kind: "impact" },
+        { t: tHookEnd, kind: "impact" as const },
         ...bodyCues.slice(1, 11).map(c => ({ t: c.start, kind: "whoosh" as const })),
       ].filter(e => e.t > 0.05 && e.t < total - 0.3);
       sfxFile = await buildSfxTrack(dir, code, events, total);

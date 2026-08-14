@@ -56,7 +56,7 @@ export async function publishTikTok(
     ];
     const findFileInput = async (timeoutMs: number) => {
       for (const sel of fileInputSelectors) {
-        const el = page.locator(sel).first();
+        const el = page!.locator(sel).first();
         try {
           await el.waitFor({ state: "attached", timeout: timeoutMs });
           console.log(`[tiktok] file input found via: ${sel}`);
