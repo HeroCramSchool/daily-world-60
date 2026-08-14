@@ -423,8 +423,14 @@ async function buildOne(dir: string, story: Story) {
 
   // BGM (news bed) をナレーションの下に低音量でミックス。
   // assets/news-bed.mp3 (または BGM_PATH) が無ければ BGM なしで従来どおり。
-  const bgmFile = process.env.BGM_PATH ?? path.join("assets", "news-bed.mp3");
-  const hasBgm = await fs.access(bgmFile).then(() => true).catch(() => false);
+  // BGM: 「多くの動画でまったく同じBGM」は YouTube のスパムポリシーが AI 量産の例として
+  // 名指ししている構成 (2026-08 調査)。同じ曲の同じ区間を全動画で使い回さないよう、
+  //   (1) assets/bgm/ に複数ファイルがあれば日付+国+indexで決定的にローテ
+  //   (2) 選ばれた曲の中でも動画ごとに違う開始位置 (区間) を使う
+  // で毎本違う音にする。BGM_PATH 指定時はその曲を使い、区間だけ変える。
+  const bgm = await pickBgm(date, code, story.index);
+  const bgmFile = bgm.file;
+  const hasBgm = bgm.file.length > 0;
   // BGM はナレーションをキーにした自動ダッキング (声の間だけ下がる)。既定0.25はダッキング前提の
   // プリレベル (旧固定 0.10 より存在感を出しつつ声は常に前)。最終段で -14 LUFS (YouTube正規化目標)。
   const bgmVol = process.env.BGM_VOLUME ?? "0.25";
@@ -438,7 +444,7 @@ async function buildOne(dir: string, story: Story) {
 
   // 入力: 0=video, 1=voice, (+bgm), (+sfx)。組み合わせで音声グラフを組む。
   const inputArgs: string[] = ["-i", bgVideo, "-i", audio];
-  if (hasBgm) inputArgs.push("-stream_loop", "-1", "-i", bgmFile);
+  if (hasBgm) inputArgs.push("-stream_loop", "-1", "-ss", bgm.offset.toFixed(2), "-i", bgmFile);
   if (sfxFile) inputArgs.push("-i", sfxFile);
   const sfxIdx = hasBgm ? 3 : 2;
   const DUCK = `sidechaincompress=threshold=0.02:ratio=8:attack=20:release=300`;
@@ -470,7 +476,7 @@ async function buildOne(dir: string, story: Story) {
     "-r", String(FPS),
     out,
   ];
-  if (hasBgm) console.log(`[news] ${code}: mixing BGM (${bgmFile}, vol ${bgmVol})`);
+  if (hasBgm) console.log(`[news] ${code}: mixing BGM (${path.basename(bgmFile)} @${bgm.offset.toFixed(1)}s, vol ${bgmVol})`);
   if (sfxFile) console.log(`[news] ${code}: mixing SFX (vol ${SFX_VOL})`);
   await run("ffmpeg", muxArgs);
 
@@ -962,6 +968,46 @@ function ffprobeDuration(file: string): Promise<number> {
     });
   });
 }
+/** 文字列 → 32bit 決定的ハッシュ (BGM/区間のローテ用。乱数を使わず再現可能にする)。 */
+function hashStr(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h);
+}
+
+/**
+ * この動画で使う BGM ファイルと開始位置を決める。
+ * assets/bgm/*.mp3|m4a|wav が複数あればそこからローテ、無ければ assets/news-bed.mp3。
+ * 開始位置は曲長に応じて決定的に散らす (同じ動画は毎回同じ = 再レンダで音が変わらない)。
+ */
+async function pickBgm(date: string, code: string, storyIndex: number): Promise<{ file: string; offset: number }> {
+  const seed = hashStr(`${date}-${code}-${storyIndex}`);
+  let file = process.env.BGM_PATH ?? "";
+  if (!file) {
+    const poolDir = path.join("assets", "bgm");
+    const pool = await fs.readdir(poolDir)
+      .then(fs2 => fs2.filter(f => /\.(mp3|m4a|wav|ogg)$/i.test(f)).sort())
+      .catch(() => [] as string[]);
+    file = pool.length
+      ? path.join(poolDir, pool[seed % pool.length])
+      : path.join("assets", "news-bed.mp3");
+  }
+  if (!(await fs.access(file).then(() => true).catch(() => false))) return { file: "", offset: 0 };
+  // 曲の中で開始位置をずらす。末尾20秒は残す (ループ前提だが不自然な繋ぎを減らす)。
+  // 日付でベース位置を回し、story index で等間隔にずらす = 同日の3本が必ず別区間になる
+  // (単純ハッシュだと同日内で衝突しうるため)。
+  const dur = await ffprobeDuration(file).catch(() => 0);
+  const span = Math.max(0, dur - 20);
+  if (span <= 1) return { file, offset: 0 };
+  const base = hashStr(date) % Math.floor(span);
+  const stride = Math.floor(span / 3);
+  const offset = (base + (Math.max(1, storyIndex) - 1) * stride) % Math.floor(span);
+  return { file, offset };
+}
+
 /**
  * SFX 素材を ffmpeg lavfi で合成 (whoosh=ピンクノイズ帯域スイープ / impact=低域サイン+クリック)。
  * 外部素材ゼロ = ライセンス/Content ID リスクなし。素材は run ごとに1回だけ生成して再利用。
