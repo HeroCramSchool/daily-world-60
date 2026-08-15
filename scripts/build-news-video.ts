@@ -87,6 +87,8 @@ interface Story {
   mapMarkers?: Array<{ lon?: number; lat?: number; label?: string; kind?: string }>;
   mapDay?: string | number;
   mapCounter?: string;
+  /** 末尾の視聴者への問いかけ (2026-08)。音声の最後に読み上げ + 最終カードで大きく表示。 */
+  commentQuestion?: string;
 }
 interface ScriptJson {
   date: string;
@@ -306,14 +308,26 @@ async function buildOne(dir: string, story: Story, date: string) {
     });
   });
 
-  // Outro: 末尾はフック画面に戻す = シームレスループ (Shorts の自動ループで end→start が繋がり
-  // 再視聴を誘発)。旧「PLEASE SUBSCRIBE」の死に区間は廃止 (2026-06-20 リテンション改善)。尺も短くキャップ。
+  // Outro: 「締め」→フック画面に戻す (ループ接続)、その後「問いかけ」→質問カード。
+  // 問いかけ (2026-08 要望) はナレーション末尾の '?' で終わるキューを目印に分離する。
+  // ループ再生は engaged view に数えられない (2026-08 調査) ため、末尾はコメント誘導を優先。
   if (outroCues.length) {
-    const outroDur = outroCues.reduce((acc, c) => acc + (c.end - c.start), 0);
-    if (hasHeroMotion) {
-      scenes.push({ id: "04-loop", dur: Math.max(1.2, Math.min(2.5, outroDur)), svg: hookSvg(story, true), motionFile: heroMotion, motionSeek: 0 });
-    } else {
-      scenes.push({ id: "04-loop", dur: Math.max(1.2, Math.min(2.5, outroDur)), svg: hookSvg(story) });
+    const qIdx = outroCues.findIndex(c => /\?\s*$/.test(c.text.trim()));
+    const loopCues = qIdx >= 0 ? outroCues.slice(0, qIdx) : outroCues;
+    const questionCues = qIdx >= 0 ? outroCues.slice(qIdx) : [];
+    const sumDur = (cs: VttCue[]) => cs.reduce((acc, c) => acc + (c.end - c.start), 0);
+
+    if (loopCues.length) {
+      const loopDur = Math.max(1.2, Math.min(2.5, sumDur(loopCues)));
+      if (hasHeroMotion) {
+        scenes.push({ id: "04-loop", dur: loopDur, svg: hookSvg(story, true), motionFile: heroMotion, motionSeek: 0 });
+      } else {
+        scenes.push({ id: "04-loop", dur: loopDur, svg: hookSvg(story) });
+      }
+    }
+    if (questionCues.length) {
+      const qText = questionCues.map(c => c.text.trim()).join(" ");
+      scenes.push({ id: "05-question", dur: Math.max(1.5, sumDur(questionCues)), svg: questionSvg(story, qText), fadeIn: true });
     }
   }
 
@@ -607,6 +621,58 @@ function wrap(text: string, maxChars: number, maxLines = 5): string[] {
  *   - 特大フックテキスト (hookText 3-6語、無ければ headline)
  *   - 国旗+国名は左上の小チップに格下げ
  */
+/**
+ * 末尾の問いかけカード (2026-08)。hero 画像を暗く敷き、"WHAT DO YOU THINK?" ラベルと
+ * story 固有の質問を大きく出してコメントを誘導する。音声の最終文と同じ内容が画面に出る。
+ */
+function questionSvg(story: Story, spokenText: string): string {
+  const code = story.country.code.toLowerCase();
+  const accent = accentFor(story.index);
+  // 読み上げ文から汎用の締め ("What do you think about this?") を除き、story 固有の問いを主役にする。
+  const specific = (story.commentQuestion ?? "").replace(/\s+/g, " ").trim();
+  const fallback = spokenText.replace(/what do you think about this\??/i, "").trim();
+  const qRaw = (specific || fallback || "What do you think about this?").replace(/[?.!]+$/, "") + "?";
+  const boxX = 60, boxY = 900, boxW = 960, boxH = 620;
+  const fit = fitTextBox(qRaw, boxW - 80, boxH - 200, [76, 68, 62, 56, 50, 46, 42, 38]);
+  const totalH = fit.lines.length * fit.lineHeight;
+  const startY = boxY + 170 + (boxH - 200 - totalH) / 2 + fit.fontSize;
+  let qSvg = "";
+  fit.lines.forEach((line, i) => {
+    qSvg += `\n  <text x="540" y="${startY + i * fit.lineHeight}" text-anchor="middle" font-family="Hiragino Sans" font-weight="900"
+        font-size="${fit.fontSize}" fill="#FFFFFF" letter-spacing="-1"${clampAttr(line, fit.fontSize, boxW - 80, -1)}>${escape(line)}</text>`;
+  });
+  const label = "WHAT DO YOU THINK?";
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+  <defs>
+    <linearGradient id="qDarken" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0A0A0A" stop-opacity="0.86"/>
+      <stop offset="50%" stop-color="#0A0A0A" stop-opacity="0.90"/>
+      <stop offset="100%" stop-color="#0A0A0A" stop-opacity="0.96"/>
+    </linearGradient>
+  </defs>
+  <image href="_assets/bg-${code}-s${story.index}-1.jpg" x="0" y="0" width="${W}" height="${H}"
+         preserveAspectRatio="xMidYMid slice"/>
+  <rect width="${W}" height="${H}" fill="url(#qDarken)"/>
+
+  <rect x="0" y="0" width="${W}" height="60" fill="${accent}"/>
+
+  <!-- 吹き出しアイコン + ラベル -->
+  <g transform="translate(${boxX}, ${boxY})">
+    <rect x="0" y="0" width="96" height="72" rx="18" fill="${accent}"/>
+    <polygon points="22,72 22,104 54,72" fill="${accent}"/>
+    <text x="126" y="54" font-family="Hiragino Sans" font-weight="900" font-size="46"
+          fill="${accent}" letter-spacing="4"${clampAttr(label, 46, boxW - 140, 4)}>${escape(label)}</text>
+  </g>
+  ${qSvg}
+
+  <text x="540" y="${boxY + boxH + 60}" text-anchor="middle" font-family="Hiragino Sans" font-weight="700"
+        font-size="40" fill="#D1D5DB" letter-spacing="2">Comment below</text>
+
+  ${sourceFooter(story)}
+</svg>`;
+}
+
 function hookSvg(story: Story, noBg = false): string {
   const code = story.country.code.toLowerCase();
   const countryName = story.country.name ?? story.country.code;

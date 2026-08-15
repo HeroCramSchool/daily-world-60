@@ -47,6 +47,7 @@ export const Script = {
       headline: string;
       summary: string;
       keyword?: { word: string; definitionEn: string };
+      commentQuestion?: string;
     },
   ): string {
     const countryName = s.country.name ?? Country.nameOf(s.country.code);
@@ -62,6 +63,11 @@ export const Script = {
     // 締め: 短いループ接続の一文のみ (登録CTAの「please subscribe」は廃止 = 末尾の死に区間を短縮)。
     // "that's the latest" が outro シーン境界マーカーを兼ねる (末尾はフック画面に戻りループ)。
     lines.push(`And that's the latest from ${countryName}.`);
+    // 最後に視聴者への問いかけ (2026-08 要望)。コメント誘導はエンゲージメント信号になり、
+    // 「独自の視点」を示す材料にもなる。story 固有の質問があればそれを、無ければ汎用文。
+    // '?' で終わる文が末尾に来ることが build 側の質問カード検出の目印を兼ねる。
+    const q = (s.commentQuestion ?? "").replace(/\s+/g, " ").trim();
+    lines.push(q ? `${q.replace(/[?.!]+$/, "")}? What do you think about this?` : `What do you think about this?`);
     return lines.join(" ");
   },
 

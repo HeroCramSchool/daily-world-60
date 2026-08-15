@@ -24,6 +24,7 @@ interface Story {
   summary: string;
   sourceName: string;
   keyword?: Keyword;
+  commentQuestion?: string;
 }
 interface ScriptJson {
   date: string;
