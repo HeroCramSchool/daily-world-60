@@ -2,6 +2,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 import sharp from "sharp";
+import { startPodAndWaitComfy, stopPod } from "./lib/runpod.js";
+import { loadWorkflow, fillWorkflow, uploadImage, submitPrompt, waitForVideo, downloadOutput } from "./lib/comfy.js";
 
 /**
  * 各ストーリーの背景画像を Wikimedia Commons から取得して
@@ -169,6 +171,15 @@ const FAL_HERO_MODEL = process.env.FAL_HERO_MODEL ?? "fal-ai/flux-2-pro";
 // 変えない忠実さ」実測最強・audio off で $0.42/5秒 ≈ 月$38 at 3本/日。生成 5-10分のため
 // queue.fal.run 方式 (sync だと接続維持が持たない)。他候補: Seedance 1.0 Pro Fast ($0.11) /
 // Gemini Omni Flash ($0.65)。拒否/失敗は静止画に無害降格。
+// MOTION_BACKEND: fal (既定・従量API) / runpod (セルフホストGPU=安いが要ポッド) / off。
+// runpod は API 課金ゼロ (GPU時間のみ) だが、失敗したら fal → 静止画 と段階的に降格する。
+const MOTION_BACKEND = (process.env.MOTION_BACKEND ?? "fal").toLowerCase();
+const RUNPOD_POD_ID = process.env.RUNPOD_POD_ID?.trim();
+const COMFY_PORT = Number(process.env.COMFY_PORT ?? "8188");
+const COMFY_WORKFLOW = process.env.COMFY_WORKFLOW ?? path.join("assets", "comfy", "motion-workflow.json");
+const COMFY_WORKFLOW_MAP = process.env.COMFY_WORKFLOW_MAP ?? path.join("assets", "comfy", "motion-workflow.map.json");
+const POD_BOOT_TIMEOUT_MS = Number(process.env.RUNPOD_BOOT_TIMEOUT_MS ?? String(10 * 60000));
+const COMFY_JOB_TIMEOUT_MS = Number(process.env.COMFY_JOB_TIMEOUT_MS ?? String(15 * 60000));
 const FAL_MOTION_ON = process.env.FAL_MOTION !== "off" && process.env.FAL_MOTION !== "0";
 const FAL_MOTION_MODEL = process.env.FAL_MOTION_MODEL ?? "fal-ai/kling-video/v3/standard/image-to-video";
 
@@ -287,6 +298,62 @@ async function falHero(prompt: string, seed: number, dest: string): Promise<bool
   } catch (e) {
     console.warn(`[broll] fal hero failed (${e instanceof Error ? e.message : e}) — falling back to free Pollinations`);
     return false;
+  }
+}
+
+type MotionJob = { story: StoryLike; heroJpg: string; destMp4: string; code: string };
+
+/**
+ * RunPod のポッドを1回だけ起動し、全ストーリーの hero モーションを ComfyUI で順に生成して停止する。
+ * GPU は1枚なので直列。**課金を止めるため停止は finally で必ず実行**する。
+ * どこかで失敗しても残りは続行し、成功したものだけ使う (build 側は無い分を静止画で描く)。
+ */
+async function runpodMotionBatch(jobs: MotionJob[], creditLines: string[]): Promise<void> {
+  if (!jobs.length) return;
+  if (!RUNPOD_POD_ID) {
+    console.warn("[runpod] RUNPOD_POD_ID が未設定 — モーション生成をスキップ (静止画のまま)");
+    return;
+  }
+  let wf, map;
+  try {
+    ({ wf, map } = await loadWorkflow(COMFY_WORKFLOW, COMFY_WORKFLOW_MAP));
+  } catch (e) {
+    console.warn(`[runpod] ワークフロー読み込み失敗 (${e instanceof Error ? e.message : e}) — スキップ`);
+    return;
+  }
+
+  let base = "";
+  try {
+    ({ base } = await startPodAndWaitComfy(RUNPOD_POD_ID, COMFY_PORT, POD_BOOT_TIMEOUT_MS));
+  } catch (e) {
+    console.warn(`[runpod] ポッド起動失敗 (${e instanceof Error ? e.message : e})`);
+    await stopPod(RUNPOD_POD_ID); // 起動途中で失敗しても課金を止める
+    return;
+  }
+
+  const t0 = Date.now();
+  try {
+    for (const job of jobs) {
+      try {
+        const imageName = await uploadImage(base, job.heroJpg);
+        const prompt = klingMotionPrompt(job.story); // 検証済みの i2v プロンプト文法を流用
+        const filled = fillWorkflow(wf, map, { imageName, prompt, seed: (job.story.index ?? 1) * 7 + 3 });
+        const promptId = await submitPrompt(base, filled);
+        console.log(`[runpod] ${job.code}: job ${promptId} submitted`);
+        const ref = await waitForVideo(base, promptId, COMFY_JOB_TIMEOUT_MS);
+        const buf = await downloadOutput(base, ref);
+        if (buf.length < 50000) throw new Error(`too-small video (${buf.length}B)`);
+        await fs.writeFile(job.destMp4, buf);
+        creditLines.push(`- ${path.basename(job.destMp4)} — AI motion clip (self-hosted ComfyUI on RunPod)`);
+        console.log(`[runpod] ${job.code}: hero motion clip generated (self-hosted, ${(buf.length / 1024 / 1024).toFixed(1)}MB)`);
+      } catch (e) {
+        console.warn(`[runpod] ${job.code}: motion failed (${e instanceof Error ? e.message : e}) — この回は静止画`);
+      }
+    }
+  } finally {
+    const mins = (Date.now() - t0) / 60000;
+    const ok = await stopPod(RUNPOD_POD_ID);
+    console.log(`[runpod] pod ${ok ? "stopped" : "STOP FAILED"} after ${mins.toFixed(1)}min of GPU time`);
   }
 }
 
@@ -557,6 +624,8 @@ async function main() {
 
   // hero モーションは生成 5-10 分 (Kling) → 全ストーリー分を並行で回し、最後に待つ。
   const motionJobs: Promise<void>[] = [];
+  // runpod backend は1ポッドを共有するので直列。descriptor を貯めて main 末尾で一括処理。
+  const runpodJobs: MotionJob[] = [];
   const creditLines: string[] = [
     "# Image Credits (auto-fetched: Pexels primary, Wikimedia Commons fallback)",
     "",
@@ -654,12 +723,16 @@ async function main() {
         // hero を5秒モーション化 (FAL_KEY 時のみ)。成功時 build がフック/ループで動画を使う。
         // 並行実行: promise を貯めて main 末尾で待つ (Kling は1本5-10分・直列だとCI予算超過)。
         const motionMp4 = path.join(assets, `hero-${code}-s${story.index}.motion.mp4`);
-        motionJobs.push((async () => {
-          if (await falHeroMotion(story, heroJpg, motionMp4)) {
-            creditLines.push(`- hero-${code}-s${story.index}.motion.mp4 — AI motion clip (fal.ai ${FAL_MOTION_MODEL})`);
-            console.log(`[broll] ${code}: hero motion clip generated (${FAL_MOTION_MODEL})`);
-          }
-        })());
+        if (MOTION_BACKEND === "runpod") {
+          runpodJobs.push({ story, heroJpg, destMp4: motionMp4, code });
+        } else if (MOTION_BACKEND !== "off") {
+          motionJobs.push((async () => {
+            if (await falHeroMotion(story, heroJpg, motionMp4)) {
+              creditLines.push(`- hero-${code}-s${story.index}.motion.mp4 — AI motion clip (fal.ai ${FAL_MOTION_MODEL})`);
+              console.log(`[broll] ${code}: hero motion clip generated (${FAL_MOTION_MODEL})`);
+            }
+          })());
+        }
       } catch (e) {
         console.warn(`[broll] AI hero gen failed (${code}): ${e instanceof Error ? e.message : e} — keeping stock hero`);
       }
@@ -712,6 +785,21 @@ async function main() {
   if (motionJobs.length) {
     console.log(`[broll] waiting for ${motionJobs.length} hero motion job(s)...`);
     await Promise.all(motionJobs);
+  }
+  if (runpodJobs.length) {
+    console.log(`[broll] running ${runpodJobs.length} hero motion job(s) on self-hosted GPU...`);
+    await runpodMotionBatch(runpodJobs, creditLines);
+    // 1本も出来なかった場合だけ fal に降格 (キーがあるときのみ・本数ゼロを避ける保険)
+    const made = await Promise.all(runpodJobs.map(j => exists(j.destMp4)));
+    if (!made.some(Boolean) && FAL_KEY && FAL_MOTION_ON) {
+      console.warn(`[broll] self-hosted GPU で1本も生成できず — fal (${FAL_MOTION_MODEL}) にフォールバック`);
+      for (const j of runpodJobs) {
+        if (await falHeroMotion(j.story, j.heroJpg, j.destMp4)) {
+          creditLines.push(`- ${path.basename(j.destMp4)} — AI motion clip (fal.ai ${FAL_MOTION_MODEL}, fallback)`);
+          console.log(`[broll] ${j.code}: hero motion clip generated (fal fallback)`);
+        }
+      }
+    }
   }
   await fs.writeFile(path.join(assets, "CREDITS.md"), creditLines.join("\n"), "utf-8");
   console.log(`[broll] done → ${assets}`);

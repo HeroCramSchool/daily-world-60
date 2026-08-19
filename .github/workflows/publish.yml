@@ -88,6 +88,13 @@ jobs:
       # 未設定なら fetch-broll が自動で無料 Pollinations にフォールバック (何も壊れない)。
       FAL_KEY: ${{ secrets.FAL_KEY }}
 
+      # AI動画のバックエンド: fal (既定・従量課金) / runpod (セルフホストGPU) / off。
+      # runpod は RUNPOD_API_KEY + RUNPOD_POD_ID の両方が入っている時だけ有効化する。
+      # 失敗時は fal → 静止画 と段階的に降格するので、本数ゼロにはならない。
+      MOTION_BACKEND: ${{ vars.MOTION_BACKEND || 'fal' }}
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      RUNPOD_POD_ID: ${{ secrets.RUNPOD_POD_ID }}
+
       YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
       YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
       YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
@@ -288,6 +295,13 @@ jobs:
         if: always()
         continue-on-error: true
         run: npx tsx scripts/upload-results-to-drive.ts ${{ steps.date.outputs.realdate }}
+
+      # 課金事故の安全網: 上のどのステップが落ちても、GPU ポッドを必ず停止する。
+      # (fetch-broll 側も finally で停止するが、プロセス自体が殺された場合に備える)
+      - name: Stop RunPod GPU pod (safety net)
+        if: always()
+        continue-on-error: true
+        run: npx tsx scripts/runpod-stop.ts
 
       - name: Upload artifacts
         if: always()

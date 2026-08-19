@@ -15,7 +15,7 @@
     "publish": "tsx interfaces/cli/publish-all.ts",
     "pipeline": "tsx interfaces/cli/run-pipeline.ts",
     "typecheck": "tsc --noEmit",
-    "typecheck:pipeline": "tsc --noEmit --skipLibCheck --strict --target ES2022 --module ESNext --moduleResolution Bundler scripts/fetch-scripts-from-drive.ts scripts/tts-per-story.ts scripts/fetch-broll.ts scripts/build-news-video.ts scripts/generate-social-images.ts scripts/generate-x-thread.ts scripts/upload-results-to-drive.ts scripts/fetch-approved-video.ts scripts/publish-all.ts scripts/delete-videos.ts scripts/collect-stats.ts scripts/analyze-winners.ts scripts/lib/*.ts"
+    "typecheck:pipeline": "tsc --noEmit --skipLibCheck --strict --target ES2022 --module ESNext --moduleResolution Bundler scripts/fetch-scripts-from-drive.ts scripts/tts-per-story.ts scripts/fetch-broll.ts scripts/build-news-video.ts scripts/generate-social-images.ts scripts/generate-x-thread.ts scripts/upload-results-to-drive.ts scripts/fetch-approved-video.ts scripts/publish-all.ts scripts/delete-videos.ts scripts/collect-stats.ts scripts/analyze-winners.ts scripts/runpod-stop.ts scripts/lib/*.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
