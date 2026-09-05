@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 import { laneFromStory, mapSceneParts } from "../scripts/lib/mapscene.js";
+import { recordBgmUsed } from "../scripts/lib/bgm-credit.js";
 
 /**
  * 日次ショート (9:16) の props を作る。
@@ -213,6 +214,12 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
     }
   }
 
+  const picked = await pickBgm(date, code, story.index, isConflictStory(story));
+  const bgm = picked ? { ...picked, volume: Number(BGM_VOLUME) } : null;
+  // 投稿側が概要欄に CC BY 帰属を出せるよう、使った曲を出力ディレクトリに記録する
+  // (ffmpeg 経路の build-news-video.ts と同じファイル)。
+  if (bgm) await recordBgmUsed(dir, code, bgm.file);
+
   const tail = (idx: number) => idx >= 0 ? { text: sentences[idx].text, start: sentences[idx].start, end: sentences[idx].end } : null;
 
   return {
@@ -223,7 +230,7 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
     isShortHook: Boolean(story.hookText?.trim()),
     source: { name: story.sourceName, url: shortUrl(story.sourceUrl ?? "") },
     audio: `short/voice-${code}.mp3`,
-    bgm: await pickBgm(date, code, story.index, isConflictStory(story)).then(b => b ? { ...b, volume: Number(BGM_VOLUME) } : null),
+    bgm,
     duration: duration + 0.4,
     hookEnd, hookBg, map,
     chunks,

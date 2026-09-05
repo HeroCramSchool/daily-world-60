@@ -53,6 +53,14 @@ on:
         options:
           - "false"
           - "true"
+      renderer:
+        description: "レンダラー (ffmpeg=現行 / remotion=新経路。既定は現行)"
+        required: false
+        default: "ffmpeg"
+        type: choice
+        options:
+          - "ffmpeg"
+          - "remotion"
       script_source_file:
         description: "台本ソースをDriveでなくリポジトリ内ファイルから読む (独自トピック用。例 content/dw60-trending-2026-06-10.json)。空=Drive取得"
         required: false
@@ -112,6 +120,9 @@ jobs:
       IG_GRAPH_USER_ID: ${{ secrets.IG_GRAPH_USER_ID }}
 
       EN_VOICE: en-US-AvaNeural
+
+      # レンダラー切替。cron は常に現行 (ffmpeg)。remotion は手動 dispatch でのみ選ぶ。
+      RENDERER: ${{ github.event_name == 'schedule' && 'ffmpeg' || (github.event.inputs.renderer || 'ffmpeg') }}
 
       # スケジュール起動 (朝昼夜 3 cron) は全て full(生成+投稿)。手動 dispatch は入力の mode を尊重。
       RUN_MODE: ${{ github.event_name == 'schedule' && 'full' || github.event.inputs.mode }}
@@ -250,12 +261,41 @@ jobs:
         run: npx tsx scripts/tts-per-story.ts ${{ steps.date.outputs.realdate }}
 
       - name: Step B2 — Fetch background images (Wikimedia Commons)
-        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
+        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete' && env.RENDERER != 'remotion'
         run: npx tsx scripts/fetch-broll.ts ${{ steps.date.outputs.realdate }}
 
       - name: Step C — Build 3 news videos (60s each, VTT-synced)
-        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
+        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete' && env.RENDERER != 'remotion'
         run: npx tsx scripts/build-news-video.ts ${{ steps.date.outputs.realdate }}
+
+      # ─── Remotion 経路 (renderer=remotion のときだけ) ───
+      # 実測 2026-09-05: npm ci 6s / Chrome 5s / レンダ 76s per 本 (20.1fps)。
+      # 現行の Step C (3本 202s) に対し 3本 228s。画像は AI 生成を挟まないぶん速い。
+      - name: Step B2r — 実写を Commons から取得 (Remotion 経路)
+        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete' && env.RENDERER == 'remotion'
+        run: npx tsx remotion/fetch-photos.ts ${{ steps.date.outputs.realdate }}
+
+      - name: Step C0r — Remotion の依存と Chrome
+        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete' && env.RENDERER == 'remotion'
+        working-directory: remotion
+        run: |
+          npm ci --no-audit --no-fund
+          npx remotion browser ensure
+
+      - name: Step Cr — Remotion で3本レンダリング
+        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete' && env.RENDERER == 'remotion'
+        run: |
+          npx tsx remotion/prep-short.ts ${{ steps.date.outputs.realdate }}
+          (cd remotion && node render-shorts.mjs)
+          # 後続ステップ (社会画像/投稿) は output/<date>/news-{index}-{code}.mp4 を見る
+          DIR="output/${{ steps.date.outputs.realdate }}"
+          for f in remotion/out/short-*.mp4; do
+            base=$(basename "$f" .mp4)          # short-{index}-{code}
+            idx=$(echo "$base" | cut -d- -f2)
+            code=$(echo "$base" | cut -d- -f3-)
+            cp "$f" "$DIR/news-${idx}-${code}.mp4"
+            echo "  $f → $DIR/news-${idx}-${code}.mp4"
+          done
 
       - name: Step D — Generate social images (5 sizes × 3 stories = 15)
         if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
