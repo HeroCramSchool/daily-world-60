@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -85,3 +85,10 @@ const props = {
 };
 writeFileSync(path.join(HERE, "props-short.json"), JSON.stringify(props, null, 2));
 console.log(`bench fixture ready: ${PHOTOS} photos, ${chunks.length} chunks, 50s`);
+
+const PROPS_LF = path.join(HERE, "props.json");
+if (!existsSync(PROPS_LF)) {
+  writeFileSync(PROPS_LF, JSON.stringify(
+    { date: "bench", title: "", topic: "", fps: 30, segments: [] }, null, 2));
+  console.log("props.json が無いので空の雛形を書いた (Root.tsx が静的 import するため)");
+}

@@ -9,7 +9,7 @@ import type { LongformProps } from "./lib/types";
 export const segmentFrames = (durationSec: number, fps: number) => Math.max(1, Math.round(durationSec * fps));
 
 export const totalFrames = (props: LongformProps, fps: number) =>
-  props.segments.reduce((a, s) => a + segmentFrames(s.durationSec, fps), 0);
+  Math.max(1, props.segments.reduce((a, s) => a + segmentFrames(s.durationSec, fps), 0));
 
 export const Longform: React.FC<LongformProps> = props => {
   const { fps } = useVideoConfig();

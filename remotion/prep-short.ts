@@ -70,6 +70,11 @@ async function main() {
 
   const props = { date, fps: FPS, videos: out };
   await fs.writeFile(path.join(HERE, "props-short.json"), JSON.stringify(props, null, 2));
+  // Root.tsx は長尺の props.json も静的 import する。ショートだけ回す場合に備えて雛形を置く。
+  const lf = path.join(HERE, "props.json");
+  if (!(await exists(lf))) {
+    await fs.writeFile(lf, JSON.stringify({ date, title: "", topic: "", fps: FPS, segments: [] }, null, 2));
+  }
   console.log(`[prep-short] ${out.length} video(s) → props-short.json`);
 }
 
