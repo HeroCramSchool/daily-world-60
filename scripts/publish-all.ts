@@ -5,6 +5,7 @@ import { publishX } from "./publishers/x.js";
 import { publishInstagramGraph, hasGraphCreds } from "./publishers/instagram-graph.js";
 import { publishTikTok } from "./publishers/tiktok.js";
 import { driveClient, findFolderId } from "./fetch-scripts-from-drive.js";
+import { bgmCredit, readBgmUsed } from "./lib/bgm-credit.js";
 
 /**
  * 投稿パイプライン (v11): 3 ストーリーをそれぞれ 60 秒 1 動画として
@@ -142,7 +143,7 @@ async function main() {
     const hookTitle = story.hookText?.trim();
     const titleHead = hookTitle && hookTitle.length <= 90 ? hookTitle : story.headline;
     const ytTitle = `${titleHead} #Shorts #WorldNews`;
-    const ytDesc = buildYoutubeDescription(story, scriptEn.date);
+    const ytDesc = buildYoutubeDescription(story, scriptEn.date, await readBgmUsed(dir, code));
     const ytTags = [
       "World News", "Daily News", "60 Seconds", "Short News",
       countryName, story.country.code, story.sourceName,
@@ -264,7 +265,7 @@ async function main() {
   }
 }
 
-function buildYoutubeDescription(story: Story, date: string): string {
+function buildYoutubeDescription(story: Story, date: string, bgmFile: string | null): string {
   const lines = [
     `${story.headline}`,
     // コメント質問は折りたたみプレビューに見える上部に置く (コメント=強いエンゲージメントsignal・2026-06-27)
@@ -294,6 +295,8 @@ function buildYoutubeDescription(story: Story, date: string): string {
     "Original reporting belongs to the publisher linked above. Please verify details with the original source.",
     "Not affiliated with any government or publisher. AI-assisted voice and video editing. Images: Wikimedia Commons / agency file photos.",
     "",
+    // CC BY 4.0 の義務。入れないと Content ID クレームの原因になる (lib/bgm-credit.ts 参照)。
+    ...(bgmFile ? [...bgmCredit(bgmFile), ""] : []),
     // ハッシュタグは詰め込まない (3-5が安全圏。6+は弱シグナル/無視され得る・2026-06-27)。
     `#Shorts #WorldNews #News #${story.country.code}`,
   );

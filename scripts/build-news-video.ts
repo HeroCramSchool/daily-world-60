@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { fitSingleLine, fitTextBox, textWidthEm, clampAttr } from "./lib/textfit.js";
 import { MAP_W, MAP_H, worldDots, countryLonLat, lonLatToXY } from "./lib/worldmap.js";
 import { laneFromStory, mapFrameSvg } from "./lib/mapscene.js";
+import { recordBgmUsed } from "./lib/bgm-credit.js";
 
 /**
  * 1 ストーリー単独動画を構築する (v8: 尺=音声長に動的化, 字幕同期 + 国旗なし body)。
@@ -445,6 +446,7 @@ async function buildOne(dir: string, story: Story, date: string) {
   const bgm = await pickBgm(date, code, story.index);
   const bgmFile = bgm.file;
   const hasBgm = bgm.file.length > 0;
+  if (hasBgm) await recordBgmUsed(dir, code, bgmFile);
   // BGM はナレーションをキーにした自動ダッキング (声の間だけ下がる)。既定0.25はダッキング前提の
   // プリレベル (旧固定 0.10 より存在感を出しつつ声は常に前)。最終段で -14 LUFS (YouTube正規化目標)。
   const bgmVol = process.env.BGM_VOLUME ?? "0.25";

@@ -1,6 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { publishYoutube } from "./publishers/youtube.js";
+import { bgmCredit, readBgmUsed } from "./lib/bgm-credit.js";
 
 /**
  * output/YYYY-MM-DD/longform.mp4 を YouTube(長尺)へ投稿する。
@@ -52,6 +53,8 @@ async function main() {
     "",
     "Educational summary · Fair use (US §107 / JP 著作権法32条). AI-assisted voice and video editing.",
   );
+  const lfBgm = await readBgmUsed(dir, "longform");
+  if (lfBgm) lines.push("", ...bgmCredit(lfBgm));
   const description = lines.join("\n");
 
   const tags = [

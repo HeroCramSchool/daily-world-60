@@ -194,6 +194,57 @@ export function mapFrameSvg(lane: MapLane, reveal: number, pulse01: number, acce
 </svg>`;
 }
 
+/**
+ * Remotion 経路向け: 背景 (紺地/グリッド/陸ドット/バッジ) と、マーカーの画面座標を分けて返す。
+ * mapFrameSvg は reveal/pulse ごとに PNG を焼く前提だが、React 側は 1 枚の背景の上で
+ * マーカーを連続補間できるので、出現と脈動が段階的にならない。
+ * mapFrameSvg の描画は変更しない (日次パイプラインはそのまま)。
+ */
+export function mapSceneParts(lane: MapLane, accent = "#F5E63B"): {
+  baseSvg: string;
+  markers: Array<{ x: number; y: number; strike: boolean; label?: string; labelX?: number; labelY?: number }>;
+} {
+  const vp = regionViewport(lane);
+  const p = project(vp);
+
+  const placed: Array<{ x: number; y: number; w: number }> = [];
+  const markers = lane.markers.map((m, i) => {
+    const [x, y] = p(m.lon, m.lat);
+    const strike = (m.kind ?? "strike") === "strike";
+    if (!m.label) return { x, y, strike };
+    const text = m.label.toUpperCase();
+    const estW = text.length * 24 + 10;
+    const lx = Math.min(W - 60 - estW, Math.max(70, x + 26));
+    let ly = y < BAND_TOP + 80 ? y + 64 : (i % 2 === 1 ? y + 58 : y - 30);
+    for (let guard = 0; guard < 6; guard++) {
+      const hit = placed.some(q => Math.abs(q.y - ly) < 44 && lx < q.x + q.w && q.x < lx + estW);
+      if (!hit) break;
+      ly += 46;
+    }
+    placed.push({ x: lx, y: ly, w: estW });
+    return { x, y, strike, label: text, labelX: lx, labelY: ly };
+  });
+
+  const dayBadge = lane.dayBadge
+    ? `<rect x="60" y="${BAND_TOP + 10}" width="${34 * lane.dayBadge.length + 44}" height="66" fill="#FF5A4E" rx="10"/>
+  <text x="${60 + (34 * lane.dayBadge.length + 44) / 2}" y="${BAND_TOP + 58}" text-anchor="middle" font-family="Hiragino Sans" font-weight="900" font-size="40" fill="#FFFFFF" letter-spacing="2">${escapeXml(lane.dayBadge)}</text>`
+    : "";
+  const counter = lane.counter
+    ? `<text x="${W - 70}" y="${BAND_TOP + 64}" text-anchor="end" font-family="Hiragino Sans" font-weight="900" font-size="64" fill="${accent}" stroke="#0F1B3D" stroke-width="8" paint-order="stroke">${escapeXml(lane.counter)}</text>`
+    : "";
+
+  const baseSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+  <rect width="${W}" height="${H}" fill="#0F1B3D"/>
+  <g opacity="0.35">${gridLines(vp, p)}</g>
+  ${regionDots(vp, p)}
+  ${dayBadge}
+  ${counter}
+</svg>`;
+
+  return { baseSvg, markers };
+}
+
 /** 経緯線 (5度間隔) の薄いグリッド。地図らしさ + 動きの基準線。 */
 function gridLines(vp: Viewport, p: (lon: number, lat: number) => [number, number]): string {
   let s = `<g stroke="#2A3A5E" stroke-width="2">`;

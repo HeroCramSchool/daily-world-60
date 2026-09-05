@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { spawn } from "node:child_process";
 import sharp from "sharp";
 import { fitSingleLine, fitTextBox, clampAttr } from "./lib/textfit.js";
+import { recordBgmUsed } from "./lib/bgm-credit.js";
 
 /**
  * Weekly long-form deep-dive renderer (horizontal 1920x1080, 8-12 min).
@@ -101,6 +102,7 @@ async function main() {
   const out = path.join(dir, "longform.mp4");
   const bgmFile = process.env.BGM_PATH ?? path.join("assets", "news-bed-longform.mp3");
   const hasBgm = await fs.access(bgmFile).then(() => true).catch(() => false);
+  if (hasBgm) await recordBgmUsed(dir, "longform", bgmFile);
   const bgmVol = process.env.BGM_VOLUME ?? "0.10";
   if (hasBgm) {
     const dur = await ffprobeDuration(master);

@@ -1,0 +1,9 @@
+node_modules/
+out/
+# 生成物 (prep が毎回作る)
+public/short/
+public/audio/
+public/bg/
+public/bgm.mp3
+props-short.json
+props.json

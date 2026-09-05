@@ -1,0 +1,88 @@
+name: remotion-bench
+
+# Remotion を CI に載せた場合のコストを実測する。手動起動のみ。
+# 日次の publish.yml には一切触れない。
+on:
+  workflow_dispatch:
+    inputs:
+      concurrency:
+        description: "remotion render --concurrency (空なら既定)"
+        required: false
+        default: ""
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: ffmpeg
+        run: |
+          S=$(date +%s)
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          echo "T_FFMPEG=$(( $(date +%s) - S ))" >> $GITHUB_ENV
+
+      - name: npm ci (remotion)
+        working-directory: remotion
+        run: |
+          S=$(date +%s)
+          npm ci --no-audit --no-fund
+          echo "T_INSTALL=$(( $(date +%s) - S ))" >> $GITHUB_ENV
+
+      - name: Chrome Headless Shell を取得
+        working-directory: remotion
+        run: |
+          S=$(date +%s)
+          npx remotion browser ensure
+          echo "T_CHROME=$(( $(date +%s) - S ))" >> $GITHUB_ENV
+
+      - name: 合成素材を作る
+        working-directory: remotion
+        run: |
+          S=$(date +%s)
+          node bench-fixture.mjs
+          echo "T_FIXTURE=$(( $(date +%s) - S ))" >> $GITHUB_ENV
+
+      - name: レンダリング (1080x1920 / 1524 フレーム / 約50秒)
+        working-directory: remotion
+        run: |
+          S=$(date +%s)
+          ARGS=""
+          if [ -n "${{ inputs.concurrency }}" ]; then ARGS="--concurrency=${{ inputs.concurrency }}"; fi
+          npx remotion render Short-1-bench out/bench.mp4 --log=error $ARGS
+          echo "T_RENDER=$(( $(date +%s) - S ))" >> $GITHUB_ENV
+
+      - name: 結果
+        working-directory: remotion
+        run: |
+          SIZE=$(du -h out/bench.mp4 | cut -f1)
+          DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 out/bench.mp4)
+          FPS=$(python3 -c "print(round(1524/max(1,$T_RENDER),1))")
+          {
+            echo "## Remotion CI 実測"
+            echo ""
+            echo "| 工程 | 秒 |"
+            echo "|---|---|"
+            echo "| ffmpeg 導入 | ${T_FFMPEG} |"
+            echo "| npm ci | ${T_INSTALL} |"
+            echo "| Chrome 取得 | ${T_CHROME} |"
+            echo "| 合成素材 | ${T_FIXTURE} |"
+            echo "| **レンダ 1本 (1524f)** | **${T_RENDER}** |"
+            echo ""
+            echo "レンダ速度 ${FPS} fps / 出力 ${SIZE} / ${DUR}s"
+            echo ""
+            echo "1回の実行で3本作るので、初回コスト (ffmpeg+npm+Chrome) に レンダ×3 を足した値が日次の追加時間。"
+            echo "ローカル基準 (M系 Mac): 24 秒 / 63.5 fps"
+          } >> $GITHUB_STEP_SUMMARY
+          cat $GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-video
+          path: remotion/out/bench.mp4
+          retention-days: 3

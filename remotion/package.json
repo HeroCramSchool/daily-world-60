@@ -1,0 +1,26 @@
+{
+  "name": "dw60-longform-remotion",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Daily World 60 \u2014 long-form deep dive renderer (Remotion 16:9). Reads output/<date>/longform.json + generated narration and renders longform-remotion.mp4.",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render Longform out/_raw.mp4 --props=props.json",
+    "normalize": "ffmpeg -y -i out/_raw.mp4 -af loudnorm=I=-14:TP=-1.5:LRA=11 -c:v copy -c:a aac -b:a 192k out/longform-remotion.mp4 && rm -f out/_raw.mp4",
+    "build": "npm run render && npm run normalize",
+    "prep:short": "tsx prep-short.ts",
+    "render:short": "node render-shorts.mjs"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.484",
+    "@remotion/google-fonts": "4.0.484",
+    "@remotion/media-utils": "4.0.484",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "4.0.484"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "typescript": "^5.6.0"
+  }
+}
