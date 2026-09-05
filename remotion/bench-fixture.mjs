@@ -20,9 +20,11 @@ const run = (cmd, args) => {
 const PHOTOS = 12;
 for (let i = 1; i <= PHOTOS; i++) {
   const hue = Math.round((i / PHOTOS) * 360);
+  // gradients の speed=0 は古い ffmpeg で範囲外エラーになる (CI 実測 2026-09-05)。
+  // color + noise なら版を選ばない。
   run("ffmpeg", ["-y", "-v", "error", "-f", "lavfi",
-    "-i", `gradients=s=1080x1920:c0=0x1b2a4a:c1=0x3a5a8a:x0=0:y0=0:x1=1080:y1=1920:d=1:speed=0`,
-    "-vf", `hue=h=${hue},noise=alls=12:allf=t+u`,
+    "-i", "color=c=0x1b2a4a:s=1080x1920",
+    "-vf", `hue=h=${hue},noise=alls=18:allf=t+u,boxblur=2:1`,
     "-frames:v", "1", path.join(PUB, `photo-bench-${String(i).padStart(2, "0")}.jpg`)]);
 }
 // 無音のナレーション相当 (尺だけ本物に合わせる)
