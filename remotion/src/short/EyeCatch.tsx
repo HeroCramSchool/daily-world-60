@@ -3,25 +3,30 @@ import { AbsoluteFill, Audio, staticFile, useCurrentFrame, interpolate, Easing }
 import { FONT } from "../lib/theme";
 import { W, H } from "./Chrome";
 
-export const EYECATCH_SEC = 0.8;
+export const EYECATCH_SEC = 1.4;
 
 /**
  * アイキャッチ (ブランドスティング)。フックと本文の切れ目に 0.8 秒だけ挟む。
  * ナレーションはここで一度切って再開するので、字幕の同期は音声側のオフセットで吸収する。
  *
- * 動き: 黒へ切替 → 黄色の帯が左から伸びる → ワードマークが出る → 帯ごと右へ抜ける。
+ * 動き: 黒へ切替 → 黄色の帯が左から伸びる → ワードマークが出る → **静止して見せる** →
+ * 帯ごと右へ抜ける。
+ *
+ * 0.8 秒では見落とされた (2026-09-07 オーナー指摘)。原因は尺そのものより「静止(hold)が
+ * 無く、出た瞬間に抜け始めていた」こと。1.4 秒に伸ばし、うち約 0.6 秒を静止に充てる。
  * 冒頭には置かない (ショートは最初の 1 秒で離脱が決まるため、フックを遅らせない)。
  */
 export const EyeCatch: React.FC<{ accent: string }> = ({ accent }) => {
   const f = useCurrentFrame();
 
   // 帯: 左から伸びて、最後に右へ抜ける
-  const grow = interpolate(f, [0, 7], [0, 1], { easing: Easing.out(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const leave = interpolate(f, [17, 24], [0, 1], { easing: Easing.in(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const grow = interpolate(f, [0, 8], [0, 1], { easing: Easing.out(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  // 8-30f は静止 (ここが無いと一瞬で消えて読めない)
+  const leave = interpolate(f, [32, 42], [0, 1], { easing: Easing.in(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const bandX = leave * W * 1.2;
 
-  const wordIn = interpolate(f, [5, 12], [0, 1], { easing: Easing.out(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const flash = interpolate(f, [4, 8], [0.35, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const wordIn = interpolate(f, [6, 15], [0, 1], { easing: Easing.out(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const flash = interpolate(f, [4, 9], [0.35, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   const BAND_H = 240;
   const bandY = H / 2 - BAND_H / 2;
@@ -36,7 +41,7 @@ export const EyeCatch: React.FC<{ accent: string }> = ({ accent }) => {
           key={i}
           style={{
             position: "absolute", left: 0, top: y, height: 4, background: accent,
-            width: W * interpolate(f, [i * 2, i * 2 + 9], [0, 1], { easing: Easing.out(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+            width: W * interpolate(f, [i * 2, i * 2 + 10], [0, 1], { easing: Easing.out(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
             opacity: 0.55, transform: `translateX(${bandX}px)`,
           }}
         />
