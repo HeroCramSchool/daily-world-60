@@ -135,7 +135,13 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
   const bodyEnd = qIdx >= 0 ? qIdx : outroIdx >= 0 ? outroIdx : sentences.length;
 
   const assets = await fs.readdir(path.join(dir, "_assets")).catch(() => [] as string[]);
-  const beats = assets.filter(f => new RegExp(`^beat-${code}-s${story.index}-b\\d+\\.jpg$`).test(f)).sort();
+  const beatSrc = assets.filter(f => new RegExp(`^beat-${code}-s${story.index}-b\\d+\\.jpg$`).test(f)).sort();
+  const beats: string[] = [];
+  for (const f of beatSrc) {
+    await fs.copyFile(path.join(dir, "_assets", f), path.join(pub, f));
+    beats.push(f);
+  }
+  if (beats.length) console.log(`[prep-short] ${code}: AI ビート画像 ${beats.length} 枚を使う`);
   // fetch-photos.ts が集めた実写プール (public/short に直接置かれる)。
   const pubFiles = await fs.readdir(pub).catch(() => [] as string[]);
   const photos = pubFiles.filter(f => new RegExp(`^photo-${code}-\\d+\\.jpg$`).test(f)).sort();
@@ -157,7 +163,11 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
 
   const pubForHook = await fs.readdir(pub).catch(() => [] as string[]);
   const hookPhoto = pubForHook.filter(f => new RegExp(`^photo-${code}-\\d+\\.jpg$`).test(f)).sort()[0];
-  const hookBg = hookPhoto ? `short/${hookPhoto}` : await copy(beats[0] ?? stock[0] ?? null);
+  const heroFile = assets.find(f => f === `hero-${code}-s${story.index}.jpg`);
+  const hookBg = heroFile ? await copy(heroFile)
+    : beats.length ? `short/${beats[0]}`
+    : hookPhoto ? `short/${hookPhoto}`
+    : await copy(stock[0] ?? null);
 
   // 地図シーン: 背景 (紺地/グリッド/陸ドット/バッジ) だけ PNG に焼き、マーカーは Remotion 側で動かす。
   // 本番と同じハイブリッド方針で、本文の最初の 1 シーンにだけ出す。
@@ -202,7 +212,15 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
       const t0 = slice[0].t;
       let shot = bg;
       let changed = k === 0;
-      if (photos.length) {
+      // AI ビート画像があればそれを最優先。Routine の beatVisuals から文ごとに描かれるので、
+      // 文と絵が構造的に一致する。Commons の実写は「進行中の事件の写真が存在しない」ため
+      // 文と無関係な絵しか当たらなかった (2026-09-07 実測)。
+      if (beats.length) {
+        const bi = i - bodyStart;
+        const next = `short/${beats[Math.min(bi, beats.length - 1)]}`;
+        if (next !== currentPhoto) { currentPhoto = next; changed = true; }
+        shot = currentPhoto;
+      } else if (photos.length) {
         if (t0 - photoSince >= MIN_PHOTO_SEC) {
           photoSince = t0;
           const bi = i - bodyStart;
@@ -216,7 +234,7 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
           }
         }
         if (!currentPhoto) currentPhoto = photos[0];
-        shot = `short/${currentPhoto}`;
+        shot = currentPhoto.startsWith("short/") ? currentPhoto : `short/${currentPhoto}`;
       }
       chunks.push({
         text: slice.map(w => w.w).join(" "),
