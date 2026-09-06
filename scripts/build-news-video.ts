@@ -5,6 +5,7 @@ import { fitSingleLine, fitTextBox, textWidthEm, clampAttr } from "./lib/textfit
 import { MAP_W, MAP_H, worldDots, countryLonLat, lonLatToXY } from "./lib/worldmap.js";
 import { laneFromStory, mapFrameSvg } from "./lib/mapscene.js";
 import { recordBgmUsed } from "./lib/bgm-credit.js";
+import { pickBgm, isConflictStory } from "./lib/bgm-select.js";
 
 /**
  * 1 ストーリー単独動画を構築する (v8: 尺=音声長に動的化, 字幕同期 + 国旗なし body)。
@@ -443,9 +444,9 @@ async function buildOne(dir: string, story: Story, date: string) {
   //   (1) assets/bgm/ に複数ファイルがあれば日付+国+indexで決定的にローテ
   //   (2) 選ばれた曲の中でも動画ごとに違う開始位置 (区間) を使う
   // で毎本違う音にする。BGM_PATH 指定時はその曲を使い、区間だけ変える。
-  const bgm = await pickBgm(date, code, story.index);
-  const bgmFile = bgm.file;
-  const hasBgm = bgm.file.length > 0;
+  const bgm = await pickBgm(date, code, story.index, isConflictStory(story));
+  const bgmFile = bgm?.file ?? "";
+  const hasBgm = bgmFile.length > 0;
   if (hasBgm) await recordBgmUsed(dir, code, bgmFile);
   // BGM はナレーションをキーにした自動ダッキング (声の間だけ下がる)。既定0.25はダッキング前提の
   // プリレベル (旧固定 0.10 より存在感を出しつつ声は常に前)。最終段で -14 LUFS (YouTube正規化目標)。
@@ -460,7 +461,7 @@ async function buildOne(dir: string, story: Story, date: string) {
 
   // 入力: 0=video, 1=voice, (+bgm), (+sfx)。組み合わせで音声グラフを組む。
   const inputArgs: string[] = ["-i", bgVideo, "-i", audio];
-  if (hasBgm) inputArgs.push("-stream_loop", "-1", "-ss", bgm.offset.toFixed(2), "-i", bgmFile);
+  if (hasBgm) inputArgs.push("-stream_loop", "-1", "-ss", bgm!.offset.toFixed(2), "-i", bgmFile);
   if (sfxFile) inputArgs.push("-i", sfxFile);
   const sfxIdx = hasBgm ? 3 : 2;
   const DUCK = `sidechaincompress=threshold=0.02:ratio=8:attack=20:release=300`;
@@ -492,7 +493,7 @@ async function buildOne(dir: string, story: Story, date: string) {
     "-r", String(FPS),
     out,
   ];
-  if (hasBgm) console.log(`[news] ${code}: mixing BGM (${path.basename(bgmFile)} @${bgm.offset.toFixed(1)}s, vol ${bgmVol})`);
+  if (hasBgm) console.log(`[news] ${code}: mixing BGM (${path.basename(bgmFile)} @${bgm!.offset.toFixed(1)}s, vol ${bgmVol}${bgm!.conflict ? ", 紛争" : ""})`);
   if (sfxFile) console.log(`[news] ${code}: mixing SFX (vol ${SFX_VOL})`);
   await run("ffmpeg", muxArgs);
 
@@ -1046,35 +1047,6 @@ function hashStr(s: string): number {
   return Math.abs(h);
 }
 
-/**
- * この動画で使う BGM ファイルと開始位置を決める。
- * assets/bgm/*.mp3|m4a|wav が複数あればそこからローテ、無ければ assets/news-bed.mp3。
- * 開始位置は曲長に応じて決定的に散らす (同じ動画は毎回同じ = 再レンダで音が変わらない)。
- */
-async function pickBgm(date: string, code: string, storyIndex: number): Promise<{ file: string; offset: number }> {
-  const seed = hashStr(`${date}-${code}-${storyIndex}`);
-  let file = process.env.BGM_PATH ?? "";
-  if (!file) {
-    const poolDir = path.join("assets", "bgm");
-    const pool = await fs.readdir(poolDir)
-      .then(fs2 => fs2.filter(f => /\.(mp3|m4a|wav|ogg)$/i.test(f)).sort())
-      .catch(() => [] as string[]);
-    file = pool.length
-      ? path.join(poolDir, pool[seed % pool.length])
-      : path.join("assets", "news-bed.mp3");
-  }
-  if (!(await fs.access(file).then(() => true).catch(() => false))) return { file: "", offset: 0 };
-  // 曲の中で開始位置をずらす。末尾20秒は残す (ループ前提だが不自然な繋ぎを減らす)。
-  // 日付でベース位置を回し、story index で等間隔にずらす = 同日の3本が必ず別区間になる
-  // (単純ハッシュだと同日内で衝突しうるため)。
-  const dur = await ffprobeDuration(file).catch(() => 0);
-  const span = Math.max(0, dur - 20);
-  if (span <= 1) return { file, offset: 0 };
-  const base = hashStr(date) % Math.floor(span);
-  const stride = Math.floor(span / 3);
-  const offset = (base + (Math.max(1, storyIndex) - 1) * stride) % Math.floor(span);
-  return { file, offset };
-}
 
 /**
  * SFX 素材を ffmpeg lavfi で合成 (whoosh=ピンクノイズ帯域スイープ / impact=低域サイン+クリック)。

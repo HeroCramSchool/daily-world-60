@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { spawn } from "node:child_process";
 import { laneFromStory, mapSceneParts } from "../scripts/lib/mapscene.js";
 import { recordBgmUsed } from "../scripts/lib/bgm-credit.js";
+import { pickBgm, isConflictStory } from "../scripts/lib/bgm-select.js";
 
 /**
  * 日次ショート (9:16) の props を作る。
@@ -273,75 +274,9 @@ function chunkCuts(words: string[], parts: number): number[] {
   return cuts.filter((c, i, a) => i === 0 || c > a[i - 1]);
 }
 
-function hashStr(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return Math.abs(h);
-}
 
-/**
- * BGM のファイルと開始位置。build-news-video.ts の pickBgm と同じ規則にする。
- * assets/bgm/* があればそこからローテ、無ければ assets/news-bed.mp3。
- * 開始位置は日付でベースを回し story index で等間隔にずらす = 同日の3本が必ず別区間になる。
- *
- * なぜ位置をずらすか: YouTube のスパムポリシーは AI 量産チャンネルの例として
- * 「多くの動画でまったく同じBGM」を名指ししている (assets/bgm/README.md)。
- */
-async function pickBgm(date: string, code: string, storyIndex: number, conflict = false): Promise<{ file: string; offset: number; conflict: boolean } | null> {
-  let file = process.env.BGM_PATH ?? "";
-  if (!file && conflict) {
-    // 紛争回はローテーションから外し、常に同じ重い曲を当てる。
-    file = BGM_CONFLICT_PATH || path.join(ROOT, "assets", "news-bed.mp3");
-  }
-  if (!file) {
-    const poolDir = path.join(ROOT, "assets", "bgm");
-    const pool = await fs.readdir(poolDir)
-      .then(fs2 => fs2.filter(f => /\.(mp3|m4a|wav|ogg)$/i.test(f)).sort())
-      .catch(() => [] as string[]);
-    file = pool.length
-      ? path.join(poolDir, pool[hashStr(`${date}-${code}-${storyIndex}`) % pool.length])
-      : path.join(ROOT, "assets", "news-bed.mp3");
-  }
-  if (!(await exists(file))) return null;
-  const dur = await ffprobeDuration(file).catch(() => 0);
-  const span = Math.max(0, dur - 20);
-  if (span <= 1) return { file, offset: 0, conflict };
-  const base = hashStr(date) % Math.floor(span);
-  const stride = Math.floor(span / 3);
-  return { file, offset: (base + (Math.max(1, storyIndex) - 1) * stride) % Math.floor(span), conflict };
-}
 
-/**
- * 戦争・戦闘・軍事の回かどうか。見出し + 要約 + フックで判定する。
- * 「trade war」「price war」等の比喩は除外する。
- * story.bgmMood で明示指定があればそれを優先する ("conflict" / "normal")。
- */
-const CONFLICT_RE = new RegExp([
-  "\\bmissiles?\\b", "\\bair ?strikes?\\b", "\\bdrone strikes?\\b", "\\bshelling\\b", "\\bartillery\\b",
-  "\\bceasefire\\b", "\\binvasions?\\b", "\\binvaded\\b", "\\btroops\\b", "\\bsoldiers?\\b",
-  "\\bwarships?\\b", "\\bcombat\\b", "\\bbattlefields?\\b", "\\bfront ?lines?\\b",
-  "\\bcasualt(y|ies)\\b", "\\bwounded\\b", "\\bbombing\\b", "\\bairstrikes?\\b",
-  "\\boffensives?\\b", "\\binsurgents?\\b", "\\bmilitants?\\b", "\\bmilitia\\b",
-  "\\bwar crimes?\\b", "\\bgenocide\\b", "\\bhostages?\\b", "\\bmilitary\\b",
-  "\\bMarine Corps\\b", "\\bMedal of Honor\\b", "\\bkilled in action\\b",
-  "\\bbattle of\\b",
-  // 包囲・内戦・武装勢力。"siege mentality" は稀なので許容する。
-  "\\bsieges?\\b", "\\bbesieged\\b", "\\bwar-?torn\\b", "\\bcivil war\\b",
-  "\\brebels?\\b", "\\bparamilitary\\b", "\\barmed (group|forces)\\b",
-  "\\bdisplaced by\\b", "\\brefugees? fleeing\\b",
-].join("|"), "i");
-// 比喩の "war" を弾いたうえで残る戦争語
-const WAR_RE = /\bwars?\b/i;
-const WAR_METAPHOR_RE = /\b(trade|price|culture|bidding|turf|flame|drug|class|talent|streaming|chip|tariff)\s+wars?\b/i;
 
-function isConflictStory(story: Story & { bgmMood?: string }): boolean {
-  const mood = (story.bgmMood ?? "").toLowerCase();
-  if (mood === "conflict") return true;
-  if (mood === "normal") return false;
-  const text = `${story.headline} ${story.hookText ?? ""} ${story.summary}`;
-  if (CONFLICT_RE.test(text)) return true;
-  return WAR_RE.test(text) && !WAR_METAPHOR_RE.test(text);
-}
 
 function exists(p: string) { return fs.access(p).then(() => true).catch(() => false); }
 
