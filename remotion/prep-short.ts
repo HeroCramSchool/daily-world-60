@@ -84,9 +84,11 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
   const code = story.country.code.toLowerCase();
   const accent = accentFor(story.index);
 
-  // 既存の文字幕から原稿を復元する (公開済みの原稿と同一)。
+  // 既存の文字幕から原稿を復元する。ただし英語キーワードの節は落とす
+  // (2026-09-07 オーナー指示。音声ごと消すため TTS 前にテキストから除く)。
   const srcCues = await parseVtt(path.join(dir, `voice-${code}.vtt`));
-  const narration = srcCues.map(c => c.text).join(" ").replace(/\s+/g, " ").trim();
+  const kept = dropKeywordSection(srcCues.map(c => c.text));
+  const narration = kept.join(" ").replace(/\s+/g, " ").trim();
 
   const mp3 = path.join(pub, `voice-${code}.mp3`);
   const wordsVtt = path.join(dir, `_rs-${code}.words.vtt`);
@@ -137,6 +139,9 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
   // fetch-photos.ts が集めた実写プール (public/short に直接置かれる)。
   const pubFiles = await fs.readdir(pub).catch(() => [] as string[]);
   const photos = pubFiles.filter(f => new RegExp(`^photo-${code}-\\d+\\.jpg$`).test(f)).sort();
+  // fetch-photos が残したクエリ/タイトル。文の内容に近い写真を当てるために使う。
+  const photoMeta: PhotoMeta[] = await fs.readFile(path.join(pub, `photos-${code}.json`), "utf-8")
+    .then(t => JSON.parse(t) as PhotoMeta[]).catch(() => [] as PhotoMeta[]);
   const stock = assets.filter(f => new RegExp(`^bg-${code}(-s${story.index})?-\\d+\\.jpg$`).test(f)).sort();
   const flag = assets.find(f => f === `${code}.png`) ?? null;
 
@@ -171,8 +176,9 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
 
   // 本文: 3-6 語のチャンクへ割り、写真は MIN_PHOTO_SEC ごとに送る。
   const chunks: Array<Record<string, unknown>> = [];
-  let photoIdx = 0;
   let photoSince = -Infinity;
+  let currentPhoto: string | null = null;
+  const usedPhotos = new Set<string>();
   for (let i = bodyStart; i < bodyEnd; i++) {
     const s = sentences[i];
     if (!s) continue;
@@ -199,10 +205,18 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
       if (photos.length) {
         if (t0 - photoSince >= MIN_PHOTO_SEC) {
           photoSince = t0;
-          photoIdx++;
-          changed = true;
+          const bi = i - bodyStart;
+          const next = photoMeta.length
+            ? photoForSentence(s.text, bi, photoMeta, usedPhotos)
+            : photos[usedPhotos.size % photos.length] ?? null;
+          if (next && next !== currentPhoto) {
+            currentPhoto = next;
+            usedPhotos.add(next);
+            changed = true;
+          }
         }
-        shot = `short/${photos[(photoIdx - 1 + photos.length) % photos.length]}`;
+        if (!currentPhoto) currentPhoto = photos[0];
+        shot = `short/${currentPhoto}`;
       }
       chunks.push({
         text: slice.map(w => w.w).join(" "),
@@ -279,6 +293,74 @@ function chunkCuts(words: string[], parts: number): number[] {
 
 
 function exists(p: string) { return fs.access(p).then(() => true).catch(() => false); }
+
+const KEYWORD_START_RE = /english keyword|quick english check|keyword from today|word of the day|today's english word/i;
+const OUTRO_RE = /that's the latest|thanks for watching|subscribe|see you in the next/i;
+
+/** 「今日の英単語」の節を丸ごと落とす。開始行からアウトロ直前まで。 */
+function dropKeywordSection(cues: string[]): string[] {
+  const start = cues.findIndex(c => KEYWORD_START_RE.test(c));
+  if (start < 0) return cues;
+  let end = cues.length;
+  for (let i = start + 1; i < cues.length; i++) {
+    if (OUTRO_RE.test(cues[i])) { end = i; break; }
+  }
+  return [...cues.slice(0, start), ...cues.slice(end)];
+}
+
+type PhotoMeta = { file: string; query: string; title: string; sentence?: number };
+
+const PHOTO_STOP = new Set(["the","a","an","and","or","but","for","with","from","that","this","into","over",
+  "under","after","before","their","there","been","have","has","had","will","would","could","said","says",
+  "more","than","about","were","was","are","its","his","her","they","them","which","when","what","who"]);
+
+const tokens = (s: string) => new Set(
+  s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/)
+    .filter(w => w.length > 3 && !PHOTO_STOP.has(w)));
+
+/**
+ * 読み上げている文に一番近い写真を選ぶ。
+ * 位置順に配ると文と絵が無関係になる (2026-09-07 オーナー指摘)。
+ * クエリとファイル名(=Commons のタイトル)の語がどれだけ文と重なるかで採点し、
+ * まだ使っていないものを優先する。重なりゼロなら未使用の先頭に落とす。
+ */
+/**
+ * その文のために取った写真のうち、文と語が重なるものだけ返す。
+ * 重ならなければ null = 画を替えない。
+ *
+ * Commons には進行中の戦争の写真が無く、クエリを工夫しても肖像画・河川・歴史写真が
+ * 返る (2026-09-07 実測)。無関係な絵を 2 秒ごとに切り替えるより、確度の低い文では
+ * 直前の画を保つほうが破綻が少ない。
+ */
+function photoForSentence(sentence: string, sentenceIdx: number, meta: PhotoMeta[], used: Set<string>): string | null {
+  const t = tokens(sentence);
+  const cands = meta.filter(m => m.sentence === sentenceIdx);
+  const scored = cands
+    .map(m => {
+      const cand = tokens(`${m.query} ${m.title}`);
+      let overlap = 0;
+      for (const w of cand) if (t.has(w)) overlap++;
+      return { file: m.file, overlap, used: used.has(m.file) };
+    })
+    .filter(x => x.overlap > 0)
+    .sort((a, b) => (Number(a.used) - Number(b.used)) || (b.overlap - a.overlap));
+  return scored[0]?.file ?? null;
+}
+
+function bestPhoto(text: string, meta: PhotoMeta[], used: Set<string>): string | null {
+  const t = tokens(text);
+  let best: { file: string; score: number } | null = null;
+  for (const m of meta) {
+    const cand = tokens(`${m.query} ${m.title}`);
+    let overlap = 0;
+    for (const w of cand) if (t.has(w)) overlap++;
+    const score = overlap * 10 - (used.has(m.file) ? 6 : 0);
+    if (!best || score > best.score) best = { file: m.file, score };
+  }
+  if (best && best.score > 0) return best.file;
+  const unused = meta.find(m => !used.has(m.file));
+  return unused?.file ?? meta[0]?.file ?? null;
+}
 
 function shortUrl(url: string, maxLen = 56): string {
   if (!url) return "";

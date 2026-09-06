@@ -22,7 +22,7 @@ const TARGET = Number(process.env.PHOTOS_TARGET ?? "20");
 const HERE = path.resolve(new URL(".", import.meta.url).pathname);
 const ROOT = path.resolve(HERE, "..");
 
-interface Img { title: string; url: string; descUrl: string; license: string; artist: string; rank: number }
+interface Img { title: string; url: string; descUrl: string; license: string; artist: string; rank: number; query?: string; sentence?: number }
 
 // Commons のカテゴリで実写と図版を分ける。タイトル語だけでは
 // "Space Launch System configurations" のような図表を弾けなかった (2026-08-30 実測)。
@@ -101,6 +101,48 @@ const WEAK_CAP = new Set(["monday","tuesday","wednesday","thursday","friday","sa
   "january","february","march","april","may","june","july","august","september","october","november","december",
   "north","south","east","west","new","the","a","an"]);
 
+const VTT_STOP = new Set(["the","a","an","and","or","but","for","with","from","that","this","into","over",
+  "under","after","before","their","there","been","have","has","had","will","would","could","said","says",
+  "more","than","about","were","was","are","its","his","her","they","them","which","when","what","who",
+  "here","what's","happening","least","people","official","officials","other","some","many","most","also",
+  "now","then","been","being","because","while","during","against","between","among","around"]);
+
+/** 1文から検索語を作る。固有名詞を優先し、無ければ内容語。国名を必ず添える。 */
+function sentenceQuery(countryName: string, sentence: string): string | null {
+  const caps: string[] = [];
+  let cur: string[] = [];
+  const flush = () => { if (cur.length) caps.push(cur.join(" ")); cur = []; };
+  for (const tok of sentence.split(/\s+/).slice(1)) {   // 文頭の大文字は除く
+    const w = tok.replace(/[^\p{L}\p{N}'-]/gu, "");
+    if (w && /^\p{Lu}/u.test(w)) cur.push(w); else flush();
+  }
+  flush();
+  const proper = caps.filter(c => c.length > 2 && !VTT_STOP.has(c.toLowerCase()));
+  if (proper.length) return `${countryName} ${proper[0]}`.trim();
+  const content = sentence.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/)
+    .filter(w => w.length > 4 && !VTT_STOP.has(w));
+  if (!content.length) return null;
+  return `${countryName} ${content.slice(0, 2).join(" ")}`.trim();
+}
+
+/** ナレーション本文の文を取り出す (イントロ・英単語節・アウトロを除く)。 */
+function bodySentences(vtt: string): string[] {
+  const cues: string[] = [];
+  const lines = vtt.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    if (!/-->/.test(lines[i])) continue;
+    let t = "";
+    for (let j = i + 1; j < lines.length && lines[j].trim(); j++) t += lines[j] + " ";
+    cues.push(t.trim());
+  }
+  const start = cues.findIndex(c => /here's what's happening|comes from|news from/i.test(c));
+  const kw = cues.findIndex(c => /english keyword|quick english check|keyword from today|word of the day/i.test(c));
+  const outro = cues.findIndex(c => /that's the latest|thanks for watching|subscribe|see you in the next/i.test(c));
+  const from = start >= 0 ? start + 1 : 0;
+  const to = kw >= 0 ? kw : outro >= 0 ? outro : cues.length;
+  return cues.slice(from, to).filter(Boolean);
+}
+
 /**
  * imageQueries が無い回のフォールバック。見出し+要約から固有名詞を拾って検索語を作る。
  * fetch-broll.ts の buildQueries と同じ考え方 (具体的 → 一般的の順)。
@@ -159,17 +201,30 @@ async function main() {
 
   for (const story of script.stories) {
     const code = story.country.code.toLowerCase();
-    const queries = (story.imageQueries?.length
-      ? story.imageQueries
-      : fallbackQueries(story.country.name ?? "", story.headline, story.summary ?? "")).slice(0, 8);
-    console.log(`[photos] ${code}: queries = ${queries.join(" / ")}`);
+    // 文ごとに検索する。ストーリー単位で集めて後から配ると、文と絵が無関係になる
+    // (2026-09-07 実測: ミサイルの文に集会・機関車・肖像画が当たっていた)。
+    const vtt = await fs.readFile(path.join(dir, `voice-${code}.vtt`), "utf-8").catch(() => "");
+    const sents = vtt ? bodySentences(vtt) : [];
+    const cname = story.country.name ?? "";
+    const perSentence = sents
+      .map((sent, i) => ({ i, q: sentenceQuery(cname, sent), sent }))
+      .filter((x): x is { i: number; q: string; sent: string } => Boolean(x.q));
+
+    const queries = perSentence.length
+      ? perSentence.map(x => x.q)
+      : (story.imageQueries?.length
+          ? story.imageQueries
+          : fallbackQueries(cname, story.headline, story.summary ?? "")).slice(0, 8);
+    console.log(`[photos] ${code}: ${perSentence.length ? "文ごと" : "story単位"} ${queries.length} クエリ`);
 
     const seen = new Set<string>();
     const picked: Img[] = [];
-    // クエリを一巡ずつ回して拾う = 特定クエリの写真だけに偏らない
-    for (let round = 0; round < PER_QUERY && picked.length < TARGET; round++) {
+    // 文ごとモード: クエリ順=文順のまま 1 クエリ 2 枚ずつ。位置と内容が一致する。
+    const rounds = perSentence.length ? 2 : PER_QUERY;
+    const cap = perSentence.length ? queries.length * 2 : TARGET;
+    for (let round = 0; round < rounds && picked.length < cap; round++) {
       for (const q of queries) {
-        if (picked.length >= TARGET) break;
+        if (picked.length >= cap) break;
         const hits = await searchCommons(q).catch(e => {
           console.warn(`[photos] ${code}: "${q}" search failed (${e instanceof Error ? e.message : e})`);
           return [] as Img[];
@@ -177,11 +232,12 @@ async function main() {
         const hit = hits.filter(h => !seen.has(h.title))[round] ?? hits.find(h => !seen.has(h.title));
         if (!hit) continue;
         seen.add(hit.title);
-        picked.push(hit);
+        picked.push({ ...hit, query: q, sentence: perSentence.find(x => x.q === q)?.i ?? -1 });
       }
     }
 
     const credits: string[] = [`# Photo credits — ${story.country.name ?? code} (${date})`, ""];
+    const manifest: Array<{ file: string; query: string; title: string; sentence: number }> = [];
     let n = 0;
     for (const img of picked) {
       const name = `photo-${code}-${String(n + 1).padStart(2, "0")}.jpg`;
@@ -193,9 +249,11 @@ async function main() {
       }
       credits.push(`- ${name} — ${img.title} (${img.license || "see Commons"})${img.artist ? ` by ${img.artist}` : ""}`);
       credits.push(`  ${img.descUrl}`);
+      manifest.push({ file: name, query: img.query ?? "", title: img.title, sentence: img.sentence ?? -1 });
       n++;
     }
     await fs.writeFile(path.join(pub, `CREDITS-${code}.md`), credits.join("\n"), "utf-8");
+    await fs.writeFile(path.join(pub, `photos-${code}.json`), JSON.stringify(manifest, null, 2), "utf-8");
     console.log(`[photos] ${code}: ${n} photos from ${queries.length} queries`);
   }
 }
