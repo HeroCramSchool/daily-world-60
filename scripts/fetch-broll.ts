@@ -189,19 +189,28 @@ type StoryLike = { headline: string; summary?: string; imageQueries?: string[]; 
 const ACCURACY_TAIL = "Present-day 2026 setting with factually accurate modern equipment and vehicles (modern oil tankers, container ships, warships, current military hardware and uniforms, contemporary buildings and clothing). Absolutely no anachronisms: no ancient or sailing vessels, no historical armor or robes, no medieval or fantasy elements, unless the story itself is historical.";
 
 // 1ストーリー内は画風を固定 (hero + 全ビートで共有) してコヒーレントに。トーンは見出し/要約から判定。
+//
+// 全て「明らかに描かれた絵」に寄せる (2026-09-07)。写実的な AI 画像は YouTube の
+// 合成コンテンツ開示義務の対象になる:
+//   "Generates a realistic scene that didn't actually occur." → 要開示
+//   "an AI-generated or altered animation of a missile in a fully animated video" → 不要 (Not realistic)
+//   https://support.google.com/youtube/answer/14328491 (2026-09-07 取得)
+// 罰則に YPP 停止が含まれるうえ、実際には起きていない場面を報道映像と見分けがつかない
+// 画で見せること自体が誠実でない。新聞の解説面に載る挿絵の水準を狙う。
 function pickTone(s: StoryLike): string {
   const t = `${s.headline} ${s.summary ?? ""}`.toLowerCase();
   if (/\b(war|strike|attack|missile|troops?|killed|conflict|military|invasion|clash|siege|bomb|shell|airstrike|ceasefire|frontline)\b/.test(t))
-    return "somber photojournalistic concept-art, desaturated palette, dramatic volumetric light and haze";
+    return "serious hand-drawn editorial newspaper illustration, ink linework with flat gouache washes, desaturated slate and ochre palette, visible brush and pen texture";
   if (/\b(space|nasa|telescope|rocket|launch|satellite|quantum|robot|chip|semiconductor|\bai\b|software|tech)\b/.test(t))
-    return "clean editorial sci-fi concept illustration, cool cinematic palette, crisp rim light";
+    return "clean flat vector editorial illustration, bold simplified shapes, limited cool palette, subtle halftone texture";
   if (/\b(quake|earthquake|storm|flood|fire|wildfire|disaster|hurricane|cyclone|rescue|landslide|tsunami|evacuat)\b/.test(t))
-    return "dramatic photojournalistic concept-art, dust and haze, urgent muted palette";
+    return "hand-drawn editorial illustration, loose ink outlines and gouache washes, urgent muted palette, visible paper grain";
   if (/\b(market|economy|trade|oil|stocks?|inflation|bank|deal|tariff|election|vote|court|summit|sanction|talks)\b/.test(t))
-    return "muted editorial illustration, restrained palette, clean balanced composition";
-  return "painterly photojournalistic concept-art, somber desaturated palette, moody volumetric light";
+    return "flat editorial infographic illustration, geometric simplified forms, restrained two-tone palette, screen-print texture";
+  return "hand-drawn editorial illustration, ink linework with flat colour washes, restrained palette, visible drawing texture";
 }
-const STYLE_TAIL = "Vertical 9:16 composition, strong foreground subject, deep atmospheric background, shallow depth of field, intricate realistic textures, ultra detailed, immersive. Absolutely no text, no captions, no letters, no numbers, no logos, no watermark, no UI, no borders, no recognizable real individual faces.";
+// 「写真ではない」ことを言い切る。realistic textures / photo 系の語は入れない。
+const STYLE_TAIL = "Vertical 9:16 composition, strong foreground subject, simplified background shapes, clear silhouette reading at small size. Illustrated artwork, not a photograph: visible drawing or print texture, flat stylised shading, no photographic depth of field, no lens blur, no film grain, no photorealism. Absolutely no text, no captions, no letters, no numbers, no logos, no watermark, no UI, no borders, no recognizable real individual faces.";
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -515,12 +524,14 @@ async function generateAIHero(story: StoryLike, dest: string): Promise<string> {
   const elements = (Array.isArray(story.imageQueries) ? story.imageQueries.slice(0, 4) : [])
     .map(s => String(s).trim()).filter(Boolean).join(", ");
   const ctx = (story.summary ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
+  // ビート側と同じく画風を先頭に。"cinematic" / "highly detailed" は写実へ引っ張るので使わない。
   const prompt = [
-    `Highly detailed cinematic editorial news illustration depicting the story: "${story.headline}".`,
+    `${pickTone(story)}.`,
+    `Illustration depicting the story: "${story.headline}".`,
     ctx ? `Scene context: ${ctx}` : "",
     elements ? `Key visual elements: ${elements}.` : (story.country?.name ? `Setting: ${story.country.name}.` : ""),
     ACCURACY_TAIL,
-    `Style: ${pickTone(story)}.`, STYLE_TAIL,
+    STYLE_TAIL,
   ].filter(Boolean).join(" ");
   const seed = (story.index ?? 1) * 7 + 3;
   if (await falHero(prompt, seed, dest)) return `fal.ai ${FAL_HERO_MODEL}`;
@@ -532,9 +543,21 @@ async function generateAIHero(story: StoryLike, dest: string): Promise<string> {
 // 優先順: Routine が書く beatVisuals[i] (文ごとの具体的な視覚描写・被写体/機材/場所を明示)
 //   > 要約文の生テキスト (フォールバック)。imageQueries の具体名詞も必ず注入し、
 // ACCURACY_TAIL で時代錯誤 (帆船・歴史衣装等) を禁止。画風は hero と同じ pickTone+STYLE_TAIL。
+// Routine の beatVisuals には「チャート」「分割画面グラフィック」「ダッシュボード画面」など
+// 画面レイアウトの指示が混ざる (3本に1本程度)。画像モデルはこれを literal に受け取って
+// 実写の合成コマ割りを返し、画風指定も無視される (2026-09-07 実測)。
+// さらに "caption stamped across the frame" のように文字を要求するものは、こちらの
+// 「文字禁止」と矛盾する。この種は場面の指示に差し替える。
+const GRAPHIC_VISUAL_RE = /\b(split[- ]screen|chart|graphic|dashboard|infographic|icons?|screen shows|caption|banner|lower.third|headline card|map graphic)\b/i;
+
 async function generateBeatImage(story: StoryLike, beatText: string, beatIdx: number, dest: string): Promise<void> {
-  const hasVisual = Boolean(story.beatVisuals?.[beatIdx]);
-  const visual = (story.beatVisuals?.[beatIdx] ?? beatText).replace(/\s+/g, " ").trim().slice(0, 240);
+  const rawVisual = story.beatVisuals?.[beatIdx];
+  const isGraphic = Boolean(rawVisual && GRAPHIC_VISUAL_RE.test(rawVisual));
+  const hasVisual = Boolean(rawVisual) && !isGraphic;
+  const visual = ((!isGraphic ? rawVisual : undefined) ?? beatText).replace(/\s+/g, " ").trim().slice(0, 240);
+  if (isGraphic) {
+    console.log(`[broll] beat b${beatIdx + 1}: グラフィック指示だったので場面の指示に差し替え`);
+  }
   // imageQueries をローテしつつ2個ずつ使う (ビートごとに画が変わりつつ被写体は常に具体)。
   const iq = Array.isArray(story.imageQueries) ? story.imageQueries.map(s => String(s).trim()).filter(Boolean) : [];
   const elements = iq.length ? [iq[beatIdx % iq.length], iq[(beatIdx + 1) % iq.length]].filter(Boolean).join(", ") : "";
@@ -548,12 +571,19 @@ async function generateBeatImage(story: StoryLike, beatText: string, beatIdx: nu
     "Composition: medium shot with people in frame, human faces and gestures carrying the emotion.",
     "Composition: dramatic low-angle wide shot, strong foreground silhouette against the sky.",
   ];
+  // 画風は必ず先頭。flux は先頭トークンを重く見るため、末尾に置くと beatVisuals の
+  // 写真的な描写に負けて写実画像になる (2026-09-07 実測)。
+  // 順序は「画風 → 主題 → 構図 → 時代考証 → 仕上げ」。
+  // 画風だけは先頭でないと効かない (末尾だと beatVisuals の写真的描写に負ける)。
+  // 逆に構図・時代考証まで前に出すと主題が負けて画が題材から外れる (2026-09-07 実測:
+  // 船が消えてスケッチブックの写真や漫画コマになった)。ここが上限。
   const prompt = [
-    elements ? `Editorial news illustration of: ${elements}.` : `Editorial news illustration for: "${story.headline}".`,
-    hasVisual ? `Exact scene: "${visual}".` : `Scene context: "${story.headline}" — ${visual}`,
+    `${pickTone(story)}.`,
+    elements ? `Illustration of: ${elements}.` : `Illustration for: "${story.headline}".`,
+    hasVisual ? `Scene to depict: "${visual}".` : `Scene context: "${story.headline}" — ${visual}`,
     SHOTS[beatIdx % SHOTS.length],
     ACCURACY_TAIL,
-    `Style: ${pickTone(story)}.`, STYLE_TAIL,
+    STYLE_TAIL,
   ].filter(Boolean).join(" ");
   await pollinate(prompt, (story.index ?? 1) * 100 + beatIdx, dest, 45000);
 }
