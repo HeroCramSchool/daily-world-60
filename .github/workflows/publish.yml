@@ -54,13 +54,13 @@ on:
           - "false"
           - "true"
       renderer:
-        description: "レンダラー (ffmpeg=現行 / remotion=新経路。既定は現行)"
+        description: "レンダラー (remotion=既定 / ffmpeg=旧経路へ戻す)"
         required: false
-        default: "ffmpeg"
+        default: "remotion"
         type: choice
         options:
-          - "ffmpeg"
           - "remotion"
+          - "ffmpeg"
       script_source_file:
         description: "台本ソースをDriveでなくリポジトリ内ファイルから読む (独自トピック用。例 content/dw60-trending-2026-06-10.json)。空=Drive取得"
         required: false
@@ -121,8 +121,9 @@ jobs:
 
       EN_VOICE: en-US-AvaNeural
 
-      # レンダラー切替。cron は常に現行 (ffmpeg)。remotion は手動 dispatch でのみ選ぶ。
-      RENDERER: ${{ github.event_name == 'schedule' && 'ffmpeg' || (github.event.inputs.renderer || 'ffmpeg') }}
+      # レンダラー切替。既定は remotion (2026-09-09 切替)。
+      # 戻すときはこの行の 'remotion' を 'ffmpeg' にするか、手動 dispatch で renderer=ffmpeg。
+      RENDERER: ${{ github.event.inputs.renderer || 'remotion' }}
 
       # スケジュール起動 (朝昼夜 3 cron) は全て full(生成+投稿)。手動 dispatch は入力の mode を尊重。
       RUN_MODE: ${{ github.event_name == 'schedule' && 'full' || github.event.inputs.mode }}
