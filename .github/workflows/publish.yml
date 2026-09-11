@@ -291,8 +291,12 @@ jobs:
         run: |
           npx tsx remotion/prep-short.ts ${{ steps.date.outputs.realdate }}
           (cd remotion && node render-shorts.mjs)
-          # 後続ステップ (社会画像/投稿) は output/<date>/news-{index}-{code}.mp4 を見る
-          DIR="output/${{ steps.date.outputs.realdate }}"
+          # 後続ステップ (社会画像/投稿) は $OUT_DIR/news-{index}-{code}.mp4 を見る。
+          # realdate から組み立てない: cron は BATCH=1 で OUT_DIR を output/<date>-b1 にするため、
+          # output/<date> 直書きだと存在しないディレクトリへ cp して落ちる (2026-09-08〜10 の3日間、
+          # 投稿が全停止した原因)。手動 preview はバッチ無しで末尾が付かず、検証を素通りしていた。
+          DIR="$OUT_DIR"
+          mkdir -p "$DIR"
           for f in remotion/out/short-*.mp4; do
             base=$(basename "$f" .mp4)          # short-{index}-{code}
             idx=$(echo "$base" | cut -d- -f2)
