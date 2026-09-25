@@ -184,6 +184,7 @@ type RawStory = {
   mapDay?: string | number;
   mapCounter?: string;
   heroMotion?: string;
+  rank?: number;
 };
 
 function normalizeScript(
@@ -236,6 +237,8 @@ function normalizeScript(
       ...(s.mapDay !== undefined && s.mapDay !== null ? { mapDay: s.mapDay } : {}),
       ...(s.mapCounter ? { mapCounter: s.mapCounter } : {}),
       ...(s.heroMotion ? { heroMotion: s.heroMotion } : {}),
+      // Routine が出す強さ順位 (2026-09 施策5)。台帳に記録して「rank 1 = 日ベスト」の的中率を測る
+      ...(typeof s.rank === "number" ? { rank: s.rank } : {}),
     };
   });
 
