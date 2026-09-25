@@ -248,14 +248,15 @@ jobs:
               "0 14 * * *") BATCH=2; OFF=1 ;;
               *)            BATCH=1; OFF=0 ;;
             esac
-            # cron 遅延で UTC 日付をまたいでも当日の台本を使う (-12h: 翌 11:59Z までは同日扱い)
-            DATE=$(date -u -d "-${OFF} day -12 hours" +%Y-%m-%d)
+            # cron 遅延で UTC 日付をまたいでも当日の台本を使う (-12h: 翌 11:59Z までは同日扱い)。
+            # "-12 hours" を日時文字列に混ぜると GNU date がタイムゾーンと誤読するため epoch 演算にする。
+            DATE=$(date -u -d "@$(( $(date -u +%s) - OFF*86400 - 43200 ))" +%Y-%m-%d)
           else
             if [ -n "$IN_DATE" ]; then DATE="$IN_DATE"; else DATE=$(date -u +%Y-%m-%d); fi
             BATCH="$IN_BATCH"
           fi
-          # 自己検証 (ログ用): 遅延 run の日付解決が前日に戻ること
-          echo "date-check: $(date -u -d '2026-08-28 04:05 -12 hours' +%F) (expect 2026-08-27)"
+          # 自己検証 (ログ用): 2026-08-28T04:05Z に遅延した run が前日 (08-27) に解決すること
+          echo "date-check: $(date -u -d "@$(( 1787889900 - 43200 ))" +%F) (expect 2026-08-27)"
           if [ -n "$BATCH" ]; then WORK="${DATE}-b${BATCH}"; else WORK="$DATE"; fi
           echo "realdate=$DATE" >> $GITHUB_OUTPUT
           echo "work=$WORK"     >> $GITHUB_OUTPUT
