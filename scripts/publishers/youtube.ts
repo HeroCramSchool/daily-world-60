@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import { google } from "googleapis";
+import { google, type youtube_v3 } from "googleapis";
 
 export interface YouTubePublishInput {
   videoPath: string;
@@ -58,7 +58,11 @@ export async function publishYoutube(
           privacyStatus: input.publishAt ? "private" : "public",
           ...(input.publishAt ? { publishAt: input.publishAt } : {}),
           selfDeclaredMadeForKids: false,
-        },
+          // AI 開示 (altered or synthetic content): ナレーションは合成音声、絵は AI 生成イラスト。
+          // 未開示のまま YouTube 側の自動ラベルが付いていた (2026-09-16, 09-24)。
+          // googleapis 144 の型定義にまだ無いフィールドなので as で通す。
+          containsSyntheticMedia: true,
+        } as youtube_v3.Schema$VideoStatus,
       },
       media: { body: fs.createReadStream(input.videoPath) },
     });
