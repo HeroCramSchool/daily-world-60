@@ -6,7 +6,9 @@ on:
     # 物量は逆効果 (3.7万本→368再生のch実在)・勝者は少数精鋭 (194本で1.16億再生)。
     # batch1=当日Routineの stories 1-3 を 20:00 UTC (視聴ピーク帯・stagger 30分)。
     # batch2 (14:00・前日分4-6) は停止 — Routine も 3 stories 出力に変更済み。
-    # 復活させる場合はこの cron と Routine の本数を同時に戻すこと。GH cron は数時間遅延しうる。
+    # 復活させる場合はこの cron と Routine の本数を同時に戻すこと。
+    # GH cron は 2〜5 時間遅延し UTC 日付をまたぐことがある (8/6・8/27・8/28 は翌日の台本を探して 0 本)。
+    # 「Resolve date & batch」で -12h して当日の台本に解決する (翌 11:59Z までは同日扱い)。
     - cron: '0 20 * * *'
     # - cron: '0 14 * * *'   # batch2 停止 (2026-07-26)
   workflow_dispatch:
@@ -30,9 +32,9 @@ on:
         required: false
         default: ""
       batch:
-        description: "バッチ番号 (1=朝/2=昼/3=夜。9本台本を3本ずつ。空=全ストーリー)"
+        description: "バッチ番号。現行 Routine (3本出力) では 1=全件。空=スライスなしで OUT_DIR が output/<date> になり本番経路 (output/<date>-b1) と異なるので通常は 1。旧9本台本を script_source_file で流すときだけ空にする"
         required: false
-        default: ""
+        default: "1"
       skip_youtube:
         description: "YouTube をスキップ (重複投稿回避)"
         required: false
@@ -73,6 +75,10 @@ on:
         description: "Instagram の 1 run あたり投稿上限 (空=scheduleは1/手動は0=無制限)"
         required: false
         default: ""
+      yt_max_per_day:
+        description: "YouTube 1日あたりの投稿上限 (台帳の当日分を含む)。既定 3=現状維持。0=無制限。1本/日運用に切り替えるときは 1"
+        required: false
+        default: "3"
 
 permissions:
   contents: write
@@ -125,7 +131,7 @@ jobs:
       # 戻すときはこの行の 'remotion' を 'ffmpeg' にするか、手動 dispatch で renderer=ffmpeg。
       RENDERER: ${{ github.event.inputs.renderer || 'remotion' }}
 
-      # スケジュール起動 (朝昼夜 3 cron) は全て full(生成+投稿)。手動 dispatch は入力の mode を尊重。
+      # スケジュール起動 (20:00 UTC の 1 cron) は full(生成+投稿)。手動 dispatch は入力の mode を尊重。
       RUN_MODE: ${{ github.event_name == 'schedule' && 'full' || github.event.inputs.mode }}
       DATE_OVERRIDE: ${{ github.event.inputs.date }}
       # 配信先は YouTube + Instagram(Graph API) のみ。TikTok/X は常時オフ (どの trigger でも
@@ -138,8 +144,11 @@ jobs:
       FORCE_REPUBLISH: ${{ github.event.inputs.force_republish || 'false' }}
       # 台本ソースをリポジトリ内ファイルから読む (独自トピック用)。空=Drive取得。schedule では常に空。
       SCRIPT_SOURCE_FILE: ${{ github.event.inputs.script_source_file }}
-      # YouTube 1本ずつ時間差公開 (2本目以降 private+publishAt 予約)。schedule は 30分間隔 = 各バッチ3本が30分おき → 4バッチ12本が UTC 14:00-21:00 のピークに収まる(衝突なし)。
+      # YouTube 1本ずつ時間差公開 (2本目以降 private+publishAt 予約)。schedule は 30分間隔 (2本目以降のみ。1本なら不活性)。
       PUBLISH_STAGGER_MINUTES: ${{ github.event.inputs.publish_stagger_minutes || (github.event_name == 'schedule' && '30' || '0') }}
+      # YouTube 1日あたりの上限。台帳の当日分を差し引くので、cron 遅延や手動 full の二重起動でも
+      # 同じ日に上限を超えて投稿しない (2026-06-09 の 9本誤投稿の再発防止)。schedule 既定 3。
+      YT_MAX_PER_DAY: ${{ github.event.inputs.yt_max_per_day || '3' }}
 
     steps:
       - name: Checkout
@@ -239,11 +248,15 @@ jobs:
               "0 14 * * *") BATCH=2; OFF=1 ;;
               *)            BATCH=1; OFF=0 ;;
             esac
-            DATE=$(date -u -d "-${OFF} day" +%Y-%m-%d)
+            # cron 遅延で UTC 日付をまたいでも当日の台本を使う (-12h: 翌 11:59Z までは同日扱い)。
+            # "-12 hours" を日時文字列に混ぜると GNU date がタイムゾーンと誤読するため epoch 演算にする。
+            DATE=$(date -u -d "@$(( $(date -u +%s) - OFF*86400 - 43200 ))" +%Y-%m-%d)
           else
             if [ -n "$IN_DATE" ]; then DATE="$IN_DATE"; else DATE=$(date -u +%Y-%m-%d); fi
             BATCH="$IN_BATCH"
           fi
+          # 自己検証 (ログ用): 2026-08-28T04:05Z に遅延した run が前日 (08-27) に解決すること
+          echo "date-check: $(date -u -d "@$(( 1787889900 - 43200 ))" +%F) (expect 2026-08-27)"
           if [ -n "$BATCH" ]; then WORK="${DATE}-b${BATCH}"; else WORK="$DATE"; fi
           echo "realdate=$DATE" >> $GITHUB_OUTPUT
           echo "work=$WORK"     >> $GITHUB_OUTPUT
@@ -286,7 +299,7 @@ jobs:
           npm ci --no-audit --no-fund
           npx remotion browser ensure
 
-      - name: Step Cr — Remotion で3本レンダリング
+      - name: Step Cr — Remotion でレンダリング (台本の本数分)
         if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete' && env.RENDERER == 'remotion'
         run: |
           npx tsx remotion/prep-short.ts ${{ steps.date.outputs.realdate }}
@@ -297,13 +310,23 @@ jobs:
           # 投稿が全停止した原因)。手動 preview はバッチ無しで末尾が付かず、検証を素通りしていた。
           DIR="$OUT_DIR"
           mkdir -p "$DIR"
+          # 台本 0 本の日は glob がリテラルのまま cp に渡って落ちていた (run 34569583560)。
+          # nullglob で 0 件を許し、props-short.json の本数と突き合わせて
+          # 「台本はあるのにレンダ 0 件」だけを失敗にする。
+          shopt -s nullglob
+          n=0
           for f in remotion/out/short-*.mp4; do
             base=$(basename "$f" .mp4)          # short-{index}-{code}
             idx=$(echo "$base" | cut -d- -f2)
             code=$(echo "$base" | cut -d- -f3-)
             cp "$f" "$DIR/news-${idx}-${code}.mp4"
             echo "  $f → $DIR/news-${idx}-${code}.mp4"
+            n=$((n+1))
           done
+          want=$(node -e 'console.log((require("./remotion/props-short.json").videos||[]).length)')
+          echo "[remotion] copied $n / $want video(s) to $DIR"
+          if [ "$want" -gt 0 ] && [ "$n" -eq 0 ]; then echo "::error::Step Cr — $want stories but 0 rendered"; exit 1; fi
+          if [ "$want" -eq 0 ]; then echo "::warning::Step Cr — 0 stories for $OUT_DIR (nothing to render)"; fi
 
       - name: Step D — Generate social images (5 sizes × 3 stories = 15)
         if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
@@ -332,6 +355,19 @@ jobs:
           xvfb-run -a \
             --server-args="-screen 0 1280x1920x24 -ac +extension RANDR +extension GLX +extension COMPOSITE -noreset -dpi 96" \
             npx tsx scripts/publish-all.ts ${{ steps.date.outputs.realdate }}
+
+      # 投稿 0 本の日を緑で流さない (schedule のみ)。YouTube ✗ は publish-all がログして続行するため、
+      # ここで publish-results.json を見て 1 本も ok が無ければ失敗させる (失敗メールで気づける)。
+      - name: Assert — YouTube に 1 本以上投稿できたか (schedule のみ)
+        if: github.event_name == 'schedule' && env.RUN_MODE == 'full'
+        run: |
+          node -e '
+            const r = require("./" + process.env.OUT_DIR + "/publish-results.json");
+            const n = Object.values(r.perStory || {}).filter(s => s && s.youtube && s.youtube.ok === true).length;
+            const before = (r.youtubeDaily && r.youtubeDaily.postedBefore) || 0;
+            console.log("[assert] youtube ok = " + n + " (already in ledger today: " + before + ")");
+            if (n < 1 && before < 1) { console.error("::error::DW60: 0 videos published for " + r.date); process.exit(1); }
+          '
 
       - name: Step Delete — Remove YouTube videos
         if: env.RUN_MODE == 'delete'
