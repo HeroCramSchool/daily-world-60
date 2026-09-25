@@ -77,10 +77,10 @@ async function main() {
 
   if (!json) {
     // 04d6d08 fixed the root cause (upload no longer clobbers the Routine's
-    // script file). Defense-in-depth: a genuinely missing script for a scheduled
-    // batch just means "nothing to publish", which should be a clean no-op — not
-    // a hard failure that spams CI failure emails. Write an empty script so the
-    // downstream steps (tts/build/publish) loop over zero stories and succeed.
+    // script file). Write an empty script so the downstream steps (tts/build/
+    // publish) loop over zero stories instead of crashing mid-way. On schedule
+    // runs the final "1 本以上投稿できたか" assert in publish.yml still turns the
+    // day red (2026-09-25: a zero-post day must not pass silently).
     console.warn(
       `[drive] No script file with scriptEn for ${date} in "${FOLDER_NAME}" (tried: ${candidateNames.join(", ")}). Nothing to publish — writing empty script and skipping.`,
     );

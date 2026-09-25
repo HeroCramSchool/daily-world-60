@@ -364,8 +364,9 @@ jobs:
           node -e '
             const r = require("./" + process.env.OUT_DIR + "/publish-results.json");
             const n = Object.values(r.perStory || {}).filter(s => s && s.youtube && s.youtube.ok === true).length;
-            console.log("[assert] youtube ok = " + n);
-            if (n < 1) { console.error("::error::DW60: 0 videos published for " + r.date); process.exit(1); }
+            const before = (r.youtubeDaily && r.youtubeDaily.postedBefore) || 0;
+            console.log("[assert] youtube ok = " + n + " (already in ledger today: " + before + ")");
+            if (n < 1 && before < 1) { console.error("::error::DW60: 0 videos published for " + r.date); process.exit(1); }
           '
 
       - name: Step Delete — Remove YouTube videos

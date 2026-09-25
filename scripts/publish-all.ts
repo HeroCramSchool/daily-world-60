@@ -105,7 +105,9 @@ async function main() {
   const postedToday = forceRepublish ? 0 : ledgerRecent.filter(e => e.date === date).length;
   if (ytCap > 0) console.log(`[publish] YT_MAX_PER_DAY=${ytCap} (ledger already has ${postedToday} for ${date})`);
 
-  // ─── 当日既投稿チェック (再 trigger 時の重複防止) ───
+  // ─── 当日既投稿チェック (同一ランナー内での再実行用) ───
+  // CI では .gitignore の output/ により publish-results.json は commit されず毎回フレッシュなので、
+  // 同日二重起動の実効的な防御は上の YT_MAX_PER_DAY (台帳の当日分を差し引く) が担う。
   interface PrevResults { perStory?: Record<string, Record<string, { ok?: boolean; url?: string; videoId?: string }>>; x?: { ok?: boolean }; }
   let prevResults: PrevResults = {};
   try {
@@ -119,14 +121,12 @@ async function main() {
     date,
     perStory: {} as Record<string, unknown>,
     x: null as unknown,
+    // 日次上限の判定材料 (publish.yml の Assert が「台帳で既に上限到達」を投稿ゼロと区別する)
+    youtubeDaily: { cap: ytCap, postedBefore: postedToday },
   };
 
-  // ストーリー順に YouTube / Instagram / TikTok 投稿 (重複は continue で次へ、YouTube 成功が上限に達したら break)
+  // ストーリー順に YouTube / Instagram / TikTok 投稿 (重複は continue で次へ、YouTube は日次上限に達したら skipped)
   for (const story of scriptEn.stories) {
-    if (ytCap > 0 && postedToday + ytUploadedCount >= ytCap) {
-      console.log(`[publish] cap reached (${ytCap}/day) — stopping before story ${story.index}`);
-      break;
-    }
     // 過去に投稿済み(重複)なら skip (FORCE_REPUBLISH 時は無視)
     const dupCheck = forceRepublish
       ? { dup: false as const }
@@ -180,6 +180,9 @@ async function main() {
       ytRes = { ok: false, skipped: true, reason: "PUBLISH_SKIP" };
     } else if (alreadyPosted("youtube")) {
       ytRes = { ok: true, skipped: true, reason: "already_posted_today", ...prevStory.youtube };
+    } else if (ytCap > 0 && postedToday + ytUploadedCount >= ytCap) {
+      console.log(`[publish] ${code} YouTube: daily cap reached (${ytCap}/day, ${postedToday} already in ledger)`);
+      ytRes = { ok: false, skipped: true, reason: "yt_per_day_cap" };
     } else {
       const publishAt = staggerMin > 0 && ytUploadedCount > 0
         ? new Date(Date.now() + ytUploadedCount * staggerMin * 60000).toISOString()
@@ -273,8 +276,14 @@ async function main() {
 
   // ─── 投稿済み台帳に今回分を追記 (best-effort、次バッチ/翌日の重複防止用) ───
   if (newlyPosted.length > 0) {
+    // 投稿済みが台帳に残らないと翌日の重複投稿を止めるものが無いので 1 回だけ再試行する
     await saveLedger(ledger.fileId, ledger.entries, newlyPosted, date)
-      .catch(e => console.warn(`[publish] ledger save failed: ${e instanceof Error ? e.message : e}`));
+      .catch(async e => {
+        console.warn(`[publish] ledger save failed (retrying once): ${e instanceof Error ? e.message : e}`);
+        await new Promise(r => setTimeout(r, 5000));
+        await saveLedger(ledger.fileId, ledger.entries, newlyPosted, date)
+          .catch(e2 => console.warn(`[publish] ledger save failed: ${e2 instanceof Error ? e2.message : e2}`));
+      });
   }
 }
 
