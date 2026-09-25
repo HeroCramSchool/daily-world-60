@@ -26,6 +26,9 @@ export type VideoStat = {
   hookPattern?: string;
   hookText?: string;
   scriptDate?: string;
+  index?: number;
+  rank?: number;
+  variant?: string;
   snapshots: Snapshot[];
 };
 

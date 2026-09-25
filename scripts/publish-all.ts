@@ -33,6 +33,7 @@ interface Story {
   hookText?: string;
   hookPattern?: string;
   commentQuestion?: string;
+  rank?: number;
 }
 interface ScriptEn { date: string; stories: Story[]; }
 interface JpThreadTweet { tweetIndex?: number; text: string; }
@@ -204,10 +205,12 @@ async function main() {
       // run-results-*.json の Drive アップロードは SA の storage quota 制限で新規作成できず機能していない。
       const vid = (ytRes as { videoId?: string }).videoId;
       newlyPosted.push({
-        date, code, headline: story.headline,
+        date, code, headline: story.headline, index: story.index,
         ...(vid ? { videoId: vid } : {}),
         ...(story.hookPattern ? { hookPattern: story.hookPattern } : {}),
         ...(story.hookText ? { hookText: story.hookText } : {}),
+        ...(story.rank ? { rank: story.rank } : {}),
+        ...(process.env.HOOK_LAYOUT ? { variant: process.env.HOOK_LAYOUT } : {}),
       });
     }
 
@@ -496,7 +499,7 @@ function isDuplicate(headline: string, code: string, date: string, ledgerRecent:
 //     翌日・別バッチ・手動投稿分も含めて重複を防ぐ ───
 const LEDGER_NAME = "posted-ledger.json";
 const LEDGER_DAYS = 14;
-interface LedgerEntry { date: string; code: string; headline: string; videoId?: string; hookPattern?: string; hookText?: string; }
+interface LedgerEntry { date: string; code: string; headline: string; videoId?: string; hookPattern?: string; hookText?: string; index?: number; rank?: number; variant?: string; }
 
 async function loadLedger(): Promise<{ entries: LedgerEntry[]; fileId?: string }> {
   const folderName = process.env.DRIVE_FOLDER_NAME ?? "Daily World 60";
