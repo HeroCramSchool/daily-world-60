@@ -78,8 +78,10 @@ async function main() {
   let igPostedCount = 0;
   if (igCap > 0) console.log(`[publish] IG_MAX_PER_RUN=${igCap}`);
 
-  // ─── 重複防止: 投稿済み台帳(posted-ledger.json, 直近14日) + 前日 publish-results と照合 ───
+  // ─── 重複防止: 投稿済み台帳(posted-ledger.json, 直近14日) + 前日の投稿結果 (run-results) と照合 ───
   // 台帳には実際に投稿した見出しが日付付きで蓄積される(手動投稿分も seed 可能)。
+  // 前日の Routine 台本 (publish-results-<y>.json) は未投稿の控えを含むため照合対象から外した
+  // (2026-08-07 に未投稿見出しと sim=1.00 で index 1 を誤 SKIP した実害・2026-09-25)。
   const ledger = await loadLedger().catch(e => {
     console.warn(`[publish] ledger load failed (continuing): ${e instanceof Error ? e.message : e}`);
     return { entries: [] as LedgerEntry[], fileId: undefined as string | undefined };
@@ -95,6 +97,13 @@ async function main() {
   });
   const newlyPosted: LedgerEntry[] = [];
   console.log(`[publish] dedup: ledger=${ledgerRecent.length} (last ${LEDGER_DAYS}d), yesterday=${yesterdayHeadlines.length}`);
+
+  // ─── YouTube 1日あたりの上限 (YT_MAX_PER_DAY, 0=無制限) ───
+  // 台帳の当日分を差し引くので、cron 遅延で日付をまたいだ再実行や手動 full の二重起動でも
+  // 同じ日に上限を超えて投稿しない。FORCE_REPUBLISH は当日分の差し引きだけ無視し、上限自体は残す。
+  const ytCap = Number(process.env.YT_MAX_PER_DAY ?? "0") || 0;
+  const postedToday = forceRepublish ? 0 : ledgerRecent.filter(e => e.date === date).length;
+  if (ytCap > 0) console.log(`[publish] YT_MAX_PER_DAY=${ytCap} (ledger already has ${postedToday} for ${date})`);
 
   // ─── 当日既投稿チェック (再 trigger 時の重複防止) ───
   interface PrevResults { perStory?: Record<string, Record<string, { ok?: boolean; url?: string; videoId?: string }>>; x?: { ok?: boolean }; }
@@ -112,8 +121,12 @@ async function main() {
     x: null as unknown,
   };
 
-  // 3 ストーリーごとに YouTube / Instagram / TikTok 投稿
+  // ストーリー順に YouTube / Instagram / TikTok 投稿 (重複は continue で次へ、YouTube 成功が上限に達したら break)
   for (const story of scriptEn.stories) {
+    if (ytCap > 0 && postedToday + ytUploadedCount >= ytCap) {
+      console.log(`[publish] cap reached (${ytCap}/day) — stopping before story ${story.index}`);
+      break;
+    }
     // 過去に投稿済み(重複)なら skip (FORCE_REPUBLISH 時は無視)
     const dupCheck = forceRepublish
       ? { dup: false as const }
@@ -381,7 +394,8 @@ async function fetchYesterdayHeadlines(date: string): Promise<string[]> {
   const drive = await driveClient();
   const folderId = process.env.DRIVE_FOLDER_ID ?? (await findFolderId(drive, folderName));
   if (!folderId) return [];
-  const candidateNames = [`run-results-${y}.json`, `publish-results-${y}.json`];
+  // publish-results-<y>.json (前日の Routine 台本) は未投稿の控えを含むので読まない (2026-09-25)。
+  const candidateNames = [`run-results-${y}.json`];
   const r = await drive.files.list({
     q: `'${folderId}' in parents and (${candidateNames
       .map((n) => `name = '${n}'`)
