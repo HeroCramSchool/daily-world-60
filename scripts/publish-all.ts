@@ -293,7 +293,8 @@ function buildYoutubeDescription(story: Story, date: string, bgmFile: string | n
     "",
     "Educational summary for general information only · Fair use (US §107 / JP 著作権法32条)",
     "Original reporting belongs to the publisher linked above. Please verify details with the original source.",
-    "Not affiliated with any government or publisher. AI-assisted voice and video editing. Images: Wikimedia Commons / agency file photos.",
+    // 実態に合わせる (2026-09-25): 画像は 2026-06-28 以降 AI 生成イラスト、ナレーションは合成音声。
+    "Not affiliated with any government or publisher. Narration: AI voice. Images: AI-generated illustrations (not photographs); maps are schematic.",
     "",
     // CC BY 4.0 の義務。入れないと Content ID クレームの原因になる (lib/bgm-credit.ts 参照)。
     ...(bgmFile ? [...bgmCredit(bgmFile), ""] : []),
