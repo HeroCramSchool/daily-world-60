@@ -58,10 +58,9 @@ export async function publishYoutube(
           privacyStatus: input.publishAt ? "private" : "public",
           ...(input.publishAt ? { publishAt: input.publishAt } : {}),
           selfDeclaredMadeForKids: false,
-          // AI 開示 (altered or synthetic content): ナレーションは合成音声、絵は AI 生成イラスト。
-          // 未開示のまま YouTube 側の自動ラベルが付いていた (2026-09-16, 09-24)。
-          // googleapis 144 の型定義にまだ無いフィールドなので as で通す。
-          containsSyntheticMedia: true,
+          // AI 開示フラグ (containsSyntheticMedia) は 2026-09-25〜10-03 に全動画へ付けた結果、
+          // 日次再生が 532→338/日 (視聴維持率は不変) と最低週になったため 10/04 に外した。
+          // 因果は未確定。再開するなら日付偶奇の A/B で (publish-all の variant と同じ経路)。
         } as youtube_v3.Schema$VideoStatus,
       },
       media: { body: fs.createReadStream(input.videoPath) },
