@@ -83,8 +83,12 @@ export const Short: React.FC<ShortProps> = (props) => {
 const HookScene: React.FC<{ v: ShortVideo }> = ({ v }) => {
   const local = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const chipIn = interpolate(local, [2, 12], [0, 1], { easing: Easing.out(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  // top は 0 フレーム目がサムネ代わりなので国旗チップも即時表示 (legacy は従来のフェードイン)
+  const chipIn = v.hookLayout === "top" ? 1 : interpolate(local, [2, 12], [0, 1], { easing: Easing.out(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const hookSizes = v.isShortHook ? [120, 110, 100, 92, 84, 76, 68, 60, 52] : [76, 68, 62, 56, 50, 46, 42, 38, 34];
+  // fit.ts の字幅見積は Inter Black より狭く、5語以上だと実行数が1行増えて箱をはみ出す (レビュー実測)。
+  // top は上端固定で下へ伸びるので、5語以上は 110 から始めて余裕を作る。
+  const topSizes = v.hookText.split(/\s+/).filter(Boolean).length >= 5 ? hookSizes.filter(s => s <= 110) : hookSizes;
   return (
     <AbsoluteFill>
       <Backplate bg={v.hookBg} motion={null} local={local} fadeIn={false} fps={fps} />
@@ -113,7 +117,7 @@ const HookScene: React.FC<{ v: ShortVideo }> = ({ v }) => {
             fps={fps}
             boxW={960}
             boxH={620}
-            maxSize={hookSizes}
+            maxSize={topSizes}
             instant
             accentFirstToken
             accent={v.accent}
