@@ -49,7 +49,7 @@ export const Scrim: React.FC<{ variant: "body" | "hook" | "hookTop" | "map" }> =
           ? "linear-gradient(180deg, rgba(10,10,10,.35) 0%, rgba(10,10,10,.12) 45%, rgba(10,10,10,.55) 62%, rgba(10,10,10,.94) 100%)"
           // A/B "top": 見出しが上段に来るので上を締め、絵が見える中段は軽くする。
           : variant === "hookTop"
-          ? "linear-gradient(180deg, rgba(10,10,10,.82) 0%, rgba(10,10,10,.62) 34%, rgba(10,10,10,.18) 52%, rgba(10,10,10,.12) 70%, rgba(10,10,10,.90) 100%)"
+          ? "linear-gradient(180deg, rgba(10,10,10,.82) 0%, rgba(10,10,10,.62) 48%, rgba(10,10,10,.40) 58%, rgba(10,10,10,.14) 70%, rgba(10,10,10,.90) 100%)"
           : "linear-gradient(180deg, rgba(10,10,10,.92) 0%, rgba(10,10,10,.50) 22%, rgba(10,10,10,.55) 68%, rgba(10,10,10,.95) 100%)",
     }}
   />
