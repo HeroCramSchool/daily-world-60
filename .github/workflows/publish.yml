@@ -79,6 +79,10 @@ on:
         description: "YouTube 1日あたりの投稿上限 (台帳の当日分を含む)。既定 3=現状維持。0=無制限。1本/日運用に切り替えるときは 1"
         required: false
         default: "3"
+      hook_layout:
+        description: "1フレーム目のレイアウト A/B (空=日付の偶奇で自動: 偶数日=top / 奇数日=legacy)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -240,6 +244,7 @@ jobs:
           SCHED: ${{ github.event.schedule }}
           IN_DATE: ${{ github.event.inputs.date }}
           IN_BATCH: ${{ github.event.inputs.batch }}
+          IN_HOOK: ${{ github.event.inputs.hook_layout }}
         run: |
           if [ -n "$SCHED" ]; then
             # 2 cron → batch と日付オフセット。batch2 は前日 Routine 分 (Routine は 18:00 UTC 生成)。
@@ -257,6 +262,17 @@ jobs:
           fi
           # 自己検証 (ログ用): 2026-08-28T04:05Z に遅延した run が前日 (08-27) に解決すること
           echo "date-check: $(date -u -d "@$(( 1787889900 - 43200 ))" +%F) (expect 2026-08-27)"
+          # 1 フレーム目の A/B: 日付の偶奇で top / legacy を日替わりにする (手動入力があれば優先)。
+          # prep-short.ts が props に載せ、publish-all.ts が台帳の variant に記録する。
+          HL=$(echo "${IN_HOOK:-}" | tr 'A-Z' 'a-z')
+          if [ "$HL" != "top" ] && [ "$HL" != "legacy" ]; then
+            DOM=$(date -u -d "$DATE" +%d)
+            if [ $((10#$DOM % 2)) -eq 0 ]; then HL=top; else HL=legacy; fi
+          fi
+          # ffmpeg 経路 (RENDERER=ffmpeg) は HOOK_LAYOUT を見ないので台帳の variant も legacy に揃える
+          if [ "${RENDERER:-remotion}" != "remotion" ]; then HL=legacy; fi
+          echo "HOOK_LAYOUT=$HL" >> $GITHUB_ENV
+          echo "HOOK_LAYOUT: $HL (day-of-month $(date -u -d "$DATE" +%d), input: '${IN_HOOK:-}')"
           if [ -n "$BATCH" ]; then WORK="${DATE}-b${BATCH}"; else WORK="$DATE"; fi
           echo "realdate=$DATE" >> $GITHUB_OUTPUT
           echo "work=$WORK"     >> $GITHUB_OUTPUT

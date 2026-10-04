@@ -33,5 +33,6 @@ export type ShortVideo = {
   question: STail | null;
   outro: STail | null;
   date: string;
+  hookLayout?: "top" | "legacy";
 };
 export type ShortProps = { date: string; fps: number; videos: ShortVideo[]; pick?: number };

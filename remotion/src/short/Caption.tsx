@@ -70,7 +70,11 @@ export const BigText: React.FC<{
   text: string; local: number; fps: number;
   maxSize: number[]; boxW: number; boxH: number;
   color?: string; align?: "left" | "center";
-}> = ({ text, local, maxSize, boxW, boxH, color = "#fff", align = "left" }) => {
+  /** 語ごとの立ち上がりを省き、0 フレーム目から全文を出す (フックの A/B "top" 用)。 */
+  instant?: boolean;
+  /** 先頭の語が数字か $ を含むとき (129 / 7M / $93 / 3RD) その語だけ accent 色にする。 */
+  accentFirstToken?: boolean; accent?: string;
+}> = ({ text, local, maxSize, boxW, boxH, color = "#fff", align = "left", instant = false, accentFirstToken = false, accent }) => {
   const size = fitSize(text, boxW, boxH, maxSize, 1.1);
   const words = text.split(/\s+/).filter(Boolean);
   return (
@@ -82,11 +86,12 @@ export const BigText: React.FC<{
       }}
     >
       {words.map((w, i) => {
-        const rise = interpolate(local, [i * 2, i * 2 + 10], [0, 1], {
+        const rise = instant ? 1 : interpolate(local, [i * 2, i * 2 + 10], [0, 1], {
           easing: Easing.out(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp",
         });
+        const hot = accentFirstToken && accent && i === 0 && /[\d$]/.test(w);
         return (
-          <span key={i} style={{ opacity: rise, transform: `translateY(${(1 - rise) * 26}px)`, display: "inline-block" }}>
+          <span key={i} style={{ opacity: rise, transform: `translateY(${(1 - rise) * 26}px)`, display: "inline-block", ...(hot ? { color: accent } : {}) }}>
             {w}
           </span>
         );

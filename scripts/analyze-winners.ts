@@ -84,6 +84,7 @@ function features(v: VideoStat): Array<[string, string]> {
     ["drones", /\bDRONES?\b/.test(t) ? "yes" : "no"],
     ["hour", hourBucket(v)],
     ["dow", DOW[new Date(v.publishedAt).getUTCDay()]],
+    ["variant", v.variant ?? "legacy"],
   ];
 }
 
