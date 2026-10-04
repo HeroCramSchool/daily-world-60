@@ -84,6 +84,7 @@ const HookScene: React.FC<{ v: ShortVideo }> = ({ v }) => {
   const local = useCurrentFrame();
   const { fps } = useVideoConfig();
   const chipIn = interpolate(local, [2, 12], [0, 1], { easing: Easing.out(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const hookSizes = v.isShortHook ? [120, 110, 100, 92, 84, 76, 68, 60, 52] : [76, 68, 62, 56, 50, 46, 42, 38, 34];
   return (
     <AbsoluteFill>
       <Backplate bg={v.hookBg} motion={null} local={local} fadeIn={false} fps={fps} />
@@ -102,20 +103,64 @@ const HookScene: React.FC<{ v: ShortVideo }> = ({ v }) => {
         <div style={{ fontWeight: 900, fontSize: 40, color: "#fff", letterSpacing: 1, whiteSpace: "nowrap" }}>{v.country.name}</div>
       </div>
 
-      <div style={{ position: "absolute", left: 60, right: 60, top: 980, height: 660, display: "flex", alignItems: "flex-end" }}>
-        <BigText
-          text={v.hookText}
-          local={local - 6}
-          fps={fps}
-          boxW={960}
-          boxH={660}
-          maxSize={v.isShortHook ? [120, 110, 100, 92, 84, 76, 68, 60, 52] : [76, 68, 62, 56, 50, 46, 42, 38, 34]}
-        />
-      </div>
+      {v.hookLayout === "top" ? (
+        // A/B "top": 見出しを上段に置き 0 フレーム目から全文を出す。フィードでは最初の 1 秒が
+        // サムネ代わりで、下段 (y 1400〜) は Shorts の右レール・題名帯に隠れる。
+        <div style={{ position: "absolute", left: 60, right: 60, top: 240, height: 620 }}>
+          <BigText
+            text={v.hookText}
+            local={local}
+            fps={fps}
+            boxW={960}
+            boxH={620}
+            maxSize={hookSizes}
+            instant
+            accentFirstToken
+            accent={v.accent}
+          />
+          <div style={{ display: "flex", gap: 16, marginTop: 28 }}>
+            <HookChip accent={v.accent}>{fmtDate(v.date)}</HookChip>
+            <HookChip accent={v.accent}>{v.source.name}</HookChip>
+          </div>
+        </div>
+      ) : (
+        <div style={{ position: "absolute", left: 60, right: 60, top: 980, height: 660, display: "flex", alignItems: "flex-end" }}>
+          <BigText
+            text={v.hookText}
+            local={local - 6}
+            fps={fps}
+            boxW={960}
+            boxH={660}
+            maxSize={hookSizes}
+          />
+        </div>
+      )}
 
       <SourceFooter name={v.source.name} url={v.source.url} />
     </AbsoluteFill>
   );
+};
+
+/** "top" レイアウトで見出しの下に出す小さな札 (日付・出典)。字幕箱と同じ accent の左バー。 */
+const HookChip: React.FC<{ accent: string; children: React.ReactNode }> = ({ accent, children }) => (
+  <div
+    style={{
+      position: "relative", display: "flex", alignItems: "center", height: 56, maxWidth: 600,
+      padding: "0 22px 0 26px", borderRadius: 12, background: "rgba(10,10,10,.78)", overflow: "hidden",
+    }}
+  >
+    <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 8, background: accent }} />
+    <div style={{ fontWeight: 800, fontSize: 30, color: "#fff", letterSpacing: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+      {children}
+    </div>
+  </div>
+);
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** "2026-10-04" → "Oct 4, 2026"。ISO 日付でなければそのまま。 */
+const fmtDate = (iso: string) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}, ${m[1]}` : iso;
 };
 
 const BodyScene: React.FC<{ v: ShortVideo; chunk: SChunk; absFrom: number; audioOffset: number; isFirstBody: boolean }> = ({ v, chunk, absFrom, audioOffset, isFirstBody }) => {
