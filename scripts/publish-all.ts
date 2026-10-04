@@ -485,8 +485,11 @@ function isDuplicate(headline: string, code: string, date: string, ledgerRecent:
   ];
   for (const e of all) {
     const sim = jaccard(cur, normalize(e.h));
-    if (sim >= 0.75) return { dup: true, matched: e.h, sim };
     const fresh = numbersDiffer(headline, e.h);
+    // >=0.75 でも数字が全て異なれば続報として通す (2026-10-04)。normalize は数字を落とすので
+    // 「Ukraine war day 1,678: ... drones hit Kyiv」型の連日見出しが sim 0.80 で毎回 SKIP されていた
+    // (実害: 8/25・9/30 に index 1 が未投稿)。数字まで同じ文字どおりの再投稿は従来どおり止める。
+    if (sim >= 0.75 && !fresh) return { dup: true, matched: e.h, sim };
     if (!fresh && Number.isFinite(e.t) && e.t >= cutoff2 && sim >= 0.55) return { dup: true, matched: e.h, sim };
     if (!fresh && (e.code ?? "").toLowerCase() === code.toLowerCase() && Number.isFinite(e.t) && e.t >= cutoff3 && sim >= 0.45) {
       return { dup: true, matched: e.h, sim };
