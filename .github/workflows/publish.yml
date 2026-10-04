@@ -264,10 +264,13 @@ jobs:
           echo "date-check: $(date -u -d "@$(( 1787889900 - 43200 ))" +%F) (expect 2026-08-27)"
           # 1 フレーム目の A/B: 日付の偶奇で top / legacy を日替わりにする (手動入力があれば優先)。
           # prep-short.ts が props に載せ、publish-all.ts が台帳の variant に記録する。
-          if [ -n "$IN_HOOK" ]; then HL="$IN_HOOK"; else
+          HL=$(echo "${IN_HOOK:-}" | tr 'A-Z' 'a-z')
+          if [ "$HL" != "top" ] && [ "$HL" != "legacy" ]; then
             DOM=$(date -u -d "$DATE" +%d)
             if [ $((10#$DOM % 2)) -eq 0 ]; then HL=top; else HL=legacy; fi
           fi
+          # ffmpeg 経路 (RENDERER=ffmpeg) は HOOK_LAYOUT を見ないので台帳の variant も legacy に揃える
+          if [ "${RENDERER:-remotion}" != "remotion" ]; then HL=legacy; fi
           echo "HOOK_LAYOUT=$HL" >> $GITHUB_ENV
           echo "HOOK_LAYOUT: $HL (day-of-month $(date -u -d "$DATE" +%d), input: '${IN_HOOK:-}')"
           if [ -n "$BATCH" ]; then WORK="${DATE}-b${BATCH}"; else WORK="$DATE"; fi

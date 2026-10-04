@@ -120,7 +120,7 @@ const HookScene: React.FC<{ v: ShortVideo }> = ({ v }) => {
           />
           <div style={{ display: "flex", gap: 16, marginTop: 28 }}>
             <HookChip accent={v.accent}>{fmtDate(v.date)}</HookChip>
-            <HookChip accent={v.accent}>{v.source.name}</HookChip>
+            {v.source.name ? <HookChip accent={v.accent}>{v.source.name}</HookChip> : null}
           </div>
         </div>
       ) : (
