@@ -88,7 +88,7 @@ const HookScene: React.FC<{ v: ShortVideo }> = ({ v }) => {
   return (
     <AbsoluteFill>
       <Backplate bg={v.hookBg} motion={null} local={local} fadeIn={false} fps={fps} />
-      <Scrim variant="hook" />
+      <Scrim variant={v.hookLayout === "top" ? "hookTop" : "hook"} />
       <TopStripe />
 
       <div
