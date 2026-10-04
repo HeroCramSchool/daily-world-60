@@ -182,8 +182,14 @@ export async function fetchRssStats(channelId: string): Promise<RssEntry[]> {
 /** RSS 窓 (15本) から溢れた追跡中動画の視聴数を watch ページから拾う (best-effort)。 */
 export async function fetchWatchPageViews(videoId: string): Promise<number | undefined> {
   try {
-    const res = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-      headers: { "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", cookie: "CONSENT=YES+1" },
+    // /watch?v= + 簡易 UA は 2026-08 以降ほぼ常に失敗していた (ログ: watch-page: … failed)。
+    // /shorts/ + フルの Chrome UA は通る (2026-09-09 ローカル検証)。
+    const res = await fetch(`https://www.youtube.com/shorts/${videoId}`, {
+      headers: {
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+        "accept-language": "en-US,en;q=0.9",
+        cookie: "CONSENT=YES+cb; SOCS=CAI",
+      },
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) return undefined;
