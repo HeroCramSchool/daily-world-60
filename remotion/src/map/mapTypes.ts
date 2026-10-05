@@ -17,4 +17,6 @@ export type MapShortProps = {
   unknownLabel: string;
   sourceLine: string;
   brand: string;
+  /** registry.json の補足 (publish-map.ts が説明文に載せる)。描画では使わない */
+  descriptionNote?: string;
 };

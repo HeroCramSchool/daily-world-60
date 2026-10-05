@@ -32,9 +32,12 @@ interface MapDef {
   unknownLabel?: string;
   source: MapSource;
   notes?: string;
+  /** 説明文の 2 行目に載せる補足 (集計の前提など) */
+  descriptionNote?: string;
   durationSec?: number;
 }
 interface Registry { maps: MapDef[] }
+interface Country { cca3: string; ccn3?: string }
 interface PostedEntry { id: string; date: string; videoId: string; url: string }
 interface Posted { posted: PostedEntry[] }
 
@@ -47,6 +50,8 @@ const SKIP_RENDER = process.env.SKIP_RENDER === "1";
 const FORCE_REPUBLISH = (process.env.FORCE_REPUBLISH ?? "").toLowerCase() === "true";
 const TITLE_SUFFIX = " 🌍 #shorts";
 const TITLE_MAX = 100;
+const MIN_VIDEO_BYTES = 100 * 1024;
+const EXHAUST_WARN_LEFT = 2;
 
 async function main() {
   const arg = (process.argv[2] ?? "auto").trim();
@@ -61,8 +66,8 @@ async function main() {
   if (arg === "auto") {
     map = maps.find(m => !postedIds.has(m.id));
     if (!map) {
-      console.log(`[map] nothing left to post: ${postedIds.size}/${maps.length} maps in registry are already in posted.json`);
-      return;
+      console.log(`::error::map registry exhausted — ${postedIds.size}/${maps.length} maps in registry are already in posted.json; add maps to content/maps/registry.json`);
+      process.exit(1);
     }
   } else {
     map = maps.find(m => m.id === arg);
@@ -72,6 +77,9 @@ async function main() {
     }
   }
   console.log(`[map] selected: ${map.id} (${arg === "auto" ? "auto" : "explicit"}) — ${postedIds.size}/${maps.length} posted so far`);
+  const left = maps.filter(m => !postedIds.has(m.id) && m.id !== map!.id).length;
+  if (left <= EXHAUST_WARN_LEFT) console.log(`::warning::map registry nearly exhausted (${left} left) — add maps to content/maps/registry.json`);
+  const drawable = await loadDrawableCca3();
 
   const videoPath = path.join(REMOTION_DIR, "out", `map-${map.id}.mp4`);
   if (SKIP_RENDER) {
@@ -83,7 +91,7 @@ async function main() {
   }
 
   const title = buildTitle(map.shortTitle);
-  const description = buildDescription(map, date);
+  const description = buildDescription(map, date, drawable);
   const tags = buildTags(map);
   const payload = { videoPath, title, description, tags };
 
@@ -92,7 +100,8 @@ async function main() {
     return;
   }
 
-  await fs.access(videoPath).catch(() => { throw new Error(`rendered video not found: ${videoPath}`); });
+  const stat = await fs.stat(videoPath).catch(() => { throw new Error(`rendered video not found: ${videoPath}`); });
+  if (stat.size <= MIN_VIDEO_BYTES) throw new Error(`rendered video too small (${stat.size} bytes ≤ ${MIN_VIDEO_BYTES}): ${videoPath}`);
 
   const yt = await publishYoutube(payload);
   console.log(`[map] YouTube:`, yt.ok ? `✓ ${yt.url}` : `✗ ${yt.error}`);
@@ -112,7 +121,13 @@ async function main() {
   let ledgerStatus = "ok";
   try {
     const ledger = await loadLedger();
-    await saveLedger(ledger.fileId, ledger.entries, [ledgerEntry], date);
+    if (ledger.fileId && ledger.entries.length === 0) {
+      // 既存ファイルが読めなかった (parse 失敗等) 可能性が高い。news の履歴を空で上書きしない
+      ledgerStatus = "skipped: ledger file exists but 0 entries were read (not overwriting)";
+      console.warn(`[map] ledger append ${ledgerStatus}`);
+    } else {
+      await saveLedger(ledger.fileId, ledger.entries, [ledgerEntry], date);
+    }
   } catch (e) {
     ledgerStatus = `failed: ${e instanceof Error ? e.message : String(e)}`;
     console.warn(`[map] ledger append failed (continuing): ${ledgerStatus}`);
@@ -126,6 +141,13 @@ async function main() {
     youtube: yt, ledger: ledgerStatus, ledgerEntry,
   }, null, 2), "utf-8");
   console.log(`[map] Done. Result → ${resultPath}`);
+}
+
+/** countries.json で ccn3 を持つ cca3 (= world-atlas で描ける国)。説明文の件数を動画の凡例と一致させる */
+async function loadDrawableCca3(): Promise<Set<string>> {
+  const parsed = JSON.parse(await fs.readFile(path.join(MAPS_DIR, "countries.json"), "utf-8"));
+  const list: Country[] = Array.isArray(parsed) ? parsed : parsed?.countries ?? [];
+  return new Set(list.filter(c => c.cca3 && c.ccn3).map(c => c.cca3.toUpperCase()));
 }
 
 async function loadPosted(): Promise<Posted> {
@@ -151,15 +173,19 @@ function buildTitle(shortTitle: string): string {
   return `${trimmed}${TITLE_SUFFIX}`;
 }
 
-function buildDescription(map: MapDef, date: string): string {
-  // 凡例ごとの件数 (data は cca3 → legend key)
+function buildDescription(map: MapDef, date: string, drawable: Set<string>): string {
+  // 凡例ごとの件数 (data は cca3 → legend key)。ccn3 の無い cca3 は描かれないので数えない
   const counts = new Map<string, number>();
-  for (const k of Object.values(map.data)) counts.set(k, (counts.get(k) ?? 0) + 1);
+  for (const [cca3, k] of Object.entries(map.data)) {
+    if (!drawable.has(cca3.toUpperCase())) continue;
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
   const legendLine = map.legend
     .map(l => `${l.label} ${counts.get(l.key) ?? 0}`)
     .join(" · ");
   const lines = [
     `${map.shortTitle} — ${legendLine} (countries & territories).`,
+    ...(map.descriptionNote ? [map.descriptionNote] : []),
     ...(map.cta ? ["", `💬 ${map.cta}`] : []),
     "",
     `Source: ${map.source.name} (${map.source.year}) ${map.source.url}`,

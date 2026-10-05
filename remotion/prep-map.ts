@@ -30,6 +30,7 @@ interface MapDef {
   data: Record<string, string>;
   unknownLabel?: string;
   source: { name: string; url: string; year: number | string; fetchedAt?: string };
+  descriptionNote?: string;
   durationSec?: number;
 }
 interface Registry { maps: MapDef[] }
@@ -77,7 +78,12 @@ async function main() {
     if (!legendKeys.has(key)) badKeys.push(`${cca3}=${key}`);
     byNumeric[ccn3] = key;
   }
+  // 本番コンテンツなので取りこぼしは落とす (warn にすると件数のずれた地図が投稿される)
+  if (unmapped.length) throw new Error(`[prep-map] ${map.id}: unmapped cca3 (no ccn3 in countries.json): ${unmapped.length} → ${unmapped.join(", ")}`);
+  if (badKeys.length) throw new Error(`[prep-map] ${map.id}: keys not in legend: ${badKeys.join(", ")}`);
 
+  // 「最新年」混在のデータは出典行にそれを示す (internet-users: 2015〜2024 の最新値)
+  const latest = /latest/i.test(map.descriptionNote ?? "") ? " (latest available)" : "";
   const props = {
     fps: FPS,
     durationSec: map.durationSec ?? DEFAULT_DURATION_SEC,
@@ -87,8 +93,9 @@ async function main() {
     legend: map.legend,
     byNumeric,
     unknownLabel: map.unknownLabel ?? "No data",
-    sourceLine: `Source: ${map.source.name}, ${map.source.year}`,
+    sourceLine: `Source: ${map.source.name}, ${map.source.year}${latest}`,
     brand: BRAND,
+    ...(map.descriptionNote ? { descriptionNote: map.descriptionNote } : {}),
   };
   await fs.writeFile(path.join(HERE, "props-map.json"), JSON.stringify(props, null, 2));
 
@@ -106,8 +113,6 @@ async function main() {
   for (const k of Object.values(byNumeric)) perKey[k] = (perKey[k] ?? 0) + 1;
   console.log(`[prep-map] ${map.id}: mapped ${Object.keys(byNumeric).length} / ${Object.keys(map.data).length} cca3 → props-map.json`);
   console.log(`[prep-map] per key: ${Object.entries(perKey).map(([k, n]) => `${k}=${n}`).join(", ")}`);
-  if (unmapped.length) console.warn(`[prep-map] unmapped cca3 (no ccn3 in countries.json): ${unmapped.length} → ${unmapped.join(", ")}`);
-  if (badKeys.length) console.warn(`[prep-map] keys not in legend (drawn as "${props.unknownLabel}"): ${badKeys.join(", ")}`);
 }
 
 function exists(p: string) { return fs.access(p).then(() => true).catch(() => false); }

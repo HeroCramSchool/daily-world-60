@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { FONT, T } from "../lib/theme";
-import { wrapText } from "../lib/fit";
+import { EM, wrapText } from "../lib/fit";
 import { worldPaths } from "./world";
 import type { MapShortProps } from "./mapTypes";
 
@@ -18,6 +18,26 @@ const FILL_STEP = 8;    // category ごとのずれ
 const FILL_LEN = 12;    // 1 category の塗りにかけるフレーム
 const CTA_AT_SEC = 1.5;
 const ZOOM_END = 1;  // 全尺でかける微ズーム (ほぼ静止)
+
+// 凡例チップ: 行数を字幅見積もりで数え、3 行に伸びたら CTA を下げる (出典行 y=1700 は固定)
+const LEGEND_TOP = 1350;
+const LEGEND_W = 960;
+const LEGEND_GAP = 16;
+const CHIP_H = 64;
+const CHIP_FONT = 32;
+const COUNT_FONT = 28;
+const chipWidth = (label: string, n: number) =>
+  2 + 16 + 34 + 14 + EM(label) * CHIP_FONT + 14 + EM(String(n)) * COUNT_FONT + 22 + 2;
+function legendRows(chips: Array<{ label: string; n: number }>): number {
+  let rows = 1;
+  let x = 0;
+  for (const c of chips) {
+    const w = chipWidth(c.label, c.n);
+    if (x > 0 && x + LEGEND_GAP + w > LEGEND_W) { rows += 1; x = w; }
+    else x = x > 0 ? x + LEGEND_GAP + w : w;
+  }
+  return rows;
+}
 
 const TITLE_SIZES = [104, 96, 88, 80, 72, 64, 58];
 
@@ -54,13 +74,23 @@ export const MapShort: React.FC<MapShortProps> = (props) => {
     for (const k of Object.values(props.byNumeric)) if (k in c) c[k] += 1;
     return c;
   }, [props.legend, props.byNumeric]);
-  const unknownCount = world.countries.filter((c) => keyOf(c.id) === null).length;
+  // id 無し (N. Cyprus / Somaliland / Kosovo) は灰色で描くが「No data」には数えない
+  const unknownCount = world.countries.filter((c) => c.id !== null && keyOf(c.id) === null).length;
 
   const categoryT = (k: number) =>
     interpolate(frame, [FILL_START + FILL_STEP * k, FILL_START + FILL_STEP * k + FILL_LEN], [0, 1], {
       ...clamp, easing: Easing.out(Easing.cubic),
     });
   const unknownIdx = props.legend.length;
+  const chips = [
+    ...props.legend.map((l, k) => ({ ...l, n: counts[l.key] ?? 0, k })),
+    ...(unknownCount > 0 ? [{ key: "__unknown", label: props.unknownLabel, color: UNKNOWN_FILL, n: unknownCount, k: unknownIdx }] : []),
+  ];
+  const rows = legendRows(chips);
+  const legendBottom = LEGEND_TOP + rows * CHIP_H + (rows - 1) * LEGEND_GAP;
+  const ctaTop = Math.max(1540, legendBottom + 40);
+  // 出典行は 1 行固定。長い出典名 (「(latest available)」付き等) は省略符より先に字を縮める
+  const sourceFont = [28, 26, 24, 22].find((f) => EM(props.sourceLine) * f + props.sourceLine.length <= 960) ?? 22;
 
   const titleIn = spring({ frame, fps, config: { damping: 14, stiffness: 160, mass: 0.6 }, durationInFrames: 10 });
   const underline = interpolate(frame, [4, 14], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
@@ -113,26 +143,25 @@ export const MapShort: React.FC<MapShortProps> = (props) => {
       {/* legend */}
       <div
         style={{
-          position: "absolute", left: 60, top: 1350, width: 960,
-          display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 18,
+          position: "absolute", left: 60, top: LEGEND_TOP, width: LEGEND_W,
+          display: "flex", flexWrap: "wrap", justifyContent: "center", gap: LEGEND_GAP,
         }}
       >
-        {[...props.legend.map((l, k) => ({ ...l, n: counts[l.key] ?? 0, k })),
-          ...(unknownCount > 0 ? [{ key: "__unknown", label: props.unknownLabel, color: UNKNOWN_FILL, n: unknownCount, k: unknownIdx }] : [])]
+        {chips
           .map((chip) => {
             const t = categoryT(chip.k);
             return (
               <div
                 key={chip.key}
                 style={{
-                  display: "flex", alignItems: "center", gap: 16, height: 68, padding: "0 26px 0 18px",
+                  display: "flex", alignItems: "center", gap: 14, height: CHIP_H, padding: "0 22px 0 16px",
                   background: T.bgLift, border: `2px solid ${T.rule}`, borderRadius: 14,
                   opacity: t, transform: `translateY(${(1 - t) * 14}px)`,
                 }}
               >
                 <div style={{ width: 34, height: 34, borderRadius: 7, background: chip.color, boxShadow: "inset 0 0 0 2px rgba(255,255,255,.14)" }} />
-                <div style={{ color: T.ink, fontSize: 36, fontWeight: 800, whiteSpace: "nowrap" }}>{chip.label}</div>
-                <div style={{ color: T.muted, fontSize: 30, fontWeight: 600, whiteSpace: "nowrap" }}>{chip.n}</div>
+                <div style={{ color: T.ink, fontSize: CHIP_FONT, fontWeight: 800, whiteSpace: "nowrap" }}>{chip.label}</div>
+                <div style={{ color: T.muted, fontSize: COUNT_FONT, fontWeight: 600, whiteSpace: "nowrap" }}>{chip.n}</div>
               </div>
             );
           })}
@@ -141,7 +170,7 @@ export const MapShort: React.FC<MapShortProps> = (props) => {
       {/* cta */}
       <div
         style={{
-          position: "absolute", left: 60, top: 1540, width: 960, textAlign: "center",
+          position: "absolute", left: 60, top: ctaTop, width: 960, textAlign: "center",
           color: T.accent, fontSize: 54, fontWeight: 800, letterSpacing: -0.5,
           opacity: ctaIn, transform: `translateY(${(1 - ctaIn) * 18}px)`,
         }}
@@ -153,7 +182,7 @@ export const MapShort: React.FC<MapShortProps> = (props) => {
       <div
         style={{
           position: "absolute", left: 60, top: 1700, width: 960, textAlign: "center",
-          color: T.ink, opacity: 0.55, fontSize: 28, fontWeight: 600, letterSpacing: 1,
+          color: T.ink, opacity: 0.55, fontSize: sourceFont, fontWeight: 600, letterSpacing: 1,
           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
         }}
       >

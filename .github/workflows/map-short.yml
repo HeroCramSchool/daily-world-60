@@ -39,7 +39,8 @@ jobs:
       YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
       YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
 
-      DRY_RUN: ${{ (github.event_name == 'push' || inputs.dry_run == true) && '1' || '' }}
+      DRY_RUN: ${{ inputs.dry_run == true && '1' || '' }}
+      MAP_ID: ${{ inputs.map_id || 'auto' }}
 
     steps:
       - name: Checkout
@@ -73,7 +74,7 @@ jobs:
           npx remotion browser ensure
 
       - name: Publish map short (prep → render → YouTube → posted.json)
-        run: npx tsx scripts/publish-map.ts ${{ inputs.map_id || 'auto' }}
+        run: npx tsx scripts/publish-map.ts "$MAP_ID"
 
       - name: Upload artifacts
         if: always()
@@ -89,7 +90,7 @@ jobs:
       # posted.json が重複防止の正本。投稿後にこれが残らないと次回同じ地図を再投稿するので、
       # 後続が落ちても (always) コミットする。dry run では何も書かれないのでスキップ。
       - name: Commit posted.json
-        if: always() && github.event_name != 'push' && inputs.dry_run != true
+        if: always() && inputs.dry_run != true
         run: |
           git config user.name "Daily World 60 Bot"
           git config user.email "bot@dailyworld60"
@@ -98,6 +99,16 @@ jobs:
             exit 0
           fi
           git add content/maps/posted.json
-          git commit -m "map: posted ${{ inputs.map_id || 'auto' }} ($(date -u +%F))"
-          git pull --rebase origin "${{ github.ref_name }}"
-          git push origin "HEAD:${{ github.ref_name }}"
+          POSTED_ID=$(node -e 'const p=JSON.parse(require("fs").readFileSync("content/maps/posted.json","utf8")).posted; console.log(p.length ? p[p.length-1].id : "unknown")')
+          git commit -m "map: posted $POSTED_ID ($(date -u +%F))"
+          # 本編 (publish.yml) のコミットと競合し得るので rebase + push を 3 回まで
+          for i in 1 2 3; do
+            if git pull --rebase origin "${{ github.ref_name }}" && git push origin "HEAD:${{ github.ref_name }}"; then
+              echo "pushed posted.json (attempt $i)"
+              exit 0
+            fi
+            echo "push failed (attempt $i/3) — retrying in 10s"
+            sleep 10
+          done
+          echo "::error::posted.json push failed — check output/maps/*.json for the uploaded videoId and add it to content/maps/posted.json manually"
+          exit 1
