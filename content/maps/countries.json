@@ -1,0 +1,6618 @@
+{
+ "source": {
+  "name": "REST Countries v3.1",
+  "url": "https://restcountries.com/",
+  "fetchedAt": "2026-10-05",
+  "dataUrl": "https://gitlab.com/restcountries/restcountries/-/raw/master/src/main/resources/countriesV3.1.json",
+  "dataUpdated": "2026-02-25",
+  "note": "The public /v3.1 API endpoint was retired (v5 needs an API key), so the snapshot is the project's own v3.1 data file from its GitLab repo (last commit 2026-02-25). Fields trimmed to what the map shorts need; currencies keep code -> name only."
+ },
+ "count": 250,
+ "countries": [
+  {
+   "cca2": "AW",
+   "cca3": "ABW",
+   "ccn3": "533",
+   "name": {
+    "common": "Aruba",
+    "official": "Aruba"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "AWG": "Aruban florin"
+   },
+   "area": 180,
+   "population": 107566,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "AF",
+   "cca3": "AFG",
+   "ccn3": "004",
+   "name": {
+    "common": "Afghanistan",
+    "official": "Islamic Republic of Afghanistan"
+   },
+   "region": "Asia",
+   "subregion": "Southern Asia",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+04:30"
+   ],
+   "currencies": {
+    "AFN": "Afghan afghani"
+   },
+   "area": 652230,
+   "population": 43844000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "AO",
+   "cca3": "AGO",
+   "ccn3": "024",
+   "name": {
+    "common": "Angola",
+    "official": "Republic of Angola"
+   },
+   "region": "Africa",
+   "subregion": "Middle Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "AOA": "Angolan kwanza"
+   },
+   "area": 1246700,
+   "population": 36170961,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "AI",
+   "cca3": "AIA",
+   "ccn3": "660",
+   "name": {
+    "common": "Anguilla",
+    "official": "Anguilla"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "XCD": "Eastern Caribbean dollar"
+   },
+   "area": 91,
+   "population": 16010,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "AX",
+   "cca3": "ALA",
+   "ccn3": "248",
+   "name": {
+    "common": "Åland Islands",
+    "official": "Åland Islands"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 1580,
+   "population": 30654,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "AL",
+   "cca3": "ALB",
+   "ccn3": "008",
+   "name": {
+    "common": "Albania",
+    "official": "Republic of Albania"
+   },
+   "region": "Europe",
+   "subregion": "Southeast Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "ALL": "Albanian lek"
+   },
+   "area": 28748,
+   "population": 2363314,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "AD",
+   "cca3": "AND",
+   "ccn3": "020",
+   "name": {
+    "common": "Andorra",
+    "official": "Principality of Andorra"
+   },
+   "region": "Europe",
+   "subregion": "Southern Europe",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 468,
+   "population": 88406,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "AE",
+   "cca3": "ARE",
+   "ccn3": "784",
+   "name": {
+    "common": "United Arab Emirates",
+    "official": "United Arab Emirates"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+04:00"
+   ],
+   "currencies": {
+    "AED": "United Arab Emirates dirham"
+   },
+   "area": 83600,
+   "population": 11294243,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "AR",
+   "cca3": "ARG",
+   "ccn3": "032",
+   "name": {
+    "common": "Argentina",
+    "official": "Argentine Republic"
+   },
+   "region": "Americas",
+   "subregion": "South America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-03:00"
+   ],
+   "currencies": {
+    "ARS": "Argentine peso"
+   },
+   "area": 2780400,
+   "population": 46735004,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "AM",
+   "cca3": "ARM",
+   "ccn3": "051",
+   "name": {
+    "common": "Armenia",
+    "official": "Republic of Armenia"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+04:00"
+   ],
+   "currencies": {
+    "AMD": "Armenian dram"
+   },
+   "area": 29743,
+   "population": 3076200,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "AS",
+   "cca3": "ASM",
+   "ccn3": "016",
+   "name": {
+    "common": "American Samoa",
+    "official": "American Samoa"
+   },
+   "region": "Oceania",
+   "subregion": "Polynesia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-11:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 199,
+   "population": 49710,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "AQ",
+   "cca3": "ATA",
+   "ccn3": "010",
+   "name": {
+    "common": "Antarctica",
+    "official": "Antarctica"
+   },
+   "region": "Antarctic",
+   "subregion": "",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-03:00",
+    "UTC+03:00",
+    "UTC+05:00",
+    "UTC+06:00",
+    "UTC+07:00",
+    "UTC+08:00",
+    "UTC+10:00",
+    "UTC+12:00"
+   ],
+   "currencies": {},
+   "area": 14000000,
+   "population": 1300,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "TF",
+   "cca3": "ATF",
+   "ccn3": "260",
+   "name": {
+    "common": "French Southern and Antarctic Lands",
+    "official": "Territory of the French Southern and Antarctic Lands"
+   },
+   "region": "Antarctic",
+   "subregion": "",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+05:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 7747,
+   "population": 400,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "AG",
+   "cca3": "ATG",
+   "ccn3": "028",
+   "name": {
+    "common": "Antigua and Barbuda",
+    "official": "Antigua and Barbuda"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "XCD": "Eastern Caribbean dollar"
+   },
+   "area": 442,
+   "population": 103603,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "AU",
+   "cca3": "AUS",
+   "ccn3": "036",
+   "name": {
+    "common": "Australia",
+    "official": "Commonwealth of Australia"
+   },
+   "region": "Oceania",
+   "subregion": "Australia and New Zealand",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+05:00",
+    "UTC+06:30",
+    "UTC+07:00",
+    "UTC+08:00",
+    "UTC+09:30",
+    "UTC+10:00",
+    "UTC+10:30",
+    "UTC+11:30"
+   ],
+   "currencies": {
+    "AUD": "Australian dollar"
+   },
+   "area": 7692024,
+   "population": 27536874,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "AT",
+   "cca3": "AUT",
+   "ccn3": "040",
+   "name": {
+    "common": "Austria",
+    "official": "Republic of Austria"
+   },
+   "region": "Europe",
+   "subregion": "Central Europe",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 83871,
+   "population": 9200931,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "AZ",
+   "cca3": "AZE",
+   "ccn3": "031",
+   "name": {
+    "common": "Azerbaijan",
+    "official": "Republic of Azerbaijan"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+04:00"
+   ],
+   "currencies": {
+    "AZN": "Azerbaijani manat"
+   },
+   "area": 86600,
+   "population": 10241722,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BI",
+   "cca3": "BDI",
+   "ccn3": "108",
+   "name": {
+    "common": "Burundi",
+    "official": "Republic of Burundi"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "BIF": "Burundian franc"
+   },
+   "area": 27834,
+   "population": 12332788,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BE",
+   "cca3": "BEL",
+   "ccn3": "056",
+   "name": {
+    "common": "Belgium",
+    "official": "Kingdom of Belgium"
+   },
+   "region": "Europe",
+   "subregion": "Western Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 30528,
+   "population": 11825551,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BJ",
+   "cca3": "BEN",
+   "ccn3": "204",
+   "name": {
+    "common": "Benin",
+    "official": "Republic of Benin"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "XOF": "West African CFA franc"
+   },
+   "area": 112622,
+   "population": 13224860,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BQ",
+   "cca3": "BES",
+   "ccn3": "535",
+   "name": {
+    "common": "Caribbean Netherlands",
+    "official": "Bonaire, Sint Eustatius and Saba"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 328,
+   "population": 31980,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "BF",
+   "cca3": "BFA",
+   "ccn3": "854",
+   "name": {
+    "common": "Burkina Faso",
+    "official": "Burkina Faso"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC"
+   ],
+   "currencies": {
+    "XOF": "West African CFA franc"
+   },
+   "area": 272967,
+   "population": 24070553,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BD",
+   "cca3": "BGD",
+   "ccn3": "050",
+   "name": {
+    "common": "Bangladesh",
+    "official": "People's Republic of Bangladesh"
+   },
+   "region": "Asia",
+   "subregion": "Southern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+06:00"
+   ],
+   "currencies": {
+    "BDT": "Bangladeshi taka"
+   },
+   "area": 147570,
+   "population": 169828911,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BG",
+   "cca3": "BGR",
+   "ccn3": "100",
+   "name": {
+    "common": "Bulgaria",
+    "official": "Republic of Bulgaria"
+   },
+   "region": "Europe",
+   "subregion": "Southeast Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "BGN": "Bulgarian lev"
+   },
+   "area": 110879,
+   "population": 6437360,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BH",
+   "cca3": "BHR",
+   "ccn3": "048",
+   "name": {
+    "common": "Bahrain",
+    "official": "Kingdom of Bahrain"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "BHD": "Bahraini dinar"
+   },
+   "area": 765,
+   "population": 1594654,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BS",
+   "cca3": "BHS",
+   "ccn3": "044",
+   "name": {
+    "common": "Bahamas",
+    "official": "Commonwealth of the Bahamas"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-05:00"
+   ],
+   "currencies": {
+    "BSD": "Bahamian dollar",
+    "USD": "United States dollar"
+   },
+   "area": 13943,
+   "population": 398165,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BA",
+   "cca3": "BIH",
+   "ccn3": "070",
+   "name": {
+    "common": "Bosnia and Herzegovina",
+    "official": "Bosnia and Herzegovina"
+   },
+   "region": "Europe",
+   "subregion": "Southeast Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "BAM": "Bosnia and Herzegovina convertible mark"
+   },
+   "area": 51209,
+   "population": 3422000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BL",
+   "cca3": "BLM",
+   "ccn3": "652",
+   "name": {
+    "common": "Saint Barthélemy",
+    "official": "Collectivity of Saint Barthélemy"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 21,
+   "population": 10562,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "BY",
+   "cca3": "BLR",
+   "ccn3": "112",
+   "name": {
+    "common": "Belarus",
+    "official": "Republic of Belarus"
+   },
+   "region": "Europe",
+   "subregion": "Eastern Europe",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "BYN": "Belarusian ruble"
+   },
+   "area": 207600,
+   "population": 9109280,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BZ",
+   "cca3": "BLZ",
+   "ccn3": "084",
+   "name": {
+    "common": "Belize",
+    "official": "Belize"
+   },
+   "region": "Americas",
+   "subregion": "Central America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-06:00"
+   ],
+   "currencies": {
+    "BZD": "Belize dollar"
+   },
+   "area": 22966,
+   "population": 417634,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BM",
+   "cca3": "BMU",
+   "ccn3": "060",
+   "name": {
+    "common": "Bermuda",
+    "official": "Bermuda"
+   },
+   "region": "Americas",
+   "subregion": "North America",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "BMD": "Bermudian dollar"
+   },
+   "area": 54,
+   "population": 64055,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "BO",
+   "cca3": "BOL",
+   "ccn3": "068",
+   "name": {
+    "common": "Bolivia",
+    "official": "Plurinational State of Bolivia"
+   },
+   "region": "Americas",
+   "subregion": "South America",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "BOB": "Bolivian boliviano"
+   },
+   "area": 1098581,
+   "population": 11365333,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BR",
+   "cca3": "BRA",
+   "ccn3": "076",
+   "name": {
+    "common": "Brazil",
+    "official": "Federative Republic of Brazil"
+   },
+   "region": "Americas",
+   "subregion": "South America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC-05:00",
+    "UTC-04:00",
+    "UTC-03:00",
+    "UTC-02:00"
+   ],
+   "currencies": {
+    "BRL": "Brazilian real"
+   },
+   "area": 8515767,
+   "population": 213421037,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BB",
+   "cca3": "BRB",
+   "ccn3": "052",
+   "name": {
+    "common": "Barbados",
+    "official": "Barbados"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "BBD": "Barbadian dollar"
+   },
+   "area": 430,
+   "population": 267800,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BN",
+   "cca3": "BRN",
+   "ccn3": "096",
+   "name": {
+    "common": "Brunei",
+    "official": "Nation of Brunei, Abode of Peace"
+   },
+   "region": "Asia",
+   "subregion": "South-Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+08:00"
+   ],
+   "currencies": {
+    "BND": "Brunei dollar",
+    "SGD": "Singapore dollar"
+   },
+   "area": 5765,
+   "population": 455500,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BT",
+   "cca3": "BTN",
+   "ccn3": "064",
+   "name": {
+    "common": "Bhutan",
+    "official": "Kingdom of Bhutan"
+   },
+   "region": "Asia",
+   "subregion": "Southern Asia",
+   "landlocked": true,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+06:00"
+   ],
+   "currencies": {
+    "BTN": "Bhutanese ngultrum",
+    "INR": "Indian rupee"
+   },
+   "area": 38394,
+   "population": 784043,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "BV",
+   "cca3": "BVT",
+   "ccn3": "074",
+   "name": {
+    "common": "Bouvet Island",
+    "official": "Bouvet Island"
+   },
+   "region": "Antarctic",
+   "subregion": "",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {},
+   "area": 49,
+   "population": 0,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "BW",
+   "cca3": "BWA",
+   "ccn3": "072",
+   "name": {
+    "common": "Botswana",
+    "official": "Republic of Botswana"
+   },
+   "region": "Africa",
+   "subregion": "Southern Africa",
+   "landlocked": true,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "BWP": "Botswana pula"
+   },
+   "area": 582000,
+   "population": 2359609,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "CF",
+   "cca3": "CAF",
+   "ccn3": "140",
+   "name": {
+    "common": "Central African Republic",
+    "official": "Central African Republic"
+   },
+   "region": "Africa",
+   "subregion": "Middle Africa",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "XAF": "Central African CFA franc"
+   },
+   "area": 622984,
+   "population": 6470307,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "CA",
+   "cca3": "CAN",
+   "ccn3": "124",
+   "name": {
+    "common": "Canada",
+    "official": "Canada"
+   },
+   "region": "Americas",
+   "subregion": "North America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC-08:00",
+    "UTC-07:00",
+    "UTC-06:00",
+    "UTC-05:00",
+    "UTC-04:00",
+    "UTC-03:30"
+   ],
+   "currencies": {
+    "CAD": "Canadian dollar"
+   },
+   "area": 9984670,
+   "population": 41651653,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "CC",
+   "cca3": "CCK",
+   "ccn3": "166",
+   "name": {
+    "common": "Cocos (Keeling) Islands",
+    "official": "Territory of the Cocos (Keeling) Islands"
+   },
+   "region": "Oceania",
+   "subregion": "Australia and New Zealand",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+06:30"
+   ],
+   "currencies": {
+    "AUD": "Australian dollar"
+   },
+   "area": 14,
+   "population": 593,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "CH",
+   "cca3": "CHE",
+   "ccn3": "756",
+   "name": {
+    "common": "Switzerland",
+    "official": "Swiss Confederation"
+   },
+   "region": "Europe",
+   "subregion": "Western Europe",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "CHF": "Swiss franc"
+   },
+   "area": 41284,
+   "population": 9082848,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "CL",
+   "cca3": "CHL",
+   "ccn3": "152",
+   "name": {
+    "common": "Chile",
+    "official": "Republic of Chile"
+   },
+   "region": "Americas",
+   "subregion": "South America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-06:00",
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "CLP": "Chilean peso"
+   },
+   "area": 756102,
+   "population": 20206953,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "CN",
+   "cca3": "CHN",
+   "ccn3": "156",
+   "name": {
+    "common": "China",
+    "official": "People's Republic of China"
+   },
+   "region": "Asia",
+   "subregion": "Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+08:00"
+   ],
+   "currencies": {
+    "CNY": "Chinese yuan"
+   },
+   "area": 9706961,
+   "population": 1408280000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "CI",
+   "cca3": "CIV",
+   "ccn3": "384",
+   "name": {
+    "common": "Ivory Coast",
+    "official": "Republic of Côte d'Ivoire"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC"
+   ],
+   "currencies": {
+    "XOF": "West African CFA franc"
+   },
+   "area": 322463,
+   "population": 31719275,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "CM",
+   "cca3": "CMR",
+   "ccn3": "120",
+   "name": {
+    "common": "Cameroon",
+    "official": "Republic of Cameroon"
+   },
+   "region": "Africa",
+   "subregion": "Middle Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "XAF": "Central African CFA franc"
+   },
+   "area": 475442,
+   "population": 29442327,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "CD",
+   "cca3": "COD",
+   "ccn3": "180",
+   "name": {
+    "common": "DR Congo",
+    "official": "Democratic Republic of the Congo"
+   },
+   "region": "Africa",
+   "subregion": "Middle Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00",
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "CDF": "Congolese franc"
+   },
+   "area": 2344858,
+   "population": 112832000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "CG",
+   "cca3": "COG",
+   "ccn3": "178",
+   "name": {
+    "common": "Republic of the Congo",
+    "official": "Republic of the Congo"
+   },
+   "region": "Africa",
+   "subregion": "Middle Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "XAF": "Central African CFA franc"
+   },
+   "area": 342000,
+   "population": 6142180,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "CK",
+   "cca3": "COK",
+   "ccn3": "184",
+   "name": {
+    "common": "Cook Islands",
+    "official": "Cook Islands"
+   },
+   "region": "Oceania",
+   "subregion": "Polynesia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-10:00"
+   ],
+   "currencies": {
+    "CKD": "Cook Islands dollar",
+    "NZD": "New Zealand dollar"
+   },
+   "area": 236,
+   "population": 15040,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "CO",
+   "cca3": "COL",
+   "ccn3": "170",
+   "name": {
+    "common": "Colombia",
+    "official": "Republic of Colombia"
+   },
+   "region": "Americas",
+   "subregion": "South America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-05:00"
+   ],
+   "currencies": {
+    "COP": "Colombian peso"
+   },
+   "area": 1141748,
+   "population": 53057212,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "KM",
+   "cca3": "COM",
+   "ccn3": "174",
+   "name": {
+    "common": "Comoros",
+    "official": "Union of the Comoros"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "KMF": "Comorian franc"
+   },
+   "area": 1862,
+   "population": 919901,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "CV",
+   "cca3": "CPV",
+   "ccn3": "132",
+   "name": {
+    "common": "Cape Verde",
+    "official": "Republic of Cabo Verde"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-01:00"
+   ],
+   "currencies": {
+    "CVE": "Cape Verdean escudo"
+   },
+   "area": 4033,
+   "population": 491233,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "CR",
+   "cca3": "CRI",
+   "ccn3": "188",
+   "name": {
+    "common": "Costa Rica",
+    "official": "Republic of Costa Rica"
+   },
+   "region": "Americas",
+   "subregion": "Central America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-06:00"
+   ],
+   "currencies": {
+    "CRC": "Costa Rican colón"
+   },
+   "area": 51100,
+   "population": 5309625,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "CU",
+   "cca3": "CUB",
+   "ccn3": "192",
+   "name": {
+    "common": "Cuba",
+    "official": "Republic of Cuba"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-05:00"
+   ],
+   "currencies": {
+    "CUC": "Cuban convertible peso",
+    "CUP": "Cuban peso"
+   },
+   "area": 109884,
+   "population": 9748007,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "CW",
+   "cca3": "CUW",
+   "ccn3": "531",
+   "name": {
+    "common": "Curaçao",
+    "official": "Country of Curaçao"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "ANG": "Netherlands Antillean guilder"
+   },
+   "area": 444,
+   "population": 156115,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "CX",
+   "cca3": "CXR",
+   "ccn3": "162",
+   "name": {
+    "common": "Christmas Island",
+    "official": "Territory of Christmas Island"
+   },
+   "region": "Oceania",
+   "subregion": "Australia and New Zealand",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+07:00"
+   ],
+   "currencies": {
+    "AUD": "Australian dollar"
+   },
+   "area": 135,
+   "population": 1692,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "KY",
+   "cca3": "CYM",
+   "ccn3": "136",
+   "name": {
+    "common": "Cayman Islands",
+    "official": "Cayman Islands"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-05:00"
+   ],
+   "currencies": {
+    "KYD": "Cayman Islands dollar"
+   },
+   "area": 264,
+   "population": 84738,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "CY",
+   "cca3": "CYP",
+   "ccn3": "196",
+   "name": {
+    "common": "Cyprus",
+    "official": "Republic of Cyprus"
+   },
+   "region": "Europe",
+   "subregion": "Southern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 9251,
+   "population": 1442614,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "CZ",
+   "cca3": "CZE",
+   "ccn3": "203",
+   "name": {
+    "common": "Czechia",
+    "official": "Czech Republic"
+   },
+   "region": "Europe",
+   "subregion": "Central Europe",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "CZK": "Czech koruna"
+   },
+   "area": 78865,
+   "population": 10882341,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "DE",
+   "cca3": "DEU",
+   "ccn3": "276",
+   "name": {
+    "common": "Germany",
+    "official": "Federal Republic of Germany"
+   },
+   "region": "Europe",
+   "subregion": "Western Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 357114,
+   "population": 83491249,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "DJ",
+   "cca3": "DJI",
+   "ccn3": "262",
+   "name": {
+    "common": "Djibouti",
+    "official": "Republic of Djibouti"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "DJF": "Djiboutian franc"
+   },
+   "area": 23200,
+   "population": 1066809,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "DM",
+   "cca3": "DMA",
+   "ccn3": "212",
+   "name": {
+    "common": "Dominica",
+    "official": "Commonwealth of Dominica"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "XCD": "Eastern Caribbean dollar"
+   },
+   "area": 751,
+   "population": 67408,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "DK",
+   "cca3": "DNK",
+   "ccn3": "208",
+   "name": {
+    "common": "Denmark",
+    "official": "Kingdom of Denmark"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00",
+    "UTC-03:00",
+    "UTC-01:00",
+    "UTC",
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "DKK": "Danish krone"
+   },
+   "area": 43094,
+   "population": 6011488,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "DO",
+   "cca3": "DOM",
+   "ccn3": "214",
+   "name": {
+    "common": "Dominican Republic",
+    "official": "Dominican Republic"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "DOP": "Dominican peso"
+   },
+   "area": 48671,
+   "population": 10771504,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "DZ",
+   "cca3": "DZA",
+   "ccn3": "012",
+   "name": {
+    "common": "Algeria",
+    "official": "People's Democratic Republic of Algeria"
+   },
+   "region": "Africa",
+   "subregion": "Northern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "DZD": "Algerian dinar"
+   },
+   "area": 2381741,
+   "population": 47400000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "EC",
+   "cca3": "ECU",
+   "ccn3": "218",
+   "name": {
+    "common": "Ecuador",
+    "official": "Republic of Ecuador"
+   },
+   "region": "Americas",
+   "subregion": "South America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-06:00",
+    "UTC-05:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 276841,
+   "population": 18103660,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "EG",
+   "cca3": "EGY",
+   "ccn3": "818",
+   "name": {
+    "common": "Egypt",
+    "official": "Arab Republic of Egypt"
+   },
+   "region": "Africa",
+   "subregion": "Northern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "EGP": "Egyptian pound"
+   },
+   "area": 1002450,
+   "population": 107271260,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "ER",
+   "cca3": "ERI",
+   "ccn3": "232",
+   "name": {
+    "common": "Eritrea",
+    "official": "State of Eritrea"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "ERN": "Eritrean nakfa"
+   },
+   "area": 117600,
+   "population": 3607000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "EH",
+   "cca3": "ESH",
+   "ccn3": "732",
+   "name": {
+    "common": "Western Sahara",
+    "official": "Sahrawi Arab Democratic Republic"
+   },
+   "region": "Africa",
+   "subregion": "Northern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+00:00"
+   ],
+   "currencies": {
+    "DZD": "Algerian dinar",
+    "MAD": "Moroccan dirham",
+    "MRU": "Mauritanian ouguiya"
+   },
+   "area": 266000,
+   "population": 600904,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "ES",
+   "cca3": "ESP",
+   "ccn3": "724",
+   "name": {
+    "common": "Spain",
+    "official": "Kingdom of Spain"
+   },
+   "region": "Europe",
+   "subregion": "Southern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC",
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 505992,
+   "population": 49315949,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "EE",
+   "cca3": "EST",
+   "ccn3": "233",
+   "name": {
+    "common": "Estonia",
+    "official": "Republic of Estonia"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 45227,
+   "population": 1369995,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "ET",
+   "cca3": "ETH",
+   "ccn3": "231",
+   "name": {
+    "common": "Ethiopia",
+    "official": "Federal Democratic Republic of Ethiopia"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "ETB": "Ethiopian birr"
+   },
+   "area": 1104300,
+   "population": 111652998,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "FI",
+   "cca3": "FIN",
+   "ccn3": "246",
+   "name": {
+    "common": "Finland",
+    "official": "Republic of Finland"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 338455,
+   "population": 5650325,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "FJ",
+   "cca3": "FJI",
+   "ccn3": "242",
+   "name": {
+    "common": "Fiji",
+    "official": "Republic of Fiji"
+   },
+   "region": "Oceania",
+   "subregion": "Melanesia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+12:00"
+   ],
+   "currencies": {
+    "FJD": "Fijian dollar"
+   },
+   "area": 18272,
+   "population": 900869,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "FK",
+   "cca3": "FLK",
+   "ccn3": "238",
+   "name": {
+    "common": "Falkland Islands",
+    "official": "Falkland Islands"
+   },
+   "region": "Americas",
+   "subregion": "South America",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "FKP": "Falkland Islands pound"
+   },
+   "area": 12173,
+   "population": 3662,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "FR",
+   "cca3": "FRA",
+   "ccn3": "250",
+   "name": {
+    "common": "France",
+    "official": "French Republic"
+   },
+   "region": "Europe",
+   "subregion": "Western Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-10:00",
+    "UTC-09:30",
+    "UTC-09:00",
+    "UTC-08:00",
+    "UTC-04:00",
+    "UTC-03:00",
+    "UTC+01:00",
+    "UTC+02:00",
+    "UTC+03:00",
+    "UTC+04:00",
+    "UTC+05:00",
+    "UTC+10:00",
+    "UTC+11:00",
+    "UTC+12:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 543908,
+   "population": 66351959,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "FO",
+   "cca3": "FRO",
+   "ccn3": "234",
+   "name": {
+    "common": "Faroe Islands",
+    "official": "Faroe Islands"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+00:00"
+   ],
+   "currencies": {
+    "DKK": "Danish krone",
+    "FOK": "Faroese króna"
+   },
+   "area": 1393,
+   "population": 54885,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "FM",
+   "cca3": "FSM",
+   "ccn3": "583",
+   "name": {
+    "common": "Micronesia",
+    "official": "Federated States of Micronesia"
+   },
+   "region": "Oceania",
+   "subregion": "Micronesia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+10:00",
+    "UTC+11:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 702,
+   "population": 105564,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "GA",
+   "cca3": "GAB",
+   "ccn3": "266",
+   "name": {
+    "common": "Gabon",
+    "official": "Gabonese Republic"
+   },
+   "region": "Africa",
+   "subregion": "Middle Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "XAF": "Central African CFA franc"
+   },
+   "area": 267668,
+   "population": 2469296,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "GB",
+   "cca3": "GBR",
+   "ccn3": "826",
+   "name": {
+    "common": "United Kingdom",
+    "official": "United Kingdom of Great Britain and Northern Ireland"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-08:00",
+    "UTC-05:00",
+    "UTC-04:00",
+    "UTC-03:00",
+    "UTC-02:00",
+    "UTC",
+    "UTC+01:00",
+    "UTC+02:00",
+    "UTC+06:00"
+   ],
+   "currencies": {
+    "GBP": "British pound"
+   },
+   "area": 244376,
+   "population": 69281437,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "GE",
+   "cca3": "GEO",
+   "ccn3": "268",
+   "name": {
+    "common": "Georgia",
+    "official": "Georgia"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+04:00"
+   ],
+   "currencies": {
+    "GEL": "lari"
+   },
+   "area": 69700,
+   "population": 4000921,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "GG",
+   "cca3": "GGY",
+   "ccn3": "831",
+   "name": {
+    "common": "Guernsey",
+    "official": "Bailiwick of Guernsey"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+00:00"
+   ],
+   "currencies": {
+    "GBP": "British pound",
+    "GGP": "Guernsey pound"
+   },
+   "area": 78,
+   "population": 64781,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "GH",
+   "cca3": "GHA",
+   "ccn3": "288",
+   "name": {
+    "common": "Ghana",
+    "official": "Republic of Ghana"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC"
+   ],
+   "currencies": {
+    "GHS": "Ghanaian cedi"
+   },
+   "area": 238533,
+   "population": 33742380,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "GI",
+   "cca3": "GIB",
+   "ccn3": "292",
+   "name": {
+    "common": "Gibraltar",
+    "official": "Gibraltar"
+   },
+   "region": "Europe",
+   "subregion": "Southern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "GIP": "Gibraltar pound"
+   },
+   "area": 6,
+   "population": 38000,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "GN",
+   "cca3": "GIN",
+   "ccn3": "324",
+   "name": {
+    "common": "Guinea",
+    "official": "Republic of Guinea"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC"
+   ],
+   "currencies": {
+    "GNF": "Guinean franc"
+   },
+   "area": 245857,
+   "population": 14363931,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "GP",
+   "cca3": "GLP",
+   "ccn3": "312",
+   "name": {
+    "common": "Guadeloupe",
+    "official": "Guadeloupe"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 1628,
+   "population": 378561,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "GM",
+   "cca3": "GMB",
+   "ccn3": "270",
+   "name": {
+    "common": "Gambia",
+    "official": "Republic of the Gambia"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+00:00"
+   ],
+   "currencies": {
+    "GMD": "dalasi"
+   },
+   "area": 10689,
+   "population": 2422712,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "GW",
+   "cca3": "GNB",
+   "ccn3": "624",
+   "name": {
+    "common": "Guinea-Bissau",
+    "official": "Republic of Guinea-Bissau"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC"
+   ],
+   "currencies": {
+    "XOF": "West African CFA franc"
+   },
+   "area": 36125,
+   "population": 1781308,
+   "unMember": false,
+   "independent": true
+  },
+  {
+   "cca2": "GQ",
+   "cca3": "GNQ",
+   "ccn3": "226",
+   "name": {
+    "common": "Equatorial Guinea",
+    "official": "Republic of Equatorial Guinea"
+   },
+   "region": "Africa",
+   "subregion": "Middle Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "XAF": "Central African CFA franc"
+   },
+   "area": 28051,
+   "population": 1668768,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "GR",
+   "cca3": "GRC",
+   "ccn3": "300",
+   "name": {
+    "common": "Greece",
+    "official": "Hellenic Republic"
+   },
+   "region": "Europe",
+   "subregion": "Southern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 131990,
+   "population": 10400720,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "GD",
+   "cca3": "GRD",
+   "ccn3": "308",
+   "name": {
+    "common": "Grenada",
+    "official": "Grenada"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "XCD": "Eastern Caribbean dollar"
+   },
+   "area": 344,
+   "population": 109021,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "GL",
+   "cca3": "GRL",
+   "ccn3": "304",
+   "name": {
+    "common": "Greenland",
+    "official": "Greenland"
+   },
+   "region": "Americas",
+   "subregion": "North America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00",
+    "UTC-03:00",
+    "UTC-01:00",
+    "UTC+00:00"
+   ],
+   "currencies": {
+    "DKK": "krone"
+   },
+   "area": 2166086,
+   "population": 56542,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "GT",
+   "cca3": "GTM",
+   "ccn3": "320",
+   "name": {
+    "common": "Guatemala",
+    "official": "Republic of Guatemala"
+   },
+   "region": "Americas",
+   "subregion": "Central America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-06:00"
+   ],
+   "currencies": {
+    "GTQ": "Guatemalan quetzal"
+   },
+   "area": 108889,
+   "population": 18079810,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "GF",
+   "cca3": "GUF",
+   "ccn3": "254",
+   "name": {
+    "common": "French Guiana",
+    "official": "Guiana"
+   },
+   "region": "Americas",
+   "subregion": "South America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-03:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 83534,
+   "population": 292354,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "GU",
+   "cca3": "GUM",
+   "ccn3": "316",
+   "name": {
+    "common": "Guam",
+    "official": "Guam"
+   },
+   "region": "Oceania",
+   "subregion": "Micronesia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+10:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 549,
+   "population": 153836,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "GY",
+   "cca3": "GUY",
+   "ccn3": "328",
+   "name": {
+    "common": "Guyana",
+    "official": "Co-operative Republic of Guyana"
+   },
+   "region": "Americas",
+   "subregion": "South America",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "GYD": "Guyanese dollar"
+   },
+   "area": 214969,
+   "population": 772975,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "HK",
+   "cca3": "HKG",
+   "ccn3": "344",
+   "name": {
+    "common": "Hong Kong",
+    "official": "Hong Kong Special Administrative Region of the People's Republic of China"
+   },
+   "region": "Asia",
+   "subregion": "Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+08:00"
+   ],
+   "currencies": {
+    "HKD": "Hong Kong dollar"
+   },
+   "area": 1104,
+   "population": 7527500,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "HM",
+   "cca3": "HMD",
+   "ccn3": "334",
+   "name": {
+    "common": "Heard Island and McDonald Islands",
+    "official": "Heard Island and McDonald Islands"
+   },
+   "region": "Antarctic",
+   "subregion": "",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+05:00"
+   ],
+   "currencies": {},
+   "area": 412,
+   "population": 0,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "HN",
+   "cca3": "HND",
+   "ccn3": "340",
+   "name": {
+    "common": "Honduras",
+    "official": "Republic of Honduras"
+   },
+   "region": "Americas",
+   "subregion": "Central America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-06:00"
+   ],
+   "currencies": {
+    "HNL": "Honduran lempira"
+   },
+   "area": 112492,
+   "population": 9892632,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "HR",
+   "cca3": "HRV",
+   "ccn3": "191",
+   "name": {
+    "common": "Croatia",
+    "official": "Republic of Croatia"
+   },
+   "region": "Europe",
+   "subregion": "Southeast Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 56594,
+   "population": 3866233,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "HT",
+   "cca3": "HTI",
+   "ccn3": "332",
+   "name": {
+    "common": "Haiti",
+    "official": "Republic of Haiti"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-05:00"
+   ],
+   "currencies": {
+    "HTG": "Haitian gourde"
+   },
+   "area": 27750,
+   "population": 11867032,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "HU",
+   "cca3": "HUN",
+   "ccn3": "348",
+   "name": {
+    "common": "Hungary",
+    "official": "Hungary"
+   },
+   "region": "Europe",
+   "subregion": "Central Europe",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "HUF": "Hungarian forint"
+   },
+   "area": 93028,
+   "population": 9539502,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "ID",
+   "cca3": "IDN",
+   "ccn3": "360",
+   "name": {
+    "common": "Indonesia",
+    "official": "Republic of Indonesia"
+   },
+   "region": "Asia",
+   "subregion": "South-Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+07:00",
+    "UTC+08:00",
+    "UTC+09:00"
+   ],
+   "currencies": {
+    "IDR": "Indonesian rupiah"
+   },
+   "area": 1904569,
+   "population": 284438782,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "IM",
+   "cca3": "IMN",
+   "ccn3": "833",
+   "name": {
+    "common": "Isle of Man",
+    "official": "Isle of Man"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+00:00"
+   ],
+   "currencies": {
+    "GBP": "British pound",
+    "IMP": "Manx pound"
+   },
+   "area": 572,
+   "population": 84530,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "IN",
+   "cca3": "IND",
+   "ccn3": "356",
+   "name": {
+    "common": "India",
+    "official": "Republic of India"
+   },
+   "region": "Asia",
+   "subregion": "Southern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+05:30"
+   ],
+   "currencies": {
+    "INR": "Indian rupee"
+   },
+   "area": 3287263,
+   "population": 1417492000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "IO",
+   "cca3": "IOT",
+   "ccn3": "086",
+   "name": {
+    "common": "British Indian Ocean Territory",
+    "official": "British Indian Ocean Territory"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+06:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 60,
+   "population": 0,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "IE",
+   "cca3": "IRL",
+   "ccn3": "372",
+   "name": {
+    "common": "Ireland",
+    "official": "Republic of Ireland"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 70273,
+   "population": 5458600,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "IR",
+   "cca3": "IRN",
+   "ccn3": "364",
+   "name": {
+    "common": "Iran",
+    "official": "Islamic Republic of Iran"
+   },
+   "region": "Asia",
+   "subregion": "Southern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "saturday",
+   "timezones": [
+    "UTC+03:30"
+   ],
+   "currencies": {
+    "IRR": "Iranian rial"
+   },
+   "area": 1648195,
+   "population": 85961000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "IQ",
+   "cca3": "IRQ",
+   "ccn3": "368",
+   "name": {
+    "common": "Iraq",
+    "official": "Republic of Iraq"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "IQD": "Iraqi dinar"
+   },
+   "area": 438317,
+   "population": 46118793,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "IS",
+   "cca3": "ISL",
+   "ccn3": "352",
+   "name": {
+    "common": "Iceland",
+    "official": "Iceland"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC"
+   ],
+   "currencies": {
+    "ISK": "Icelandic króna"
+   },
+   "area": 103000,
+   "population": 391810,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "IL",
+   "cca3": "ISR",
+   "ccn3": "376",
+   "name": {
+    "common": "Israel",
+    "official": "State of Israel"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "ILS": "Israeli new shekel"
+   },
+   "area": 21937,
+   "population": 10134800,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "IT",
+   "cca3": "ITA",
+   "ccn3": "380",
+   "name": {
+    "common": "Italy",
+    "official": "Italian Republic"
+   },
+   "region": "Europe",
+   "subregion": "Southern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 301336,
+   "population": 58927633,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "JM",
+   "cca3": "JAM",
+   "ccn3": "388",
+   "name": {
+    "common": "Jamaica",
+    "official": "Jamaica"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-05:00"
+   ],
+   "currencies": {
+    "JMD": "Jamaican dollar"
+   },
+   "area": 10991,
+   "population": 2825544,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "JE",
+   "cca3": "JEY",
+   "ccn3": "832",
+   "name": {
+    "common": "Jersey",
+    "official": "Bailiwick of Jersey"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "GBP": "British pound",
+    "JEP": "Jersey pound"
+   },
+   "area": 116,
+   "population": 103267,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "JO",
+   "cca3": "JOR",
+   "ccn3": "400",
+   "name": {
+    "common": "Jordan",
+    "official": "Hashemite Kingdom of Jordan"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "JOD": "Jordanian dinar"
+   },
+   "area": 89342,
+   "population": 11734000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "JP",
+   "cca3": "JPN",
+   "ccn3": "392",
+   "name": {
+    "common": "Japan",
+    "official": "Japan"
+   },
+   "region": "Asia",
+   "subregion": "Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+09:00"
+   ],
+   "currencies": {
+    "JPY": "Japanese yen"
+   },
+   "area": 377930,
+   "population": 123210000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "KZ",
+   "cca3": "KAZ",
+   "ccn3": "398",
+   "name": {
+    "common": "Kazakhstan",
+    "official": "Republic of Kazakhstan"
+   },
+   "region": "Asia",
+   "subregion": "Central Asia",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+05:00",
+    "UTC+06:00"
+   ],
+   "currencies": {
+    "KZT": "Kazakhstani tenge"
+   },
+   "area": 2724900,
+   "population": 20426568,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "KE",
+   "cca3": "KEN",
+   "ccn3": "404",
+   "name": {
+    "common": "Kenya",
+    "official": "Republic of Kenya"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "KES": "Kenyan shilling"
+   },
+   "area": 580367,
+   "population": 53330978,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "KG",
+   "cca3": "KGZ",
+   "ccn3": "417",
+   "name": {
+    "common": "Kyrgyzstan",
+    "official": "Kyrgyz Republic"
+   },
+   "region": "Asia",
+   "subregion": "Central Asia",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+06:00"
+   ],
+   "currencies": {
+    "KGS": "Kyrgyzstani som"
+   },
+   "area": 199951,
+   "population": 7281800,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "KH",
+   "cca3": "KHM",
+   "ccn3": "116",
+   "name": {
+    "common": "Cambodia",
+    "official": "Kingdom of Cambodia"
+   },
+   "region": "Asia",
+   "subregion": "South-Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+07:00"
+   ],
+   "currencies": {
+    "KHR": "Cambodian riel",
+    "USD": "United States dollar"
+   },
+   "area": 181035,
+   "population": 17577760,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "KI",
+   "cca3": "KIR",
+   "ccn3": "296",
+   "name": {
+    "common": "Kiribati",
+    "official": "Independent and Sovereign Republic of Kiribati"
+   },
+   "region": "Oceania",
+   "subregion": "Micronesia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+12:00",
+    "UTC+13:00",
+    "UTC+14:00"
+   ],
+   "currencies": {
+    "AUD": "Australian dollar",
+    "KID": "Kiribati dollar"
+   },
+   "area": 811,
+   "population": 120740,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "KN",
+   "cca3": "KNA",
+   "ccn3": "659",
+   "name": {
+    "common": "Saint Kitts and Nevis",
+    "official": "Federation of Saint Christopher and Nevis"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "XCD": "Eastern Caribbean dollar"
+   },
+   "area": 261,
+   "population": 51320,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "KR",
+   "cca3": "KOR",
+   "ccn3": "410",
+   "name": {
+    "common": "South Korea",
+    "official": "Republic of Korea"
+   },
+   "region": "Asia",
+   "subregion": "Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+09:00"
+   ],
+   "currencies": {
+    "KRW": "South Korean won"
+   },
+   "area": 100210,
+   "population": 51159889,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "KW",
+   "cca3": "KWT",
+   "ccn3": "414",
+   "name": {
+    "common": "Kuwait",
+    "official": "State of Kuwait"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "KWD": "Kuwaiti dinar"
+   },
+   "area": 17818,
+   "population": 4881254,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "LA",
+   "cca3": "LAO",
+   "ccn3": "418",
+   "name": {
+    "common": "Laos",
+    "official": "Lao People's Democratic Republic"
+   },
+   "region": "Asia",
+   "subregion": "South-Eastern Asia",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+07:00"
+   ],
+   "currencies": {
+    "LAK": "Lao kip"
+   },
+   "area": 236800,
+   "population": 7647000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "LB",
+   "cca3": "LBN",
+   "ccn3": "422",
+   "name": {
+    "common": "Lebanon",
+    "official": "Lebanese Republic"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "LBP": "Lebanese pound"
+   },
+   "area": 10452,
+   "population": 5490000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "LR",
+   "cca3": "LBR",
+   "ccn3": "430",
+   "name": {
+    "common": "Liberia",
+    "official": "Republic of Liberia"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC"
+   ],
+   "currencies": {
+    "LRD": "Liberian dollar"
+   },
+   "area": 111369,
+   "population": 5248621,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "LY",
+   "cca3": "LBY",
+   "ccn3": "434",
+   "name": {
+    "common": "Libya",
+    "official": "State of Libya"
+   },
+   "region": "Africa",
+   "subregion": "Northern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "LYD": "Libyan dinar"
+   },
+   "area": 1759540,
+   "population": 7459000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "LC",
+   "cca3": "LCA",
+   "ccn3": "662",
+   "name": {
+    "common": "Saint Lucia",
+    "official": "Saint Lucia"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "XCD": "Eastern Caribbean dollar"
+   },
+   "area": 616,
+   "population": 184100,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "LI",
+   "cca3": "LIE",
+   "ccn3": "438",
+   "name": {
+    "common": "Liechtenstein",
+    "official": "Principality of Liechtenstein"
+   },
+   "region": "Europe",
+   "subregion": "Western Europe",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "CHF": "Swiss franc"
+   },
+   "area": 160,
+   "population": 40900,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "LK",
+   "cca3": "LKA",
+   "ccn3": "144",
+   "name": {
+    "common": "Sri Lanka",
+    "official": "Democratic Socialist Republic of Sri Lanka"
+   },
+   "region": "Asia",
+   "subregion": "Southern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+05:30"
+   ],
+   "currencies": {
+    "LKR": "Sri Lankan rupee"
+   },
+   "area": 65610,
+   "population": 21763170,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "LS",
+   "cca3": "LSO",
+   "ccn3": "426",
+   "name": {
+    "common": "Lesotho",
+    "official": "Kingdom of Lesotho"
+   },
+   "region": "Africa",
+   "subregion": "Southern Africa",
+   "landlocked": true,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "LSL": "Lesotho loti",
+    "ZAR": "South African rand"
+   },
+   "area": 30355,
+   "population": 2116427,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "LT",
+   "cca3": "LTU",
+   "ccn3": "440",
+   "name": {
+    "common": "Lithuania",
+    "official": "Republic of Lithuania"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 65300,
+   "population": 2894886,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "LU",
+   "cca3": "LUX",
+   "ccn3": "442",
+   "name": {
+    "common": "Luxembourg",
+    "official": "Grand Duchy of Luxembourg"
+   },
+   "region": "Europe",
+   "subregion": "Western Europe",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 2586,
+   "population": 681973,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "LV",
+   "cca3": "LVA",
+   "ccn3": "428",
+   "name": {
+    "common": "Latvia",
+    "official": "Republic of Latvia"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 64559,
+   "population": 1829000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MO",
+   "cca3": "MAC",
+   "ccn3": "446",
+   "name": {
+    "common": "Macau",
+    "official": "Macao Special Administrative Region of the People's Republic of China"
+   },
+   "region": "Asia",
+   "subregion": "Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+08:00"
+   ],
+   "currencies": {
+    "MOP": "Macanese pataca"
+   },
+   "area": 30,
+   "population": 685900,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "MF",
+   "cca3": "MAF",
+   "ccn3": "663",
+   "name": {
+    "common": "Saint Martin",
+    "official": "Saint Martin"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 53,
+   "population": 31496,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "MA",
+   "cca3": "MAR",
+   "ccn3": "504",
+   "name": {
+    "common": "Morocco",
+    "official": "Kingdom of Morocco"
+   },
+   "region": "Africa",
+   "subregion": "Northern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC"
+   ],
+   "currencies": {
+    "MAD": "Moroccan dirham"
+   },
+   "area": 446550,
+   "population": 36828330,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MC",
+   "cca3": "MCO",
+   "ccn3": "492",
+   "name": {
+    "common": "Monaco",
+    "official": "Principality of Monaco"
+   },
+   "region": "Europe",
+   "subregion": "Western Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 2.02,
+   "population": 38423,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MD",
+   "cca3": "MDA",
+   "ccn3": "498",
+   "name": {
+    "common": "Moldova",
+    "official": "Republic of Moldova"
+   },
+   "region": "Europe",
+   "subregion": "Eastern Europe",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "MDL": "Moldovan leu"
+   },
+   "area": 33847,
+   "population": 2749076,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MG",
+   "cca3": "MDG",
+   "ccn3": "450",
+   "name": {
+    "common": "Madagascar",
+    "official": "Republic of Madagascar"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "MGA": "Malagasy ariary"
+   },
+   "area": 587041,
+   "population": 31727042,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MV",
+   "cca3": "MDV",
+   "ccn3": "462",
+   "name": {
+    "common": "Maldives",
+    "official": "Republic of the Maldives"
+   },
+   "region": "Asia",
+   "subregion": "Southern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+05:00"
+   ],
+   "currencies": {
+    "MVR": "Maldivian rufiyaa"
+   },
+   "area": 300,
+   "population": 515132,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MX",
+   "cca3": "MEX",
+   "ccn3": "484",
+   "name": {
+    "common": "Mexico",
+    "official": "United Mexican States"
+   },
+   "region": "Americas",
+   "subregion": "North America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-08:00",
+    "UTC-07:00",
+    "UTC-06:00"
+   ],
+   "currencies": {
+    "MXN": "Mexican peso"
+   },
+   "area": 1964375,
+   "population": 130575786,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MH",
+   "cca3": "MHL",
+   "ccn3": "584",
+   "name": {
+    "common": "Marshall Islands",
+    "official": "Republic of the Marshall Islands"
+   },
+   "region": "Oceania",
+   "subregion": "Micronesia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+12:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 181,
+   "population": 42418,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MK",
+   "cca3": "MKD",
+   "ccn3": "807",
+   "name": {
+    "common": "North Macedonia",
+    "official": "Republic of North Macedonia"
+   },
+   "region": "Europe",
+   "subregion": "Southeast Europe",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "MKD": "denar"
+   },
+   "area": 25713,
+   "population": 1822612,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "ML",
+   "cca3": "MLI",
+   "ccn3": "466",
+   "name": {
+    "common": "Mali",
+    "official": "Republic of Mali"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC"
+   ],
+   "currencies": {
+    "XOF": "West African CFA franc"
+   },
+   "area": 1240192,
+   "population": 22395489,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MT",
+   "cca3": "MLT",
+   "ccn3": "470",
+   "name": {
+    "common": "Malta",
+    "official": "Republic of Malta"
+   },
+   "region": "Europe",
+   "subregion": "Southern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 316,
+   "population": 574250,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MM",
+   "cca3": "MMR",
+   "ccn3": "104",
+   "name": {
+    "common": "Myanmar",
+    "official": "Republic of the Union of Myanmar"
+   },
+   "region": "Asia",
+   "subregion": "South-Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+06:30"
+   ],
+   "currencies": {
+    "MMK": "Burmese kyat"
+   },
+   "area": 676578,
+   "population": 51316756,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "ME",
+   "cca3": "MNE",
+   "ccn3": "499",
+   "name": {
+    "common": "Montenegro",
+    "official": "Montenegro"
+   },
+   "region": "Europe",
+   "subregion": "Southeast Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 13812,
+   "population": 623327,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MN",
+   "cca3": "MNG",
+   "ccn3": "496",
+   "name": {
+    "common": "Mongolia",
+    "official": "Mongolia"
+   },
+   "region": "Asia",
+   "subregion": "Eastern Asia",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+07:00",
+    "UTC+08:00"
+   ],
+   "currencies": {
+    "MNT": "Mongolian tögrög"
+   },
+   "area": 1564110,
+   "population": 3544835,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MP",
+   "cca3": "MNP",
+   "ccn3": "580",
+   "name": {
+    "common": "Northern Mariana Islands",
+    "official": "Commonwealth of the Northern Mariana Islands"
+   },
+   "region": "Oceania",
+   "subregion": "Micronesia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+10:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 464,
+   "population": 47329,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "MZ",
+   "cca3": "MOZ",
+   "ccn3": "508",
+   "name": {
+    "common": "Mozambique",
+    "official": "Republic of Mozambique"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "MZN": "Mozambican metical"
+   },
+   "area": 801590,
+   "population": 34090466,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MR",
+   "cca3": "MRT",
+   "ccn3": "478",
+   "name": {
+    "common": "Mauritania",
+    "official": "Islamic Republic of Mauritania"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC"
+   ],
+   "currencies": {
+    "MRU": "Mauritanian ouguiya"
+   },
+   "area": 1030700,
+   "population": 4927532,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MS",
+   "cca3": "MSR",
+   "ccn3": "500",
+   "name": {
+    "common": "Montserrat",
+    "official": "Montserrat"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "XCD": "Eastern Caribbean dollar"
+   },
+   "area": 102,
+   "population": 4386,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "MQ",
+   "cca3": "MTQ",
+   "ccn3": "474",
+   "name": {
+    "common": "Martinique",
+    "official": "Martinique"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 1128,
+   "population": 349925,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "MU",
+   "cca3": "MUS",
+   "ccn3": "480",
+   "name": {
+    "common": "Mauritius",
+    "official": "Republic of Mauritius"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+04:00"
+   ],
+   "currencies": {
+    "MUR": "Mauritian rupee"
+   },
+   "area": 2040,
+   "population": 1243741,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MW",
+   "cca3": "MWI",
+   "ccn3": "454",
+   "name": {
+    "common": "Malawi",
+    "official": "Republic of Malawi"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": true,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "MWK": "Malawian kwacha"
+   },
+   "area": 118484,
+   "population": 20734262,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "MY",
+   "cca3": "MYS",
+   "ccn3": "458",
+   "name": {
+    "common": "Malaysia",
+    "official": "Malaysia"
+   },
+   "region": "Asia",
+   "subregion": "South-Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+08:00"
+   ],
+   "currencies": {
+    "MYR": "Malaysian ringgit"
+   },
+   "area": 330803,
+   "population": 34231700,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "YT",
+   "cca3": "MYT",
+   "ccn3": "175",
+   "name": {
+    "common": "Mayotte",
+    "official": "Department of Mayotte"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 374,
+   "population": 320901,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "NA",
+   "cca3": "NAM",
+   "ccn3": "516",
+   "name": {
+    "common": "Namibia",
+    "official": "Republic of Namibia"
+   },
+   "region": "Africa",
+   "subregion": "Southern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "NAD": "Namibian dollar",
+    "ZAR": "South African rand"
+   },
+   "area": 825615,
+   "population": 3022401,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "NC",
+   "cca3": "NCL",
+   "ccn3": "540",
+   "name": {
+    "common": "New Caledonia",
+    "official": "New Caledonia"
+   },
+   "region": "Oceania",
+   "subregion": "Melanesia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+11:00"
+   ],
+   "currencies": {
+    "XPF": "CFP franc"
+   },
+   "area": 18575,
+   "population": 264596,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "NE",
+   "cca3": "NER",
+   "ccn3": "562",
+   "name": {
+    "common": "Niger",
+    "official": "Republic of Niger"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "XOF": "West African CFA franc"
+   },
+   "area": 1267000,
+   "population": 26312034,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "NF",
+   "cca3": "NFK",
+   "ccn3": "574",
+   "name": {
+    "common": "Norfolk Island",
+    "official": "Territory of Norfolk Island"
+   },
+   "region": "Oceania",
+   "subregion": "Australia and New Zealand",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+11:30"
+   ],
+   "currencies": {
+    "AUD": "Australian dollar"
+   },
+   "area": 36,
+   "population": 2188,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "NG",
+   "cca3": "NGA",
+   "ccn3": "566",
+   "name": {
+    "common": "Nigeria",
+    "official": "Federal Republic of Nigeria"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "NGN": "Nigerian naira"
+   },
+   "area": 923768,
+   "population": 223800000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "NI",
+   "cca3": "NIC",
+   "ccn3": "558",
+   "name": {
+    "common": "Nicaragua",
+    "official": "Republic of Nicaragua"
+   },
+   "region": "Americas",
+   "subregion": "Central America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-06:00"
+   ],
+   "currencies": {
+    "NIO": "Nicaraguan córdoba"
+   },
+   "area": 130373,
+   "population": 6803886,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "NU",
+   "cca3": "NIU",
+   "ccn3": "570",
+   "name": {
+    "common": "Niue",
+    "official": "Niue"
+   },
+   "region": "Oceania",
+   "subregion": "Polynesia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-11:00"
+   ],
+   "currencies": {
+    "NZD": "New Zealand dollar"
+   },
+   "area": 260,
+   "population": 1681,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "NL",
+   "cca3": "NLD",
+   "ccn3": "528",
+   "name": {
+    "common": "Netherlands",
+    "official": "Kingdom of the Netherlands"
+   },
+   "region": "Europe",
+   "subregion": "Western Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 41865,
+   "population": 18100436,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "NO",
+   "cca3": "NOR",
+   "ccn3": "578",
+   "name": {
+    "common": "Norway",
+    "official": "Kingdom of Norway"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "NOK": "Norwegian krone"
+   },
+   "area": 386224,
+   "population": 5606944,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "NP",
+   "cca3": "NPL",
+   "ccn3": "524",
+   "name": {
+    "common": "Nepal",
+    "official": "Federal Democratic Republic of Nepal"
+   },
+   "region": "Asia",
+   "subregion": "Southern Asia",
+   "landlocked": true,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+05:45"
+   ],
+   "currencies": {
+    "NPR": "Nepalese rupee"
+   },
+   "area": 147181,
+   "population": 29911840,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "NR",
+   "cca3": "NRU",
+   "ccn3": "520",
+   "name": {
+    "common": "Nauru",
+    "official": "Republic of Nauru"
+   },
+   "region": "Oceania",
+   "subregion": "Micronesia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+12:00"
+   ],
+   "currencies": {
+    "AUD": "Australian dollar"
+   },
+   "area": 21,
+   "population": 11680,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "NZ",
+   "cca3": "NZL",
+   "ccn3": "554",
+   "name": {
+    "common": "New Zealand",
+    "official": "New Zealand"
+   },
+   "region": "Oceania",
+   "subregion": "Australia and New Zealand",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-11:00",
+    "UTC-10:00",
+    "UTC+12:00",
+    "UTC+12:45",
+    "UTC+13:00"
+   ],
+   "currencies": {
+    "NZD": "New Zealand dollar"
+   },
+   "area": 268838,
+   "population": 5324700,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "OM",
+   "cca3": "OMN",
+   "ccn3": "512",
+   "name": {
+    "common": "Oman",
+    "official": "Sultanate of Oman"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+04:00"
+   ],
+   "currencies": {
+    "OMR": "Omani rial"
+   },
+   "area": 309500,
+   "population": 5343630,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "PK",
+   "cca3": "PAK",
+   "ccn3": "586",
+   "name": {
+    "common": "Pakistan",
+    "official": "Islamic Republic of Pakistan"
+   },
+   "region": "Asia",
+   "subregion": "Southern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+05:00"
+   ],
+   "currencies": {
+    "PKR": "Pakistani rupee"
+   },
+   "area": 796095,
+   "population": 241499431,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "PA",
+   "cca3": "PAN",
+   "ccn3": "591",
+   "name": {
+    "common": "Panama",
+    "official": "Republic of Panama"
+   },
+   "region": "Americas",
+   "subregion": "Central America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-05:00"
+   ],
+   "currencies": {
+    "PAB": "Panamanian balboa",
+    "USD": "United States dollar"
+   },
+   "area": 75417,
+   "population": 4064780,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "PN",
+   "cca3": "PCN",
+   "ccn3": "612",
+   "name": {
+    "common": "Pitcairn Islands",
+    "official": "Pitcairn Group of Islands"
+   },
+   "region": "Oceania",
+   "subregion": "Polynesia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-08:00"
+   ],
+   "currencies": {
+    "NZD": "New Zealand dollar"
+   },
+   "area": 47,
+   "population": 35,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "PE",
+   "cca3": "PER",
+   "ccn3": "604",
+   "name": {
+    "common": "Peru",
+    "official": "Republic of Peru"
+   },
+   "region": "Americas",
+   "subregion": "South America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-05:00"
+   ],
+   "currencies": {
+    "PEN": "Peruvian sol"
+   },
+   "area": 1285216,
+   "population": 34350244,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "PH",
+   "cca3": "PHL",
+   "ccn3": "608",
+   "name": {
+    "common": "Philippines",
+    "official": "Republic of the Philippines"
+   },
+   "region": "Asia",
+   "subregion": "South-Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+08:00"
+   ],
+   "currencies": {
+    "PHP": "Philippine peso"
+   },
+   "area": 342353,
+   "population": 114123600,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "PW",
+   "cca3": "PLW",
+   "ccn3": "585",
+   "name": {
+    "common": "Palau",
+    "official": "Republic of Palau"
+   },
+   "region": "Oceania",
+   "subregion": "Micronesia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+09:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 459,
+   "population": 16733,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "PG",
+   "cca3": "PNG",
+   "ccn3": "598",
+   "name": {
+    "common": "Papua New Guinea",
+    "official": "Independent State of Papua New Guinea"
+   },
+   "region": "Oceania",
+   "subregion": "Melanesia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+10:00"
+   ],
+   "currencies": {
+    "PGK": "Papua New Guinean kina"
+   },
+   "area": 462840,
+   "population": 11781559,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "PL",
+   "cca3": "POL",
+   "ccn3": "616",
+   "name": {
+    "common": "Poland",
+    "official": "Republic of Poland"
+   },
+   "region": "Europe",
+   "subregion": "Central Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "PLN": "Polish złoty"
+   },
+   "area": 312679,
+   "population": 37392000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "PR",
+   "cca3": "PRI",
+   "ccn3": "630",
+   "name": {
+    "common": "Puerto Rico",
+    "official": "Commonwealth of Puerto Rico"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 8870,
+   "population": 3203295,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "KP",
+   "cca3": "PRK",
+   "ccn3": "408",
+   "name": {
+    "common": "North Korea",
+    "official": "Democratic People's Republic of Korea"
+   },
+   "region": "Asia",
+   "subregion": "Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+09:00"
+   ],
+   "currencies": {
+    "KPW": "North Korean won"
+   },
+   "area": 120538,
+   "population": 25950000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "PT",
+   "cca3": "PRT",
+   "ccn3": "620",
+   "name": {
+    "common": "Portugal",
+    "official": "Portuguese Republic"
+   },
+   "region": "Europe",
+   "subregion": "Southern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-01:00",
+    "UTC"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 92090,
+   "population": 10749635,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "PY",
+   "cca3": "PRY",
+   "ccn3": "600",
+   "name": {
+    "common": "Paraguay",
+    "official": "Republic of Paraguay"
+   },
+   "region": "Americas",
+   "subregion": "South America",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "PYG": "Paraguayan guaraní"
+   },
+   "area": 406752,
+   "population": 6109644,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "PS",
+   "cca3": "PSE",
+   "ccn3": "275",
+   "name": {
+    "common": "Palestine",
+    "official": "State of Palestine"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "EGP": "Egyptian pound",
+    "ILS": "Israeli new shekel",
+    "JOD": "Jordanian dinar"
+   },
+   "area": 6220,
+   "population": 5483450,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "PF",
+   "cca3": "PYF",
+   "ccn3": "258",
+   "name": {
+    "common": "French Polynesia",
+    "official": "French Polynesia"
+   },
+   "region": "Oceania",
+   "subregion": "Polynesia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-10:00",
+    "UTC-09:30",
+    "UTC-09:00"
+   ],
+   "currencies": {
+    "XPF": "CFP franc"
+   },
+   "area": 4167,
+   "population": 279500,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "QA",
+   "cca3": "QAT",
+   "ccn3": "634",
+   "name": {
+    "common": "Qatar",
+    "official": "State of Qatar"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "QAR": "Qatari riyal"
+   },
+   "area": 11586,
+   "population": 3173024,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "RE",
+   "cca3": "REU",
+   "ccn3": "638",
+   "name": {
+    "common": "Réunion",
+    "official": "Réunion Island"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+04:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 2511,
+   "population": 896175,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "RO",
+   "cca3": "ROU",
+   "ccn3": "642",
+   "name": {
+    "common": "Romania",
+    "official": "Romania"
+   },
+   "region": "Europe",
+   "subregion": "Southeast Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "RON": "Romanian leu"
+   },
+   "area": 238391,
+   "population": 19036031,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "RU",
+   "cca3": "RUS",
+   "ccn3": "643",
+   "name": {
+    "common": "Russia",
+    "official": "Russian Federation"
+   },
+   "region": "Europe",
+   "subregion": "Eastern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+03:00",
+    "UTC+04:00",
+    "UTC+06:00",
+    "UTC+07:00",
+    "UTC+08:00",
+    "UTC+09:00",
+    "UTC+10:00",
+    "UTC+11:00",
+    "UTC+12:00"
+   ],
+   "currencies": {
+    "RUB": "Russian ruble"
+   },
+   "area": 17098246,
+   "population": 146028325,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "RW",
+   "cca3": "RWA",
+   "ccn3": "646",
+   "name": {
+    "common": "Rwanda",
+    "official": "Republic of Rwanda"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "RWF": "Rwandan franc"
+   },
+   "area": 26338,
+   "population": 14104969,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SA",
+   "cca3": "SAU",
+   "ccn3": "682",
+   "name": {
+    "common": "Saudi Arabia",
+    "official": "Kingdom of Saudi Arabia"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "SAR": "Saudi riyal"
+   },
+   "area": 2149690,
+   "population": 35300280,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SD",
+   "cca3": "SDN",
+   "ccn3": "729",
+   "name": {
+    "common": "Sudan",
+    "official": "Republic of the Sudan"
+   },
+   "region": "Africa",
+   "subregion": "Northern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "SDG": "Sudanese pound"
+   },
+   "area": 1886068,
+   "population": 51662000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SN",
+   "cca3": "SEN",
+   "ccn3": "686",
+   "name": {
+    "common": "Senegal",
+    "official": "Republic of Senegal"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC"
+   ],
+   "currencies": {
+    "XOF": "West African CFA franc"
+   },
+   "area": 196722,
+   "population": 18593258,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SG",
+   "cca3": "SGP",
+   "ccn3": "702",
+   "name": {
+    "common": "Singapore",
+    "official": "Republic of Singapore"
+   },
+   "region": "Asia",
+   "subregion": "South-Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+08:00"
+   ],
+   "currencies": {
+    "SGD": "Singapore dollar"
+   },
+   "area": 710,
+   "population": 6110200,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "GS",
+   "cca3": "SGS",
+   "ccn3": "239",
+   "name": {
+    "common": "South Georgia",
+    "official": "South Georgia and the South Sandwich Islands"
+   },
+   "region": "Antarctic",
+   "subregion": "",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-02:00"
+   ],
+   "currencies": {
+    "GBP": "British pound"
+   },
+   "area": 3903,
+   "population": 0,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "SH",
+   "cca3": "SHN",
+   "ccn3": "654",
+   "name": {
+    "common": "Saint Helena, Ascension and Tristan da Cunha",
+    "official": "Saint Helena, Ascension and Tristan da Cunha"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+00:00"
+   ],
+   "currencies": {
+    "GBP": "Pound sterling",
+    "SHP": "Saint Helena pound"
+   },
+   "area": 394,
+   "population": 5651,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "SJ",
+   "cca3": "SJM",
+   "ccn3": "744",
+   "name": {
+    "common": "Svalbard and Jan Mayen",
+    "official": "Svalbard og Jan Mayen"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "NOK": "krone"
+   },
+   "area": 61399,
+   "population": 2530,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "SB",
+   "cca3": "SLB",
+   "ccn3": "090",
+   "name": {
+    "common": "Solomon Islands",
+    "official": "Solomon Islands"
+   },
+   "region": "Oceania",
+   "subregion": "Melanesia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+11:00"
+   ],
+   "currencies": {
+    "SBD": "Solomon Islands dollar"
+   },
+   "area": 28896,
+   "population": 750325,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SL",
+   "cca3": "SLE",
+   "ccn3": "694",
+   "name": {
+    "common": "Sierra Leone",
+    "official": "Republic of Sierra Leone"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC"
+   ],
+   "currencies": {
+    "SLE": "Leone"
+   },
+   "area": 71740,
+   "population": 9077691,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SV",
+   "cca3": "SLV",
+   "ccn3": "222",
+   "name": {
+    "common": "El Salvador",
+    "official": "Republic of El Salvador"
+   },
+   "region": "Americas",
+   "subregion": "Central America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-06:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 21041,
+   "population": 6029976,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SM",
+   "cca3": "SMR",
+   "ccn3": "674",
+   "name": {
+    "common": "San Marino",
+    "official": "Republic of San Marino"
+   },
+   "region": "Europe",
+   "subregion": "Southern Europe",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 61,
+   "population": 34132,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SO",
+   "cca3": "SOM",
+   "ccn3": "706",
+   "name": {
+    "common": "Somalia",
+    "official": "Federal Republic of Somalia"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "SOS": "Somali shilling"
+   },
+   "area": 637657,
+   "population": 19655000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "PM",
+   "cca3": "SPM",
+   "ccn3": "666",
+   "name": {
+    "common": "Saint Pierre and Miquelon",
+    "official": "Saint Pierre and Miquelon"
+   },
+   "region": "Americas",
+   "subregion": "North America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-03:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 242,
+   "population": 5819,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "RS",
+   "cca3": "SRB",
+   "ccn3": "688",
+   "name": {
+    "common": "Serbia",
+    "official": "Republic of Serbia"
+   },
+   "region": "Europe",
+   "subregion": "Southeast Europe",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "RSD": "Serbian dinar"
+   },
+   "area": 77589,
+   "population": 6567783,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SS",
+   "cca3": "SSD",
+   "ccn3": "728",
+   "name": {
+    "common": "South Sudan",
+    "official": "Republic of South Sudan"
+   },
+   "region": "Africa",
+   "subregion": "Middle Africa",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "SSP": "South Sudanese pound"
+   },
+   "area": 619745,
+   "population": 15786898,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "ST",
+   "cca3": "STP",
+   "ccn3": "678",
+   "name": {
+    "common": "São Tomé and Príncipe",
+    "official": "Democratic Republic of São Tomé and Príncipe"
+   },
+   "region": "Africa",
+   "subregion": "Middle Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC"
+   ],
+   "currencies": {
+    "STN": "São Tomé and Príncipe dobra"
+   },
+   "area": 964,
+   "population": 209607,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SR",
+   "cca3": "SUR",
+   "ccn3": "740",
+   "name": {
+    "common": "Suriname",
+    "official": "Republic of Suriname"
+   },
+   "region": "Americas",
+   "subregion": "South America",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-03:00"
+   ],
+   "currencies": {
+    "SRD": "Surinamese dollar"
+   },
+   "area": 163820,
+   "population": 616500,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SK",
+   "cca3": "SVK",
+   "ccn3": "703",
+   "name": {
+    "common": "Slovakia",
+    "official": "Slovak Republic"
+   },
+   "region": "Europe",
+   "subregion": "Central Europe",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 49037,
+   "population": 5413813,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SI",
+   "cca3": "SVN",
+   "ccn3": "705",
+   "name": {
+    "common": "Slovenia",
+    "official": "Republic of Slovenia"
+   },
+   "region": "Europe",
+   "subregion": "Central Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 20273,
+   "population": 2130638,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SE",
+   "cca3": "SWE",
+   "ccn3": "752",
+   "name": {
+    "common": "Sweden",
+    "official": "Kingdom of Sweden"
+   },
+   "region": "Europe",
+   "subregion": "Northern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "SEK": "Swedish krona"
+   },
+   "area": 450295,
+   "population": 10605098,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SZ",
+   "cca3": "SWZ",
+   "ccn3": "748",
+   "name": {
+    "common": "Eswatini",
+    "official": "Kingdom of Eswatini"
+   },
+   "region": "Africa",
+   "subregion": "Southern Africa",
+   "landlocked": true,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "SZL": "Swazi lilangeni",
+    "ZAR": "South African rand"
+   },
+   "area": 17364,
+   "population": 1235549,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SX",
+   "cca3": "SXM",
+   "ccn3": "534",
+   "name": {
+    "common": "Sint Maarten",
+    "official": "Sint Maarten"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "ANG": "Netherlands Antillean guilder"
+   },
+   "area": 34,
+   "population": 41349,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "SC",
+   "cca3": "SYC",
+   "ccn3": "690",
+   "name": {
+    "common": "Seychelles",
+    "official": "Republic of Seychelles"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+04:00"
+   ],
+   "currencies": {
+    "SCR": "Seychellois rupee"
+   },
+   "area": 452,
+   "population": 122729,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "SY",
+   "cca3": "SYR",
+   "ccn3": "760",
+   "name": {
+    "common": "Syria",
+    "official": "Syrian Arab Republic"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "SYP": "Syrian pound"
+   },
+   "area": 185180,
+   "population": 25620000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "TC",
+   "cca3": "TCA",
+   "ccn3": "796",
+   "name": {
+    "common": "Turks and Caicos Islands",
+    "official": "Turks and Caicos Islands"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 948,
+   "population": 50828,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "TD",
+   "cca3": "TCD",
+   "ccn3": "148",
+   "name": {
+    "common": "Chad",
+    "official": "Republic of Chad"
+   },
+   "region": "Africa",
+   "subregion": "Middle Africa",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "XAF": "Central African CFA franc"
+   },
+   "area": 1284000,
+   "population": 19340757,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "TG",
+   "cca3": "TGO",
+   "ccn3": "768",
+   "name": {
+    "common": "Togo",
+    "official": "Togolese Republic"
+   },
+   "region": "Africa",
+   "subregion": "Western Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC"
+   ],
+   "currencies": {
+    "XOF": "West African CFA franc"
+   },
+   "area": 56785,
+   "population": 8095498,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "TH",
+   "cca3": "THA",
+   "ccn3": "764",
+   "name": {
+    "common": "Thailand",
+    "official": "Kingdom of Thailand"
+   },
+   "region": "Asia",
+   "subregion": "South-Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+07:00"
+   ],
+   "currencies": {
+    "THB": "Thai baht"
+   },
+   "area": 513120,
+   "population": 65859640,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "TJ",
+   "cca3": "TJK",
+   "ccn3": "762",
+   "name": {
+    "common": "Tajikistan",
+    "official": "Republic of Tajikistan"
+   },
+   "region": "Asia",
+   "subregion": "Central Asia",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+05:00"
+   ],
+   "currencies": {
+    "TJS": "Tajikistani somoni"
+   },
+   "area": 143100,
+   "population": 10499000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "TK",
+   "cca3": "TKL",
+   "ccn3": "772",
+   "name": {
+    "common": "Tokelau",
+    "official": "Tokelau"
+   },
+   "region": "Oceania",
+   "subregion": "Polynesia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+13:00"
+   ],
+   "currencies": {
+    "NZD": "New Zealand dollar"
+   },
+   "area": 12,
+   "population": 2608,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "TM",
+   "cca3": "TKM",
+   "ccn3": "795",
+   "name": {
+    "common": "Turkmenistan",
+    "official": "Turkmenistan"
+   },
+   "region": "Asia",
+   "subregion": "Central Asia",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+05:00"
+   ],
+   "currencies": {
+    "TMT": "Turkmenistan manat"
+   },
+   "area": 488100,
+   "population": 7057841,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "TL",
+   "cca3": "TLS",
+   "ccn3": "626",
+   "name": {
+    "common": "Timor-Leste",
+    "official": "Democratic Republic of Timor-Leste"
+   },
+   "region": "Asia",
+   "subregion": "South-Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+09:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 14874,
+   "population": 1391221,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "TO",
+   "cca3": "TON",
+   "ccn3": "776",
+   "name": {
+    "common": "Tonga",
+    "official": "Kingdom of Tonga"
+   },
+   "region": "Oceania",
+   "subregion": "Polynesia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+13:00"
+   ],
+   "currencies": {
+    "TOP": "Tongan paʻanga"
+   },
+   "area": 747,
+   "population": 100179,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "TT",
+   "cca3": "TTO",
+   "ccn3": "780",
+   "name": {
+    "common": "Trinidad and Tobago",
+    "official": "Republic of Trinidad and Tobago"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "TTD": "Trinidad and Tobago dollar"
+   },
+   "area": 5130,
+   "population": 1367764,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "TN",
+   "cca3": "TUN",
+   "ccn3": "788",
+   "name": {
+    "common": "Tunisia",
+    "official": "Tunisian Republic"
+   },
+   "region": "Africa",
+   "subregion": "Northern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "TND": "Tunisian dinar"
+   },
+   "area": 163610,
+   "population": 11972169,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "TR",
+   "cca3": "TUR",
+   "ccn3": "792",
+   "name": {
+    "common": "Turkey",
+    "official": "Republic of Turkey"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "TRY": "Turkish lira"
+   },
+   "area": 783562,
+   "population": 85664944,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "TV",
+   "cca3": "TUV",
+   "ccn3": "798",
+   "name": {
+    "common": "Tuvalu",
+    "official": "Tuvalu"
+   },
+   "region": "Oceania",
+   "subregion": "Polynesia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+12:00"
+   ],
+   "currencies": {
+    "AUD": "Australian dollar",
+    "TVD": "Tuvaluan dollar"
+   },
+   "area": 26,
+   "population": 10643,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "TW",
+   "cca3": "TWN",
+   "ccn3": "158",
+   "name": {
+    "common": "Taiwan",
+    "official": "Republic of China (Taiwan)"
+   },
+   "region": "Asia",
+   "subregion": "Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+08:00"
+   ],
+   "currencies": {
+    "TWD": "New Taiwan dollar"
+   },
+   "area": 36197,
+   "population": 23317031,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "TZ",
+   "cca3": "TZA",
+   "ccn3": "834",
+   "name": {
+    "common": "Tanzania",
+    "official": "United Republic of Tanzania"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "TZS": "Tanzanian shilling"
+   },
+   "area": 947303,
+   "population": 68153004,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "UG",
+   "cca3": "UGA",
+   "ccn3": "800",
+   "name": {
+    "common": "Uganda",
+    "official": "Republic of Uganda"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": true,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "UGX": "Ugandan shilling"
+   },
+   "area": 241550,
+   "population": 45905417,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "UA",
+   "cca3": "UKR",
+   "ccn3": "804",
+   "name": {
+    "common": "Ukraine",
+    "official": "Ukraine"
+   },
+   "region": "Europe",
+   "subregion": "Eastern Europe",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "UAH": "Ukrainian hryvnia"
+   },
+   "area": 603550,
+   "population": 32862000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "UM",
+   "cca3": "UMI",
+   "ccn3": "581",
+   "name": {
+    "common": "United States Minor Outlying Islands",
+    "official": "United States Minor Outlying Islands"
+   },
+   "region": "Americas",
+   "subregion": "North America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-11:00",
+    "UTC-10:00",
+    "UTC+12:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 34.2,
+   "population": 0,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "XK",
+   "cca3": "UNK",
+   "ccn3": "",
+   "name": {
+    "common": "Kosovo",
+    "official": "Republic of Kosovo"
+   },
+   "region": "Europe",
+   "subregion": "Southeast Europe",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 10908,
+   "population": 1585566,
+   "unMember": false,
+   "independent": true
+  },
+  {
+   "cca2": "UY",
+   "cca3": "URY",
+   "ccn3": "858",
+   "name": {
+    "common": "Uruguay",
+    "official": "Oriental Republic of Uruguay"
+   },
+   "region": "Americas",
+   "subregion": "South America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-03:00"
+   ],
+   "currencies": {
+    "UYU": "Uruguayan peso"
+   },
+   "area": 181034,
+   "population": 3499451,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "US",
+   "cca3": "USA",
+   "ccn3": "840",
+   "name": {
+    "common": "United States",
+    "official": "United States of America"
+   },
+   "region": "Americas",
+   "subregion": "North America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC-12:00",
+    "UTC-11:00",
+    "UTC-10:00",
+    "UTC-09:00",
+    "UTC-08:00",
+    "UTC-07:00",
+    "UTC-06:00",
+    "UTC-05:00",
+    "UTC-04:00",
+    "UTC+10:00",
+    "UTC+12:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 9525067,
+   "population": 340110988,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "UZ",
+   "cca3": "UZB",
+   "ccn3": "860",
+   "name": {
+    "common": "Uzbekistan",
+    "official": "Republic of Uzbekistan"
+   },
+   "region": "Asia",
+   "subregion": "Central Asia",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+05:00"
+   ],
+   "currencies": {
+    "UZS": "Uzbekistani soʻm"
+   },
+   "area": 447400,
+   "population": 37859698,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "VA",
+   "cca3": "VAT",
+   "ccn3": "336",
+   "name": {
+    "common": "Vatican City",
+    "official": "Vatican City State"
+   },
+   "region": "Europe",
+   "subregion": "Southern Europe",
+   "landlocked": true,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+01:00"
+   ],
+   "currencies": {
+    "EUR": "euro"
+   },
+   "area": 0.49,
+   "population": 882,
+   "unMember": false,
+   "independent": true
+  },
+  {
+   "cca2": "VC",
+   "cca3": "VCT",
+   "ccn3": "670",
+   "name": {
+    "common": "Saint Vincent and the Grenadines",
+    "official": "Saint Vincent and the Grenadines"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "XCD": "Eastern Caribbean dollar"
+   },
+   "area": 389,
+   "population": 110872,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "VE",
+   "cca3": "VEN",
+   "ccn3": "862",
+   "name": {
+    "common": "Venezuela",
+    "official": "Bolivarian Republic of Venezuela"
+   },
+   "region": "Americas",
+   "subregion": "South America",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "VES": "Venezuelan bolívar soberano"
+   },
+   "area": 916445,
+   "population": 28517000,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "VG",
+   "cca3": "VGB",
+   "ccn3": "092",
+   "name": {
+    "common": "British Virgin Islands",
+    "official": "Virgin Islands"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 151,
+   "population": 39471,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "VI",
+   "cca3": "VIR",
+   "ccn3": "850",
+   "name": {
+    "common": "United States Virgin Islands",
+    "official": "Virgin Islands of the United States"
+   },
+   "region": "Americas",
+   "subregion": "Caribbean",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC-04:00"
+   ],
+   "currencies": {
+    "USD": "United States dollar"
+   },
+   "area": 347,
+   "population": 87146,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "VN",
+   "cca3": "VNM",
+   "ccn3": "704",
+   "name": {
+    "common": "Vietnam",
+    "official": "Socialist Republic of Vietnam"
+   },
+   "region": "Asia",
+   "subregion": "South-Eastern Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+07:00"
+   ],
+   "currencies": {
+    "VND": "Vietnamese đồng"
+   },
+   "area": 331212,
+   "population": 101343800,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "VU",
+   "cca3": "VUT",
+   "ccn3": "548",
+   "name": {
+    "common": "Vanuatu",
+    "official": "Republic of Vanuatu"
+   },
+   "region": "Oceania",
+   "subregion": "Melanesia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+11:00"
+   ],
+   "currencies": {
+    "VUV": "Vanuatu vatu"
+   },
+   "area": 12189,
+   "population": 321409,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "WF",
+   "cca3": "WLF",
+   "ccn3": "876",
+   "name": {
+    "common": "Wallis and Futuna",
+    "official": "Territory of the Wallis and Futuna Islands"
+   },
+   "region": "Oceania",
+   "subregion": "Polynesia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+12:00"
+   ],
+   "currencies": {
+    "XPF": "CFP franc"
+   },
+   "area": 142,
+   "population": 11620,
+   "unMember": false,
+   "independent": false
+  },
+  {
+   "cca2": "WS",
+   "cca3": "WSM",
+   "ccn3": "882",
+   "name": {
+    "common": "Samoa",
+    "official": "Independent State of Samoa"
+   },
+   "region": "Oceania",
+   "subregion": "Polynesia",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+13:00"
+   ],
+   "currencies": {
+    "WST": "Samoan tālā"
+   },
+   "area": 2842,
+   "population": 205557,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "YE",
+   "cca3": "YEM",
+   "ccn3": "887",
+   "name": {
+    "common": "Yemen",
+    "official": "Republic of Yemen"
+   },
+   "region": "Asia",
+   "subregion": "Western Asia",
+   "landlocked": false,
+   "car": {
+    "side": "right"
+   },
+   "startOfWeek": "sunday",
+   "timezones": [
+    "UTC+03:00"
+   ],
+   "currencies": {
+    "YER": "Yemeni rial"
+   },
+   "area": 527968,
+   "population": 32684503,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "ZA",
+   "cca3": "ZAF",
+   "ccn3": "710",
+   "name": {
+    "common": "South Africa",
+    "official": "Republic of South Africa"
+   },
+   "region": "Africa",
+   "subregion": "Southern Africa",
+   "landlocked": false,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "ZAR": "South African rand"
+   },
+   "area": 1221037,
+   "population": 63100945,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "ZM",
+   "cca3": "ZMB",
+   "ccn3": "894",
+   "name": {
+    "common": "Zambia",
+    "official": "Republic of Zambia"
+   },
+   "region": "Africa",
+   "subregion": "Eastern Africa",
+   "landlocked": true,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "ZMW": "Zambian kwacha"
+   },
+   "area": 752612,
+   "population": 19693423,
+   "unMember": true,
+   "independent": true
+  },
+  {
+   "cca2": "ZW",
+   "cca3": "ZWE",
+   "ccn3": "716",
+   "name": {
+    "common": "Zimbabwe",
+    "official": "Republic of Zimbabwe"
+   },
+   "region": "Africa",
+   "subregion": "Southern Africa",
+   "landlocked": true,
+   "car": {
+    "side": "left"
+   },
+   "startOfWeek": "monday",
+   "timezones": [
+    "UTC+02:00"
+   ],
+   "currencies": {
+    "ZWL": "Zimbabwean dollar"
+   },
+   "area": 390757,
+   "population": 17073087,
+   "unMember": true,
+   "independent": true
+  }
+ ]
+}

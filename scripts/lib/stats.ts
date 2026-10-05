@@ -29,6 +29,7 @@ export type VideoStat = {
   index?: number;
   rank?: number;
   variant?: string;
+  format?: string;
   snapshots: Snapshot[];
 };
 

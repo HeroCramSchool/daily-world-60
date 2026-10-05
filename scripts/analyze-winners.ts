@@ -115,7 +115,12 @@ async function main() {
       ageDays: ageHours(v, now) / 24,
     }));
 
-  const cohort = rows.filter(r => r.at7d !== undefined && r.ageDays <= COHORT_DAYS && ageHours(r.v, now) >= AT_HOURS);
+  // map 枠 (publish-map.ts, format=map) は別集計。hour/dow/slot/country の tally を汚さない
+  const newsRows = rows.filter(r => (r.v.format ?? "news") !== "map");
+  const mapRows = rows.filter(r => (r.v.format ?? "news") === "map");
+  const inCohort = (r: Row) => r.at7d !== undefined && r.ageDays <= COHORT_DAYS && ageHours(r.v, now) >= AT_HOURS;
+  const cohort = newsRows.filter(inCohort);
+  const mapCohort = mapRows.filter(inCohort);
   const today = new Date(now).toISOString().slice(0, 10);
 
   let patterns: string;
@@ -195,6 +200,19 @@ async function main() {
     ].join("\n");
     console.log(`[analyze] cohort=${cohort.length} median=${med} winners=${winners.length} losers=${losers.length}`);
   }
+
+  // Map 枠: 本編の 7 日中央値との比だけ見る (docs/map-short.md「測り方」。期待は 2 倍以上)
+  const newsMed = cohort.length ? median(cohort.map(r => r.at7d!)) : undefined;
+  const mapMed = mapCohort.length ? median(mapCohort.map(r => r.at7d!)) : undefined;
+  patterns += [
+    ``,
+    ``,
+    `## Map 枠 (format=map・本編と別集計)`,
+    mapMed === undefined
+      ? `- n=0 (7日計測済みの地図ショートはまだ無い)`
+      : `- n=${mapCohort.length}, views@7d 中央値 ${mapMed}, 本編中央値比 ${newsMed ? `${(mapMed / newsMed).toFixed(2)}x (本編 ${newsMed})` : "- (本編の 7日計測なし)"}`,
+  ].join("\n");
+  console.log(`[analyze] map: n=${mapCohort.length}${mapMed !== undefined ? ` median=${mapMed}` : ""}`);
 
   const tracked = rows.filter(r => r.ageDays <= TRACK_DAYS).sort((a, b) => (b.at7d ?? b.current) - (a.at7d ?? a.current));
   const report = [

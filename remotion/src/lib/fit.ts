@@ -1,6 +1,6 @@
 /** DOM 計測を使わずに文字サイズを決める。Inter 900 の実測平均字幅から見積もる。
  *  build-news-video.ts の fitTextBox と同じ考え方 (候補サイズを大きい順に試す)。 */
-const EM = (s: string) => {
+export const EM = (s: string) => {
   let w = 0;
   for (const ch of s) {
     if (ch === " ") w += 0.26;

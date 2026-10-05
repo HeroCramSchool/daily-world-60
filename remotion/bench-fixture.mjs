@@ -92,3 +92,9 @@ if (!existsSync(PROPS_LF)) {
     { date: "bench", title: "", topic: "", fps: 30, segments: [] }, null, 2));
   console.log("props.json が無いので空の雛形を書いた (Root.tsx が静的 import するため)");
 }
+const PROPS_MAP = path.join(HERE, "props-map.json");
+if (!existsSync(PROPS_MAP)) {
+  writeFileSync(PROPS_MAP, JSON.stringify(
+    { fps: 30, durationSec: 7, title: "", shortTitle: "", cta: "", legend: [], byNumeric: {}, unknownLabel: "No data", sourceLine: "", brand: "Daily World 60" }, null, 2));
+  console.log("props-map.json が無いので空の雛形を書いた (Root.tsx が静的 import するため)");
+}
