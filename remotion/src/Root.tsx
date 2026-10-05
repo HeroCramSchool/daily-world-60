@@ -4,12 +4,16 @@ import { Longform, totalFrames } from "./Longform";
 import { Short, totalShortFrames } from "./short/Short";
 import rawProps from "../props.json";
 import rawShort from "../props-short.json";
+import rawMap from "../props-map.json";
+import { MapShort } from "./map/MapShort";
 import type { LongformProps } from "./lib/types";
 import type { ShortProps } from "./lib/shortTypes";
+import type { MapShortProps } from "./map/mapTypes";
 
 const FPS = 30;
 const defaultProps = rawProps as LongformProps;
 const shortProps = rawShort as unknown as ShortProps;
+const mapProps = rawMap as MapShortProps;
 
 export const RemotionRoot: React.FC = () => (
   <>
@@ -43,5 +47,19 @@ export const RemotionRoot: React.FC = () => (
         })}
       />
     ))}
+
+    <Composition
+      id="MapShort"
+      component={MapShort}
+      width={1080}
+      height={1920}
+      fps={mapProps.fps || FPS}
+      durationInFrames={Math.round((mapProps.durationSec || 7) * (mapProps.fps || FPS))}
+      defaultProps={mapProps}
+      calculateMetadata={({ props }) => ({
+        durationInFrames: Math.round((props.durationSec || 7) * (props.fps || FPS)),
+        fps: props.fps || FPS,
+      })}
+    />
   </>
 );

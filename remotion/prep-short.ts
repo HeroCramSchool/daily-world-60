@@ -80,6 +80,10 @@ async function main() {
   if (!(await exists(lf))) {
     await fs.writeFile(lf, JSON.stringify({ date, title: "", topic: "", fps: FPS, segments: [] }, null, 2));
   }
+  const mp = path.join(HERE, "props-map.json");
+  if (!(await exists(mp))) {
+    await fs.writeFile(mp, JSON.stringify({ fps: FPS, durationSec: 7, title: "", shortTitle: "", cta: "", legend: [], byNumeric: {}, unknownLabel: "No data", sourceLine: "", brand: "Daily World 60" }, null, 2));
+  }
   console.log(`[prep-short] ${out.length} video(s) → props-short.json`);
 }
 

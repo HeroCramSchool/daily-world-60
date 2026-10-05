@@ -1,0 +1,103 @@
+name: Map Short (Mon/Wed/Fri)
+
+# 「各国の○○」塗り分け地図 1 枚 (5〜9 秒・無音) を月・水・金に 1 本投稿する。契約: docs/map-short.md
+# 60 秒本編 (publish.yml, 20:00 UTC) とは別枠。次の未投稿を registry.json の順で選び、
+# 投稿後に content/maps/posted.json を追記してこのブランチへコミットし直す。
+
+on:
+  schedule:
+    - cron: '0 0 * * 1,3,5'
+  workflow_dispatch:
+    inputs:
+      map_id:
+        description: "registry.json の id (auto = 未投稿の先頭)"
+        required: false
+        default: "auto"
+      dry_run:
+        description: "投稿せずペイロードだけ表示 (posted.json も書かない)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: map-short
+  cancel-in-progress: false
+
+jobs:
+  map:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      DRIVE_FOLDER_NAME: "Daily World 60"
+
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+
+      DRY_RUN: ${{ inputs.dry_run == true && '1' || '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Drive の posted-ledger.json (stats ループが format=map で分けて集計する) への追記にだけ使う。
+      # 投稿そのものは YouTube OAuth で完結するので、GCP 側が落ちていても地図の投稿は止めない。
+      - name: Authenticate to Google Cloud (WIF, keyless)
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Node deps
+        run: npm ci
+
+      - name: Step C0r — Remotion の依存と Chrome
+        working-directory: remotion
+        run: |
+          npm ci --no-audit --no-fund
+          npx remotion browser ensure
+
+      - name: Publish map short (prep → render → YouTube → posted.json)
+        run: npx tsx scripts/publish-map.ts ${{ inputs.map_id || 'auto' }}
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-short-${{ github.run_id }}
+          path: |
+            remotion/out/map-*.mp4
+            output/maps/*.json
+          retention-days: 7
+          if-no-files-found: warn
+
+      # posted.json が重複防止の正本。投稿後にこれが残らないと次回同じ地図を再投稿するので、
+      # 後続が落ちても (always) コミットする。dry run では何も書かれないのでスキップ。
+      - name: Commit posted.json
+        if: always() && inputs.dry_run != true
+        run: |
+          git config user.name "Daily World 60 Bot"
+          git config user.email "bot@dailyworld60"
+          if git diff --quiet -- content/maps/posted.json && ! git ls-files --others --exclude-standard content/maps/posted.json | grep -q .; then
+            echo "posted.json unchanged — nothing to commit"
+            exit 0
+          fi
+          git add content/maps/posted.json
+          git commit -m "map: posted ${{ inputs.map_id || 'auto' }} ($(date -u +%F))"
+          git pull --rebase origin "${{ github.ref_name }}"
+          git push origin "HEAD:${{ github.ref_name }}"

@@ -1,0 +1,275 @@
+{
+  "maps": [
+    {
+      "id": "driving-side",
+      "title": "THE SIDE OF THE ROAD EACH COUNTRY DRIVES ON",
+      "shortTitle": "Which Side of the Road Each Country Drives On",
+      "cta": "Your country? 👇",
+      "legend": [
+        {
+          "key": "left",
+          "label": "Left",
+          "color": "#FF5A4E"
+        },
+        {
+          "key": "right",
+          "label": "Right",
+          "color": "#3B82F6"
+        }
+      ],
+      "data": {"ABW": "right", "AFG": "right", "AGO": "right", "AIA": "left", "ALA": "right", "ALB": "right", "AND": "right", "ARE": "right", "ARG": "right", "ARM": "right", "ASM": "right", "ATF": "right", "ATG": "left", "AUS": "left", "AUT": "right", "AZE": "right", "BDI": "right", "BEL": "right", "BEN": "right", "BES": "right", "BFA": "right", "BGD": "left", "BGR": "right", "BHR": "right", "BHS": "left", "BIH": "right", "BLM": "right", "BLR": "right", "BLZ": "right", "BMU": "left", "BOL": "right", "BRA": "right", "BRB": "left", "BRN": "left", "BTN": "left", "BWA": "left", "CAF": "right", "CAN": "right", "CCK": "left", "CHE": "right", "CHL": "right", "CHN": "right", "CIV": "right", "CMR": "right", "COD": "right", "COG": "right", "COK": "left", "COL": "right", "COM": "right", "CPV": "right", "CRI": "right", "CUB": "right", "CUW": "right", "CXR": "left", "CYM": "left", "CYP": "left", "CZE": "right", "DEU": "right", "DJI": "right", "DMA": "left", "DNK": "right", "DOM": "right", "DZA": "right", "ECU": "right", "EGY": "right", "ERI": "right", "ESH": "right", "ESP": "right", "EST": "right", "ETH": "right", "FIN": "right", "FJI": "left", "FLK": "left", "FRA": "right", "FRO": "right", "FSM": "right", "GAB": "right", "GBR": "left", "GEO": "right", "GGY": "left", "GHA": "right", "GIB": "right", "GIN": "right", "GLP": "right", "GMB": "right", "GNB": "right", "GNQ": "right", "GRC": "right", "GRD": "left", "GRL": "right", "GTM": "right", "GUF": "right", "GUM": "right", "GUY": "left", "HKG": "left", "HND": "right", "HRV": "right", "HTI": "right", "HUN": "right", "IDN": "left", "IMN": "left", "IND": "left", "IOT": "right", "IRL": "left", "IRN": "right", "IRQ": "right", "ISL": "right", "ISR": "right", "ITA": "right", "JAM": "left", "JEY": "left", "JOR": "right", "JPN": "left", "KAZ": "right", "KEN": "left", "KGZ": "right", "KHM": "right", "KIR": "left", "KNA": "left", "KOR": "right", "KWT": "right", "LAO": "right", "LBN": "right", "LBR": "right", "LBY": "right", "LCA": "left", "LIE": "right", "LKA": "left", "LSO": "left", "LTU": "right", "LUX": "right", "LVA": "right", "MAC": "left", "MAF": "right", "MAR": "right", "MCO": "right", "MDA": "right", "MDG": "right", "MDV": "left", "MEX": "right", "MHL": "right", "MKD": "right", "MLI": "right", "MLT": "left", "MMR": "right", "MNE": "right", "MNG": "right", "MNP": "right", "MOZ": "left", "MRT": "right", "MSR": "left", "MTQ": "right", "MUS": "left", "MWI": "left", "MYS": "left", "MYT": "right", "NAM": "left", "NCL": "right", "NER": "right", "NFK": "left", "NGA": "right", "NIC": "right", "NIU": "left", "NLD": "right", "NOR": "right", "NPL": "left", "NRU": "left", "NZL": "left", "OMN": "right", "PAK": "left", "PAN": "right", "PCN": "left", "PER": "right", "PHL": "right", "PLW": "right", "PNG": "left", "POL": "right", "PRI": "right", "PRK": "right", "PRT": "right", "PRY": "right", "PSE": "right", "PYF": "right", "QAT": "right", "REU": "right", "ROU": "right", "RUS": "right", "RWA": "right", "SAU": "right", "SDN": "right", "SEN": "right", "SGP": "left", "SGS": "right", "SHN": "left", "SJM": "right", "SLB": "left", "SLE": "right", "SLV": "right", "SMR": "right", "SOM": "right", "SPM": "right", "SRB": "right", "SSD": "right", "STP": "right", "SUR": "left", "SVK": "right", "SVN": "right", "SWE": "right", "SWZ": "left", "SXM": "right", "SYC": "left", "SYR": "right", "TCA": "left", "TCD": "right", "TGO": "right", "THA": "left", "TJK": "right", "TKL": "left", "TKM": "right", "TLS": "left", "TON": "left", "TTO": "left", "TUN": "right", "TUR": "right", "TUV": "left", "TWN": "right", "TZA": "left", "UGA": "left", "UKR": "right", "UMI": "right", "UNK": "right", "URY": "right", "USA": "right", "UZB": "right", "VAT": "right", "VCT": "left", "VEN": "right", "VGB": "left", "VIR": "right", "VNM": "right", "VUT": "right", "WLF": "right", "WSM": "left", "YEM": "right", "ZAF": "left", "ZMB": "left", "ZWE": "left"},
+      "unknownLabel": "No data",
+      "source": {
+        "name": "REST Countries v3.1 (car.side)",
+        "url": "https://restcountries.com/",
+        "year": 2026,
+        "fetchedAt": "2026-10-05"
+      },
+      "notes": "verification: REST car.side present for all 250 entries; left=74, right=173 (countries+territories, excl. ATA/BVT/HMD). Cross-check Wikipedia 'Left- and right-hand traffic' (fetched 2026-10-05): 'RHT is used in 165 countries and territories, while 75 countries use LHT' -> left agrees within 1; right differs because REST also lists small territories.",
+      "durationSec": 7
+    },
+    {
+      "id": "start-of-week",
+      "title": "WHICH DAY THE WEEK STARTS ON IN EACH COUNTRY",
+      "shortTitle": "Which Day the Week Starts On in Each Country",
+      "cta": "Monday or Sunday where you live? 👇",
+      "legend": [
+        {
+          "key": "monday",
+          "label": "Monday",
+          "color": "#3B82F6"
+        },
+        {
+          "key": "sunday",
+          "label": "Sunday",
+          "color": "#F59E0B"
+        },
+        {
+          "key": "saturday",
+          "label": "Saturday",
+          "color": "#EC4899"
+        }
+      ],
+      "data": {"ABW": "monday", "AFG": "monday", "AGO": "monday", "AIA": "monday", "ALA": "monday", "ALB": "monday", "AND": "monday", "ARE": "sunday", "ARG": "monday", "ARM": "monday", "ASM": "monday", "ATF": "monday", "ATG": "monday", "AUS": "monday", "AUT": "monday", "AZE": "monday", "BDI": "monday", "BEL": "monday", "BEN": "monday", "BES": "monday", "BFA": "monday", "BGD": "sunday", "BGR": "monday", "BHR": "monday", "BHS": "monday", "BIH": "monday", "BLM": "monday", "BLR": "monday", "BLZ": "monday", "BMU": "monday", "BOL": "monday", "BRA": "sunday", "BRB": "monday", "BRN": "monday", "BTN": "monday", "BWA": "monday", "CAF": "monday", "CAN": "sunday", "CCK": "monday", "CHE": "monday", "CHL": "monday", "CHN": "monday", "CIV": "monday", "CMR": "monday", "COD": "monday", "COG": "monday", "COK": "monday", "COL": "monday", "COM": "monday", "CPV": "monday", "CRI": "monday", "CUB": "monday", "CUW": "monday", "CXR": "monday", "CYM": "monday", "CYP": "monday", "CZE": "monday", "DEU": "monday", "DJI": "monday", "DMA": "monday", "DNK": "monday", "DOM": "monday", "DZA": "sunday", "ECU": "monday", "EGY": "sunday", "ERI": "monday", "ESH": "monday", "ESP": "monday", "EST": "monday", "ETH": "monday", "FIN": "monday", "FJI": "monday", "FLK": "monday", "FRA": "monday", "FRO": "monday", "FSM": "monday", "GAB": "monday", "GBR": "monday", "GEO": "monday", "GGY": "monday", "GHA": "monday", "GIB": "monday", "GIN": "monday", "GLP": "monday", "GMB": "monday", "GNB": "monday", "GNQ": "monday", "GRC": "monday", "GRD": "monday", "GRL": "monday", "GTM": "monday", "GUF": "monday", "GUM": "monday", "GUY": "monday", "HKG": "monday", "HND": "monday", "HRV": "monday", "HTI": "monday", "HUN": "monday", "IDN": "monday", "IMN": "monday", "IND": "monday", "IOT": "monday", "IRL": "monday", "IRN": "saturday", "IRQ": "sunday", "ISL": "monday", "ISR": "sunday", "ITA": "monday", "JAM": "monday", "JEY": "monday", "JOR": "sunday", "JPN": "monday", "KAZ": "monday", "KEN": "monday", "KGZ": "monday", "KHM": "monday", "KIR": "monday", "KNA": "monday", "KOR": "monday", "KWT": "sunday", "LAO": "monday", "LBN": "monday", "LBR": "monday", "LBY": "sunday", "LCA": "monday", "LIE": "monday", "LKA": "monday", "LSO": "monday", "LTU": "monday", "LUX": "monday", "LVA": "monday", "MAC": "monday", "MAF": "monday", "MAR": "monday", "MCO": "monday", "MDA": "monday", "MDG": "monday", "MDV": "sunday", "MEX": "monday", "MHL": "monday", "MKD": "monday", "MLI": "monday", "MLT": "monday", "MMR": "monday", "MNE": "monday", "MNG": "monday", "MNP": "monday", "MOZ": "monday", "MRT": "monday", "MSR": "monday", "MTQ": "monday", "MUS": "monday", "MWI": "monday", "MYS": "sunday", "MYT": "monday", "NAM": "monday", "NCL": "monday", "NER": "monday", "NFK": "monday", "NGA": "monday", "NIC": "monday", "NIU": "monday", "NLD": "monday", "NOR": "monday", "NPL": "sunday", "NRU": "monday", "NZL": "monday", "OMN": "sunday", "PAK": "monday", "PAN": "monday", "PCN": "monday", "PER": "monday", "PHL": "monday", "PLW": "monday", "PNG": "monday", "POL": "monday", "PRI": "monday", "PRK": "monday", "PRT": "monday", "PRY": "monday", "PSE": "sunday", "PYF": "monday", "QAT": "sunday", "REU": "monday", "ROU": "monday", "RUS": "monday", "RWA": "monday", "SAU": "sunday", "SDN": "monday", "SEN": "monday", "SGP": "monday", "SGS": "monday", "SHN": "monday", "SJM": "monday", "SLB": "monday", "SLE": "monday", "SLV": "monday", "SMR": "monday", "SOM": "monday", "SPM": "monday", "SRB": "monday", "SSD": "sunday", "STP": "monday", "SUR": "monday", "SVK": "monday", "SVN": "monday", "SWE": "monday", "SWZ": "monday", "SXM": "monday", "SYC": "monday", "SYR": "monday", "TCA": "monday", "TCD": "monday", "TGO": "monday", "THA": "monday", "TJK": "monday", "TKL": "monday", "TKM": "monday", "TLS": "monday", "TON": "monday", "TTO": "monday", "TUN": "monday", "TUR": "monday", "TUV": "monday", "TWN": "monday", "TZA": "monday", "UGA": "monday", "UKR": "monday", "UMI": "monday", "UNK": "monday", "URY": "monday", "USA": "sunday", "UZB": "monday", "VAT": "monday", "VCT": "monday", "VEN": "monday", "VGB": "monday", "VIR": "monday", "VNM": "monday", "VUT": "monday", "WLF": "monday", "WSM": "monday", "YEM": "sunday", "ZAF": "monday", "ZMB": "monday", "ZWE": "monday"},
+      "unknownLabel": "No data",
+      "source": {
+        "name": "REST Countries v3.1 (startOfWeek)",
+        "url": "https://restcountries.com/",
+        "year": 2026,
+        "fetchedAt": "2026-10-05"
+      },
+      "notes": "verification: monday=225, sunday=21, saturday=1 (saturday = IRN only). Sunday set: ARE, BGD, BRA, CAN, DZA, EGY, IRQ, ISR, JOR, KWT, LBY, MDV, MYS, NPL, OMN, PSE, QAT, SAU, SSD, USA, YEM. No cheap independent list exists for this field (REST follows CLDR weekData); treat as 'per REST Countries'.",
+      "durationSec": 7
+    },
+    {
+      "id": "landlocked",
+      "title": "LANDLOCKED COUNTRIES",
+      "shortTitle": "Every Landlocked Country in the World",
+      "cta": "Name one without looking 👇",
+      "legend": [
+        {
+          "key": "yes",
+          "label": "Landlocked",
+          "color": "#F59E0B"
+        },
+        {
+          "key": "no",
+          "label": "Has a coastline",
+          "color": "#3B82F6"
+        }
+      ],
+      "data": {"ABW": "no", "AFG": "yes", "AGO": "no", "AIA": "no", "ALA": "no", "ALB": "no", "AND": "yes", "ARE": "no", "ARG": "no", "ARM": "yes", "ASM": "no", "ATF": "no", "ATG": "no", "AUS": "no", "AUT": "yes", "AZE": "yes", "BDI": "yes", "BEL": "no", "BEN": "no", "BES": "no", "BFA": "yes", "BGD": "no", "BGR": "no", "BHR": "no", "BHS": "no", "BIH": "no", "BLM": "no", "BLR": "yes", "BLZ": "no", "BMU": "no", "BOL": "yes", "BRA": "no", "BRB": "no", "BRN": "no", "BTN": "yes", "BWA": "yes", "CAF": "yes", "CAN": "no", "CCK": "no", "CHE": "yes", "CHL": "no", "CHN": "no", "CIV": "no", "CMR": "no", "COD": "no", "COG": "no", "COK": "no", "COL": "no", "COM": "no", "CPV": "no", "CRI": "no", "CUB": "no", "CUW": "no", "CXR": "no", "CYM": "no", "CYP": "no", "CZE": "yes", "DEU": "no", "DJI": "no", "DMA": "no", "DNK": "no", "DOM": "no", "DZA": "no", "ECU": "no", "EGY": "no", "ERI": "no", "ESH": "no", "ESP": "no", "EST": "no", "ETH": "yes", "FIN": "no", "FJI": "no", "FLK": "no", "FRA": "no", "FRO": "no", "FSM": "no", "GAB": "no", "GBR": "no", "GEO": "no", "GGY": "no", "GHA": "no", "GIB": "no", "GIN": "no", "GLP": "no", "GMB": "no", "GNB": "no", "GNQ": "no", "GRC": "no", "GRD": "no", "GRL": "no", "GTM": "no", "GUF": "no", "GUM": "no", "GUY": "no", "HKG": "no", "HND": "no", "HRV": "no", "HTI": "no", "HUN": "yes", "IDN": "no", "IMN": "no", "IND": "no", "IOT": "no", "IRL": "no", "IRN": "no", "IRQ": "no", "ISL": "no", "ISR": "no", "ITA": "no", "JAM": "no", "JEY": "no", "JOR": "no", "JPN": "no", "KAZ": "yes", "KEN": "no", "KGZ": "yes", "KHM": "no", "KIR": "no", "KNA": "no", "KOR": "no", "KWT": "no", "LAO": "yes", "LBN": "no", "LBR": "no", "LBY": "no", "LCA": "no", "LIE": "yes", "LKA": "no", "LSO": "yes", "LTU": "no", "LUX": "yes", "LVA": "no", "MAC": "no", "MAF": "no", "MAR": "no", "MCO": "no", "MDA": "yes", "MDG": "no", "MDV": "no", "MEX": "no", "MHL": "no", "MKD": "yes", "MLI": "yes", "MLT": "no", "MMR": "no", "MNE": "no", "MNG": "yes", "MNP": "no", "MOZ": "no", "MRT": "no", "MSR": "no", "MTQ": "no", "MUS": "no", "MWI": "yes", "MYS": "no", "MYT": "no", "NAM": "no", "NCL": "no", "NER": "yes", "NFK": "no", "NGA": "no", "NIC": "no", "NIU": "no", "NLD": "no", "NOR": "no", "NPL": "yes", "NRU": "no", "NZL": "no", "OMN": "no", "PAK": "no", "PAN": "no", "PCN": "no", "PER": "no", "PHL": "no", "PLW": "no", "PNG": "no", "POL": "no", "PRI": "no", "PRK": "no", "PRT": "no", "PRY": "yes", "PSE": "no", "PYF": "no", "QAT": "no", "REU": "no", "ROU": "no", "RUS": "no", "RWA": "yes", "SAU": "no", "SDN": "no", "SEN": "no", "SGP": "no", "SGS": "no", "SHN": "no", "SJM": "no", "SLB": "no", "SLE": "no", "SLV": "no", "SMR": "yes", "SOM": "no", "SPM": "no", "SRB": "yes", "SSD": "yes", "STP": "no", "SUR": "no", "SVK": "yes", "SVN": "no", "SWE": "no", "SWZ": "yes", "SXM": "no", "SYC": "no", "SYR": "no", "TCA": "no", "TCD": "yes", "TGO": "no", "THA": "no", "TJK": "yes", "TKL": "no", "TKM": "yes", "TLS": "no", "TON": "no", "TTO": "no", "TUN": "no", "TUR": "no", "TUV": "no", "TWN": "no", "TZA": "no", "UGA": "yes", "UKR": "no", "UMI": "no", "UNK": "yes", "URY": "no", "USA": "no", "UZB": "yes", "VAT": "yes", "VCT": "no", "VEN": "no", "VGB": "no", "VIR": "no", "VNM": "no", "VUT": "no", "WLF": "no", "WSM": "no", "YEM": "no", "ZAF": "no", "ZMB": "yes", "ZWE": "yes"},
+      "unknownLabel": "No data",
+      "source": {
+        "name": "REST Countries v3.1 (landlocked)",
+        "url": "https://restcountries.com/",
+        "year": 2026,
+        "fetchedAt": "2026-10-05"
+      },
+      "notes": "verification: landlocked=45, coastal=202. Cross-check Wikipedia 'Landlocked country' (fetched 2026-10-05): 'As of 2026 there are 44 landlocked countries' + 3 landlocked de facto states incl. Kosovo -> REST 45 = 44 + Kosovo (UNK). UNK has no ccn3 so it will not be drawn. List: AFG, AND, ARM, AUT, AZE, BDI, BFA, BLR, BOL, BTN, BWA, CAF, CHE, CZE, ETH, HUN, KAZ, KGZ, LAO, LIE, LSO, LUX, MDA, MKD, MLI, MNG, MWI, NER, NPL, PRY, RWA, SMR, SRB, SSD, SVK, SWZ, TCD, TJK, TKM, UGA, UNK, UZB, VAT, ZMB, ZWE.",
+      "durationSec": 7
+    },
+    {
+      "id": "timezones-count",
+      "title": "HOW MANY TIME ZONES EACH COUNTRY HAS",
+      "shortTitle": "How Many Time Zones Each Country Has",
+      "cta": "How many in your country? 👇",
+      "legend": [
+        {
+          "key": "1",
+          "label": "1 zone",
+          "color": "#3B82F6"
+        },
+        {
+          "key": "2",
+          "label": "2 zones",
+          "color": "#F59E0B"
+        },
+        {
+          "key": "3plus",
+          "label": "3 or more",
+          "color": "#FF5A4E"
+        }
+      ],
+      "data": {"ABW": "1", "AFG": "1", "AGO": "1", "AIA": "1", "ALA": "1", "ALB": "1", "AND": "1", "ARE": "1", "ARG": "1", "ARM": "1", "ASM": "1", "ATF": "1", "ATG": "1", "AUS": "3plus", "AUT": "1", "AZE": "1", "BDI": "1", "BEL": "1", "BEN": "1", "BES": "1", "BFA": "1", "BGD": "1", "BGR": "1", "BHR": "1", "BHS": "1", "BIH": "1", "BLM": "1", "BLR": "1", "BLZ": "1", "BMU": "1", "BOL": "1", "BRA": "3plus", "BRB": "1", "BRN": "1", "BTN": "1", "BWA": "1", "CAF": "1", "CAN": "3plus", "CCK": "1", "CHE": "1", "CHL": "2", "CHN": "1", "CIV": "1", "CMR": "1", "COD": "2", "COG": "1", "COK": "1", "COL": "1", "COM": "1", "CPV": "1", "CRI": "1", "CUB": "1", "CUW": "1", "CXR": "1", "CYM": "1", "CYP": "1", "CZE": "1", "DEU": "1", "DJI": "1", "DMA": "1", "DNK": "3plus", "DOM": "1", "DZA": "1", "ECU": "2", "EGY": "1", "ERI": "1", "ESH": "1", "ESP": "2", "EST": "1", "ETH": "1", "FIN": "1", "FJI": "1", "FLK": "1", "FRA": "3plus", "FRO": "1", "FSM": "2", "GAB": "1", "GBR": "3plus", "GEO": "1", "GGY": "1", "GHA": "1", "GIB": "1", "GIN": "1", "GLP": "1", "GMB": "1", "GNB": "1", "GNQ": "1", "GRC": "1", "GRD": "1", "GRL": "3plus", "GTM": "1", "GUF": "1", "GUM": "1", "GUY": "1", "HKG": "1", "HND": "1", "HRV": "1", "HTI": "1", "HUN": "1", "IDN": "3plus", "IMN": "1", "IND": "1", "IOT": "1", "IRL": "1", "IRN": "1", "IRQ": "1", "ISL": "1", "ISR": "1", "ITA": "1", "JAM": "1", "JEY": "1", "JOR": "1", "JPN": "1", "KAZ": "2", "KEN": "1", "KGZ": "1", "KHM": "1", "KIR": "3plus", "KNA": "1", "KOR": "1", "KWT": "1", "LAO": "1", "LBN": "1", "LBR": "1", "LBY": "1", "LCA": "1", "LIE": "1", "LKA": "1", "LSO": "1", "LTU": "1", "LUX": "1", "LVA": "1", "MAC": "1", "MAF": "1", "MAR": "1", "MCO": "1", "MDA": "1", "MDG": "1", "MDV": "1", "MEX": "3plus", "MHL": "1", "MKD": "1", "MLI": "1", "MLT": "1", "MMR": "1", "MNE": "1", "MNG": "2", "MNP": "1", "MOZ": "1", "MRT": "1", "MSR": "1", "MTQ": "1", "MUS": "1", "MWI": "1", "MYS": "1", "MYT": "1", "NAM": "1", "NCL": "1", "NER": "1", "NFK": "1", "NGA": "1", "NIC": "1", "NIU": "1", "NLD": "1", "NOR": "1", "NPL": "1", "NRU": "1", "NZL": "3plus", "OMN": "1", "PAK": "1", "PAN": "1", "PCN": "1", "PER": "1", "PHL": "1", "PLW": "1", "PNG": "1", "POL": "1", "PRI": "1", "PRK": "1", "PRT": "2", "PRY": "1", "PSE": "1", "PYF": "3plus", "QAT": "1", "REU": "1", "ROU": "1", "RUS": "3plus", "RWA": "1", "SAU": "1", "SDN": "1", "SEN": "1", "SGP": "1", "SGS": "1", "SHN": "1", "SJM": "1", "SLB": "1", "SLE": "1", "SLV": "1", "SMR": "1", "SOM": "1", "SPM": "1", "SRB": "1", "SSD": "1", "STP": "1", "SUR": "1", "SVK": "1", "SVN": "1", "SWE": "1", "SWZ": "1", "SXM": "1", "SYC": "1", "SYR": "1", "TCA": "1", "TCD": "1", "TGO": "1", "THA": "1", "TJK": "1", "TKL": "1", "TKM": "1", "TLS": "1", "TON": "1", "TTO": "1", "TUN": "1", "TUR": "1", "TUV": "1", "TWN": "1", "TZA": "1", "UGA": "1", "UKR": "1", "UMI": "3plus", "UNK": "1", "URY": "1", "USA": "3plus", "UZB": "1", "VAT": "1", "VCT": "1", "VEN": "1", "VGB": "1", "VIR": "1", "VNM": "1", "VUT": "1", "WLF": "1", "WSM": "1", "YEM": "1", "ZAF": "1", "ZMB": "1", "ZWE": "1"},
+      "unknownLabel": "No data",
+      "source": {
+        "name": "REST Countries v3.1 (timezones)",
+        "url": "https://restcountries.com/",
+        "year": 2026,
+        "fetchedAt": "2026-10-05"
+      },
+      "notes": "verification: 1=224, 2=8, 3plus=15. REST counts UTC offsets incl. overseas territories (FRA=14, USA=11, GBR=9, RUS=9, AUS=8, CAN=6, DNK=5, NZL=5), so 'France 14' is the REST/overseas-inclusive count, not mainland. 3plus: AUS=8, BRA=4, CAN=6, DNK=5, FRA=14, GBR=9, GRL=4, IDN=3, KIR=3, MEX=3, NZL=5, PYF=3, RUS=9, UMI=3, USA=11. Antarctica excluded.",
+      "durationSec": 7
+    },
+    {
+      "id": "euro-or-dollar",
+      "title": "COUNTRIES THAT USE THE EURO OR THE US DOLLAR",
+      "shortTitle": "Countries That Use the Euro or the US Dollar",
+      "cta": "Which one do you use? 👇",
+      "legend": [
+        {
+          "key": "eur",
+          "label": "Euro",
+          "color": "#3B82F6"
+        },
+        {
+          "key": "usd",
+          "label": "US dollar",
+          "color": "#22C55E"
+        },
+        {
+          "key": "other",
+          "label": "Other currency",
+          "color": "#64748B"
+        }
+      ],
+      "data": {"ABW": "other", "AFG": "other", "AGO": "other", "AIA": "other", "ALA": "eur", "ALB": "other", "AND": "eur", "ARE": "other", "ARG": "other", "ARM": "other", "ASM": "usd", "ATF": "eur", "ATG": "other", "AUS": "other", "AUT": "eur", "AZE": "other", "BDI": "other", "BEL": "eur", "BEN": "other", "BES": "usd", "BFA": "other", "BGD": "other", "BGR": "eur", "BHR": "other", "BHS": "usd", "BIH": "other", "BLM": "eur", "BLR": "other", "BLZ": "other", "BMU": "other", "BOL": "other", "BRA": "other", "BRB": "other", "BRN": "other", "BTN": "other", "BWA": "other", "CAF": "other", "CAN": "other", "CCK": "other", "CHE": "other", "CHL": "other", "CHN": "other", "CIV": "other", "CMR": "other", "COD": "other", "COG": "other", "COK": "other", "COL": "other", "COM": "other", "CPV": "other", "CRI": "other", "CUB": "other", "CUW": "other", "CXR": "other", "CYM": "other", "CYP": "eur", "CZE": "other", "DEU": "eur", "DJI": "other", "DMA": "other", "DNK": "other", "DOM": "other", "DZA": "other", "ECU": "usd", "EGY": "other", "ERI": "other", "ESH": "other", "ESP": "eur", "EST": "eur", "ETH": "other", "FIN": "eur", "FJI": "other", "FLK": "other", "FRA": "eur", "FRO": "other", "FSM": "usd", "GAB": "other", "GBR": "other", "GEO": "other", "GGY": "other", "GHA": "other", "GIB": "other", "GIN": "other", "GLP": "eur", "GMB": "other", "GNB": "other", "GNQ": "other", "GRC": "eur", "GRD": "other", "GRL": "other", "GTM": "other", "GUF": "eur", "GUM": "usd", "GUY": "other", "HKG": "other", "HND": "other", "HRV": "eur", "HTI": "other", "HUN": "other", "IDN": "other", "IMN": "other", "IND": "other", "IOT": "usd", "IRL": "eur", "IRN": "other", "IRQ": "other", "ISL": "other", "ISR": "other", "ITA": "eur", "JAM": "other", "JEY": "other", "JOR": "other", "JPN": "other", "KAZ": "other", "KEN": "other", "KGZ": "other", "KHM": "usd", "KIR": "other", "KNA": "other", "KOR": "other", "KWT": "other", "LAO": "other", "LBN": "other", "LBR": "other", "LBY": "other", "LCA": "other", "LIE": "other", "LKA": "other", "LSO": "other", "LTU": "eur", "LUX": "eur", "LVA": "eur", "MAC": "other", "MAF": "eur", "MAR": "other", "MCO": "eur", "MDA": "other", "MDG": "other", "MDV": "other", "MEX": "other", "MHL": "usd", "MKD": "other", "MLI": "other", "MLT": "eur", "MMR": "other", "MNE": "eur", "MNG": "other", "MNP": "usd", "MOZ": "other", "MRT": "other", "MSR": "other", "MTQ": "eur", "MUS": "other", "MWI": "other", "MYS": "other", "MYT": "eur", "NAM": "other", "NCL": "other", "NER": "other", "NFK": "other", "NGA": "other", "NIC": "other", "NIU": "other", "NLD": "eur", "NOR": "other", "NPL": "other", "NRU": "other", "NZL": "other", "OMN": "other", "PAK": "other", "PAN": "usd", "PCN": "other", "PER": "other", "PHL": "other", "PLW": "usd", "PNG": "other", "POL": "other", "PRI": "usd", "PRK": "other", "PRT": "eur", "PRY": "other", "PSE": "other", "PYF": "other", "QAT": "other", "REU": "eur", "ROU": "other", "RUS": "other", "RWA": "other", "SAU": "other", "SDN": "other", "SEN": "other", "SGP": "other", "SGS": "other", "SHN": "other", "SJM": "other", "SLB": "other", "SLE": "other", "SLV": "usd", "SMR": "eur", "SOM": "other", "SPM": "eur", "SRB": "other", "SSD": "other", "STP": "other", "SUR": "other", "SVK": "eur", "SVN": "eur", "SWE": "other", "SWZ": "other", "SXM": "other", "SYC": "other", "SYR": "other", "TCA": "usd", "TCD": "other", "TGO": "other", "THA": "other", "TJK": "other", "TKL": "other", "TKM": "other", "TLS": "usd", "TON": "other", "TTO": "other", "TUN": "other", "TUR": "other", "TUV": "other", "TWN": "other", "TZA": "other", "UGA": "other", "UKR": "other", "UMI": "usd", "UNK": "eur", "URY": "other", "USA": "usd", "UZB": "other", "VAT": "eur", "VCT": "other", "VEN": "other", "VGB": "usd", "VIR": "usd", "VNM": "other", "VUT": "other", "WLF": "other", "WSM": "other", "YEM": "other", "ZAF": "other", "ZMB": "other", "ZWE": "other"},
+      "unknownLabel": "No data",
+      "source": {
+        "name": "REST Countries v3.1 (currencies) + European Commission (euro area)",
+        "url": "https://restcountries.com/",
+        "year": 2026,
+        "fetchedAt": "2026-10-05"
+      },
+      "notes": "verification: eur=37, usd=20, other=190. Correction applied: BGR set to eur per European Commission 'What is the euro area?' (https://economy-finance.ec.europa.eu/euro/what-euro-area_en, fetched 2026-10-05): 'Bulgaria in 2026. Today, the euro area numbers 21 EU Member States' -- REST snapshot still shows BGN. EU euro-area members in data: 21 (AUT BEL BGR HRV CYP EST FIN FRA DEU GRC IRL ITA LVA LTU LUX MLT NLD PRT SVK SVN ESP) + non-EU users AND MCO SMR VAT MNE UNK + EU/French territories ALA ATF BLM GLP GUF MAF MTQ MYT REU SPM. USD: ASM, BES, BHS, ECU, FSM, GUM, IOT, KHM, MHL, MNP, PAN, PLW, PRI, SLV, TCA, TLS, UMI, USA, VGB, VIR (PAN has PAB+USD, KHM has KHR+USD -> counted as usd per REST). 'other' is an explicit legend colour (slate); renderer's unknown grey must differ from #64748B.",
+      "durationSec": 7
+    },
+    {
+      "id": "nato-members",
+      "title": "NATO MEMBER COUNTRIES",
+      "shortTitle": "Every NATO Member Country (2026)",
+      "cta": "Which one surprised you? 👇",
+      "legend": [
+        {
+          "key": "member",
+          "label": "NATO member",
+          "color": "#3B82F6"
+        },
+        {
+          "key": "nonmember",
+          "label": "Not a member",
+          "color": "#64748B"
+        }
+      ],
+      "data": {"AFG": "nonmember", "AGO": "nonmember", "ALB": "member", "AND": "nonmember", "ARE": "nonmember", "ARG": "nonmember", "ARM": "nonmember", "ATG": "nonmember", "AUS": "nonmember", "AUT": "nonmember", "AZE": "nonmember", "BDI": "nonmember", "BEL": "member", "BEN": "nonmember", "BFA": "nonmember", "BGD": "nonmember", "BGR": "member", "BHR": "nonmember", "BHS": "nonmember", "BIH": "nonmember", "BLR": "nonmember", "BLZ": "nonmember", "BOL": "nonmember", "BRA": "nonmember", "BRB": "nonmember", "BRN": "nonmember", "BTN": "nonmember", "BWA": "nonmember", "CAF": "nonmember", "CAN": "member", "CHE": "nonmember", "CHL": "nonmember", "CHN": "nonmember", "CIV": "nonmember", "CMR": "nonmember", "COD": "nonmember", "COG": "nonmember", "COL": "nonmember", "COM": "nonmember", "CPV": "nonmember", "CRI": "nonmember", "CUB": "nonmember", "CYP": "nonmember", "CZE": "member", "DEU": "member", "DJI": "nonmember", "DMA": "nonmember", "DNK": "member", "DOM": "nonmember", "DZA": "nonmember", "ECU": "nonmember", "EGY": "nonmember", "ERI": "nonmember", "ESP": "member", "EST": "member", "ETH": "nonmember", "FIN": "member", "FJI": "nonmember", "FRA": "member", "FSM": "nonmember", "GAB": "nonmember", "GBR": "member", "GEO": "nonmember", "GHA": "nonmember", "GIN": "nonmember", "GMB": "nonmember", "GNB": "nonmember", "GNQ": "nonmember", "GRC": "member", "GRD": "nonmember", "GTM": "nonmember", "GUY": "nonmember", "HND": "nonmember", "HRV": "member", "HTI": "nonmember", "HUN": "member", "IDN": "nonmember", "IND": "nonmember", "IRL": "nonmember", "IRN": "nonmember", "IRQ": "nonmember", "ISL": "member", "ISR": "nonmember", "ITA": "member", "JAM": "nonmember", "JOR": "nonmember", "JPN": "nonmember", "KAZ": "nonmember", "KEN": "nonmember", "KGZ": "nonmember", "KHM": "nonmember", "KIR": "nonmember", "KNA": "nonmember", "KOR": "nonmember", "KWT": "nonmember", "LAO": "nonmember", "LBN": "nonmember", "LBR": "nonmember", "LBY": "nonmember", "LCA": "nonmember", "LIE": "nonmember", "LKA": "nonmember", "LSO": "nonmember", "LTU": "member", "LUX": "member", "LVA": "member", "MAR": "nonmember", "MCO": "nonmember", "MDA": "nonmember", "MDG": "nonmember", "MDV": "nonmember", "MEX": "nonmember", "MHL": "nonmember", "MKD": "member", "MLI": "nonmember", "MLT": "nonmember", "MMR": "nonmember", "MNE": "member", "MNG": "nonmember", "MOZ": "nonmember", "MRT": "nonmember", "MUS": "nonmember", "MWI": "nonmember", "MYS": "nonmember", "NAM": "nonmember", "NER": "nonmember", "NGA": "nonmember", "NIC": "nonmember", "NLD": "member", "NOR": "member", "NPL": "nonmember", "NRU": "nonmember", "NZL": "nonmember", "OMN": "nonmember", "PAK": "nonmember", "PAN": "nonmember", "PER": "nonmember", "PHL": "nonmember", "PLW": "nonmember", "PNG": "nonmember", "POL": "member", "PRK": "nonmember", "PRT": "member", "PRY": "nonmember", "QAT": "nonmember", "ROU": "member", "RUS": "nonmember", "RWA": "nonmember", "SAU": "nonmember", "SDN": "nonmember", "SEN": "nonmember", "SGP": "nonmember", "SLB": "nonmember", "SLE": "nonmember", "SLV": "nonmember", "SMR": "nonmember", "SOM": "nonmember", "SRB": "nonmember", "SSD": "nonmember", "STP": "nonmember", "SUR": "nonmember", "SVK": "member", "SVN": "member", "SWE": "member", "SWZ": "nonmember", "SYC": "nonmember", "SYR": "nonmember", "TCD": "nonmember", "TGO": "nonmember", "THA": "nonmember", "TJK": "nonmember", "TKM": "nonmember", "TLS": "nonmember", "TON": "nonmember", "TTO": "nonmember", "TUN": "nonmember", "TUR": "member", "TUV": "nonmember", "TZA": "nonmember", "UGA": "nonmember", "UKR": "nonmember", "UNK": "nonmember", "URY": "nonmember", "USA": "member", "UZB": "nonmember", "VAT": "nonmember", "VCT": "nonmember", "VEN": "nonmember", "VNM": "nonmember", "VUT": "nonmember", "WSM": "nonmember", "YEM": "nonmember", "ZAF": "nonmember", "ZMB": "nonmember", "ZWE": "nonmember"},
+      "unknownLabel": "Territory / not applicable",
+      "source": {
+        "name": "NATO (nato.int, member countries)",
+        "url": "https://www.nato.int/cps/en/natohq/nato_countries.htm",
+        "year": 2026,
+        "fetchedAt": "2026-10-05"
+      },
+      "notes": "verification: member=32, nonmember=163 (sovereign states only; dependent territories left unfilled so Greenland etc. are not labelled 'not a member'). nato.int page 'Updated: 11 March 2024' states 'At present, NATO has 32 member countries'; parsed alphabetical list = 32 with accession years; newest = SWE (2024). Cross-check Wikipedia 'Member states of NATO' (fetched 2026-10-05): '32 member states ... Sweden (2024)'. Accession years: ALB:2009, BEL:1949, BGR:2004, CAN:1949, CZE:1999, DEU:1955, DNK:1949, ESP:1982, EST:2004, FIN:2023, FRA:1949, GBR:1949, GRC:1952, HRV:2009, HUN:1999, ISL:1949, ITA:1949, LTU:2004, LUX:1949, LVA:2004, MKD:2020, MNE:2017, NLD:1949, NOR:1949, POL:1999, PRT:1949, ROU:2004, SVK:2004, SVN:2004, SWE:2024, TUR:1952, USA:1949.",
+      "durationSec": 7
+    },
+    {
+      "id": "life-expectancy",
+      "title": "LIFE EXPECTANCY AT BIRTH BY COUNTRY",
+      "shortTitle": "Life Expectancy at Birth in Every Country",
+      "cta": "Your country's number? 👇",
+      "legend": [
+        {
+          "key": "<65",
+          "label": "Under 65",
+          "color": "#EF4444"
+        },
+        {
+          "key": "65-70",
+          "label": "65–70",
+          "color": "#F97316"
+        },
+        {
+          "key": "70-75",
+          "label": "70–75",
+          "color": "#FACC15"
+        },
+        {
+          "key": "75-80",
+          "label": "75–80",
+          "color": "#4ADE80"
+        },
+        {
+          "key": "80+",
+          "label": "80 or more",
+          "color": "#22D3EE"
+        }
+      ],
+      "data": {"ABW": "75-80", "AFG": "65-70", "AGO": "<65", "ALB": "75-80", "AND": "80+", "ARE": "80+", "ARG": "75-80", "ARM": "75-80", "ASM": "70-75", "ATG": "75-80", "AUS": "80+", "AUT": "80+", "AZE": "70-75", "BDI": "<65", "BEL": "80+", "BEN": "<65", "BFA": "<65", "BGD": "70-75", "BGR": "75-80", "BHR": "80+", "BHS": "70-75", "BIH": "75-80", "BLR": "70-75", "BLZ": "70-75", "BMU": "80+", "BOL": "65-70", "BRA": "75-80", "BRB": "75-80", "BRN": "75-80", "BTN": "70-75", "BWA": "65-70", "CAF": "<65", "CAN": "80+", "CHE": "80+", "CHL": "80+", "CHN": "75-80", "CIV": "<65", "CMR": "<65", "COD": "<65", "COG": "65-70", "COL": "75-80", "COM": "65-70", "CPV": "75-80", "CRI": "80+", "CUB": "75-80", "CUW": "75-80", "CYM": "80+", "CYP": "80+", "CZE": "75-80", "DEU": "80+", "DJI": "65-70", "DMA": "70-75", "DNK": "80+", "DOM": "70-75", "DZA": "75-80", "ECU": "75-80", "EGY": "70-75", "ERI": "65-70", "ESP": "80+", "EST": "75-80", "ETH": "65-70", "FIN": "80+", "FJI": "65-70", "FRA": "80+", "FRO": "80+", "FSM": "65-70", "GAB": "65-70", "GBR": "80+", "GEO": "70-75", "GHA": "65-70", "GIB": "80+", "GIN": "<65", "GMB": "65-70", "GNB": "<65", "GNQ": "<65", "GRC": "80+", "GRD": "75-80", "GRL": "70-75", "GTM": "70-75", "GUM": "75-80", "GUY": "70-75", "HKG": "80+", "HND": "70-75", "HRV": "75-80", "HTI": "65-70", "HUN": "75-80", "IDN": "70-75", "IMN": "80+", "IND": "70-75", "IRL": "80+", "IRN": "75-80", "IRQ": "70-75", "ISL": "80+", "ISR": "80+", "ITA": "80+", "JAM": "70-75", "JOR": "75-80", "JPN": "80+", "KAZ": "70-75", "KEN": "<65", "KGZ": "70-75", "KHM": "70-75", "KIR": "65-70", "KNA": "70-75", "KOR": "80+", "KWT": "80+", "LAO": "65-70", "LBN": "75-80", "LBR": "<65", "LBY": "70-75", "LCA": "70-75", "LIE": "80+", "LKA": "75-80", "LSO": "<65", "LTU": "75-80", "LUX": "80+", "LVA": "75-80", "MAC": "80+", "MAF": "80+", "MAR": "75-80", "MCO": "80+", "MDA": "70-75", "MDG": "<65", "MDV": "80+", "MEX": "75-80", "MHL": "65-70", "MKD": "75-80", "MLI": "<65", "MLT": "80+", "MMR": "65-70", "MNE": "75-80", "MNG": "70-75", "MNP": "75-80", "MOZ": "<65", "MRT": "65-70", "MUS": "70-75", "MWI": "65-70", "MYS": "75-80", "NAM": "65-70", "NCL": "75-80", "NER": "<65", "NGA": "<65", "NIC": "75-80", "NLD": "80+", "NOR": "80+", "NPL": "70-75", "NRU": "<65", "NZL": "80+", "OMN": "80+", "PAK": "65-70", "PAN": "75-80", "PER": "75-80", "PHL": "65-70", "PLW": "65-70", "PNG": "65-70", "POL": "75-80", "PRI": "80+", "PRK": "70-75", "PRT": "80+", "PRY": "70-75", "PSE": "65-70", "PYF": "80+", "QAT": "80+", "ROU": "75-80", "RUS": "70-75", "RWA": "65-70", "SAU": "75-80", "SDN": "65-70", "SEN": "65-70", "SGP": "80+", "SLB": "70-75", "SLE": "<65", "SLV": "70-75", "SMR": "80+", "SOM": "<65", "SRB": "75-80", "SSD": "<65", "STP": "65-70", "SUR": "70-75", "SVK": "75-80", "SVN": "80+", "SWE": "80+", "SWZ": "<65", "SXM": "75-80", "SYC": "75-80", "SYR": "70-75", "TCA": "75-80", "TCD": "<65", "TGO": "<65", "THA": "75-80", "TJK": "70-75", "TKM": "70-75", "TLS": "65-70", "TON": "70-75", "TTO": "70-75", "TUN": "75-80", "TUR": "75-80", "TUV": "65-70", "TZA": "65-70", "UGA": "65-70", "UKR": "70-75", "UNK": "75-80", "URY": "75-80", "USA": "75-80", "UZB": "70-75", "VCT": "70-75", "VEN": "70-75", "VGB": "75-80", "VIR": "80+", "VNM": "70-75", "VUT": "70-75", "WSM": "70-75", "YEM": "65-70", "ZAF": "65-70", "ZMB": "65-70", "ZWE": "<65"},
+      "raw": {"ABW": 76.5, "AFG": 66.3, "AGO": 64.8, "ALB": 79.8, "AND": 84.2, "ARE": 83.1, "ARG": 77.5, "ARM": 78.3, "ASM": 73.0, "ATG": 77.8, "AUS": 83.1, "AUT": 82.0, "AZE": 74.6, "BDI": 63.8, "BEL": 82.3, "BEN": 61.0, "BFA": 61.3, "BGD": 74.9, "BGR": 75.8, "BHR": 81.4, "BHS": 74.7, "BIH": 78.0, "BLR": 74.4, "BLZ": 73.7, "BMU": 82.5, "BOL": 68.7, "BRA": 76.0, "BRB": 76.3, "BRN": 75.5, "BTN": 73.3, "BWA": 69.3, "CAF": 57.7, "CAN": 82.1, "CHE": 84.4, "CHL": 81.4, "CHN": 78.0, "CIV": 62.1, "CMR": 64.0, "COD": 62.1, "COG": 66.0, "COL": 77.9, "COM": 67.0, "CPV": 76.2, "CRI": 81.0, "CUB": 78.3, "CUW": 77.0, "CYM": 80.5, "CYP": 81.8, "CZE": 80.0, "DEU": 80.8, "DJI": 66.2, "DMA": 71.3, "DNK": 82.3, "DOM": 73.9, "DZA": 76.5, "ECU": 77.6, "EGY": 71.8, "ERI": 68.9, "ESP": 83.9, "EST": 79.3, "ETH": 67.6, "FIN": 82.3, "FJI": 67.5, "FRA": 83.0, "FRO": 83.1, "FSM": 67.4, "GAB": 68.5, "GBR": 81.4, "GEO": 74.7, "GHA": 65.7, "GIB": 83.6, "GIN": 60.9, "GMB": 66.1, "GNB": 64.3, "GNQ": 63.9, "GRC": 81.8, "GRD": 75.4, "GRL": 70.3, "GTM": 72.7, "GUM": 77.4, "GUY": 70.3, "HKG": 85.4, "HND": 73.0, "HRV": 78.9, "HTI": 65.1, "HUN": 76.7, "IDN": 71.3, "IMN": 81.1, "IND": 72.2, "IRL": 83.0, "IRN": 77.9, "IRQ": 72.4, "ISL": 82.8, "ISR": 83.2, "ITA": 84.0, "JAM": 71.6, "JOR": 78.0, "JPN": 84.0, "KAZ": 74.5, "KEN": 63.8, "KGZ": 72.4, "KHM": 70.8, "KIR": 66.6, "KNA": 72.3, "KOR": 83.6, "KWT": 84.6, "LAO": 69.2, "LBN": 77.9, "LBR": 62.3, "LBY": 71.1, "LCA": 72.8, "LIE": 84.2, "LKA": 77.7, "LSO": 57.8, "LTU": 77.2, "LUX": 83.2, "LVA": 76.4, "MAC": 83.3, "MAF": 80.4, "MAR": 75.5, "MCO": 86.5, "MDA": 71.3, "MDG": 63.8, "MDV": 81.3, "MEX": 75.3, "MHL": 67.1, "MKD": 76.6, "MLI": 60.7, "MLT": 83.0, "MMR": 67.1, "MNE": 77.9, "MNG": 72.4, "MNP": 78.9, "MOZ": 63.8, "MRT": 68.7, "MUS": 73.8, "MWI": 67.6, "MYS": 76.8, "NAM": 67.5, "NCL": 78.9, "NER": 61.4, "NGA": 54.6, "NIC": 75.1, "NLD": 82.0, "NOR": 83.2, "NPL": 70.6, "NRU": 62.3, "NZL": 82.0, "OMN": 80.2, "PAK": 67.8, "PAN": 79.8, "PER": 77.9, "PHL": 69.9, "PLW": 69.4, "PNG": 66.3, "POL": 78.4, "PRI": 81.9, "PRK": 73.7, "PRT": 82.4, "PRY": 74.0, "PSE": 69.2, "PYF": 84.2, "QAT": 82.5, "ROU": 76.5, "RUS": 73.4, "RWA": 68.0, "SAU": 79.0, "SDN": 66.5, "SEN": 68.9, "SGP": 83.3, "SLB": 70.7, "SLE": 62.0, "SLV": 72.3, "SMR": 85.8, "SOM": 59.0, "SRB": 76.0, "SSD": 57.7, "STP": 69.9, "SUR": 73.8, "SVK": 78.4, "SVN": 82.3, "SWE": 84.1, "SWZ": 64.3, "SXM": 76.5, "SYC": 76.3, "SYR": 72.6, "TCA": 78.2, "TCD": 55.2, "TGO": 62.9, "THA": 76.6, "TJK": 71.9, "TKM": 70.2, "TLS": 67.9, "TON": 73.1, "TTO": 73.6, "TUN": 76.7, "TUR": 77.4, "TUV": 67.3, "TZA": 67.2, "UGA": 68.5, "UKR": 74.7, "UNK": 78.2, "URY": 78.3, "USA": 78.9, "UZB": 72.5, "VCT": 71.4, "VEN": 72.7, "VGB": 77.4, "VIR": 80.8, "VNM": 74.7, "VUT": 71.7, "WSM": 71.8, "YEM": 69.4, "ZAF": 66.3, "ZMB": 66.5, "ZWE": 63.1},
+      "unknownLabel": "No data",
+      "source": {
+        "name": "World Bank (SP.DYN.LE00.IN, UN WPP-based)",
+        "url": "https://data.worldbank.org/indicator/SP.DYN.LE00.IN",
+        "year": 2024,
+        "fetchedAt": "2026-10-05"
+      },
+      "notes": "verification: bins <65=27, 65-70=37, 70-75=47, 75-80=54, 80+=51; 216 economies matched to cca3 (World Bank aggregates and 'Channel Islands' CHI dropped; XKX mapped to UNK). Data year: {2024: 216} (API mrnev=1, lastupdated 2026-07-13). raw = years, 1 decimal. Highest: MCO 86.5, SMR 85.8, HKG 85.4; lowest: NGA 54.6, TCD 55.2, CAF 57.7. No value for TWN and most small territories.",
+      "durationSec": 7
+    },
+    {
+      "id": "internet-users",
+      "title": "SHARE OF PEOPLE USING THE INTERNET",
+      "shortTitle": "Share of People Using the Internet by Country",
+      "cta": "Is yours right? 👇",
+      "legend": [
+        {
+          "key": "<50",
+          "label": "Under 50%",
+          "color": "#EF4444"
+        },
+        {
+          "key": "50-70",
+          "label": "50–70%",
+          "color": "#F97316"
+        },
+        {
+          "key": "70-85",
+          "label": "70–85%",
+          "color": "#FACC15"
+        },
+        {
+          "key": "85-95",
+          "label": "85–95%",
+          "color": "#4ADE80"
+        },
+        {
+          "key": "95+",
+          "label": "95%+",
+          "color": "#22D3EE"
+        }
+      ],
+      "data": {"ABW": "95+", "AFG": "<50", "AGO": "<50", "ALB": "85-95", "AND": "85-95", "ARE": "95+", "ARG": "85-95", "ARM": "70-85", "ATG": "70-85", "AUS": "95+", "AUT": "85-95", "AZE": "85-95", "BDI": "<50", "BEL": "95+", "BEN": "<50", "BFA": "<50", "BGD": "50-70", "BGR": "70-85", "BHR": "95+", "BHS": "85-95", "BIH": "85-95", "BLR": "85-95", "BLZ": "70-85", "BMU": "95+", "BOL": "70-85", "BRA": "70-85", "BRB": "70-85", "BRN": "95+", "BTN": "85-95", "BWA": "50-70", "CAF": "<50", "CAN": "85-95", "CHE": "95+", "CHL": "95+", "CHN": "85-95", "CIV": "<50", "CMR": "<50", "COD": "<50", "COG": "<50", "COL": "70-85", "COM": "<50", "CPV": "70-85", "CRI": "85-95", "CUB": "70-85", "CUW": "50-70", "CYM": "70-85", "CYP": "85-95", "CZE": "85-95", "DEU": "85-95", "DJI": "50-70", "DMA": "70-85", "DNK": "95+", "DOM": "85-95", "DZA": "70-85", "ECU": "70-85", "EGY": "70-85", "ERI": "<50", "ESP": "95+", "EST": "85-95", "ETH": "<50", "FIN": "85-95", "FJI": "70-85", "FRA": "85-95", "FRO": "95+", "FSM": "<50", "GAB": "50-70", "GBR": "95+", "GEO": "70-85", "GHA": "70-85", "GIB": "85-95", "GIN": "<50", "GMB": "<50", "GNB": "<50", "GNQ": "50-70", "GRC": "85-95", "GRD": "70-85", "GRL": "50-70", "GTM": "50-70", "GUM": "70-85", "GUY": "70-85", "HKG": "95+", "HND": "50-70", "HRV": "70-85", "HTI": "<50", "HUN": "85-95", "IDN": "70-85", "IND": "70-85", "IRL": "95+", "IRN": "85-95", "IRQ": "70-85", "ISL": "95+", "ISR": "85-95", "ITA": "85-95", "JAM": "85-95", "JOR": "95+", "JPN": "85-95", "KAZ": "85-95", "KEN": "<50", "KGZ": "85-95", "KHM": "50-70", "KIR": "85-95", "KNA": "70-85", "KOR": "95+", "KWT": "95+", "LAO": "50-70", "LBN": "70-85", "LBR": "<50", "LBY": "70-85", "LCA": "50-70", "LIE": "95+", "LKA": "50-70", "LSO": "50-70", "LTU": "85-95", "LUX": "95+", "LVA": "85-95", "MAC": "85-95", "MAR": "85-95", "MCO": "95+", "MDA": "70-85", "MDG": "<50", "MDV": "85-95", "MEX": "70-85", "MHL": "50-70", "MKD": "85-95", "MLI": "<50", "MLT": "85-95", "MMR": "<50", "MNE": "85-95", "MNG": "85-95", "MOZ": "<50", "MRT": "<50", "MUS": "70-85", "MWI": "<50", "MYS": "95+", "NAM": "50-70", "NCL": "70-85", "NER": "<50", "NGA": "<50", "NIC": "50-70", "NLD": "95+", "NOR": "95+", "NPL": "<50", "NRU": "70-85", "NZL": "85-95", "OMN": "95+", "PAK": "50-70", "PAN": "70-85", "PER": "70-85", "PHL": "50-70", "PLW": "70-85", "PNG": "<50", "POL": "85-95", "PRI": "85-95", "PRT": "85-95", "PRY": "70-85", "PSE": "85-95", "PYF": "70-85", "QAT": "95+", "ROU": "85-95", "RUS": "85-95", "RWA": "<50", "SAU": "95+", "SDN": "<50", "SEN": "50-70", "SGP": "85-95", "SLB": "<50", "SLE": "<50", "SLV": "50-70", "SMR": "95+", "SOM": "<50", "SRB": "85-95", "SSD": "<50", "STP": "50-70", "SUR": "85-95", "SVK": "85-95", "SVN": "85-95", "SWE": "95+", "SWZ": "50-70", "SYC": "85-95", "SYR": "<50", "TCD": "<50", "TGO": "<50", "THA": "85-95", "TJK": "50-70", "TKM": "<50", "TLS": "<50", "TON": "50-70", "TTO": "70-85", "TUN": "70-85", "TUR": "85-95", "TUV": "<50", "TZA": "<50", "UGA": "<50", "UKR": "70-85", "UNK": "85-95", "URY": "85-95", "USA": "85-95", "UZB": "85-95", "VCT": "70-85", "VEN": "70-85", "VGB": "70-85", "VIR": "50-70", "VNM": "70-85", "VUT": "<50", "YEM": "<50", "ZAF": "70-85", "ZMB": "<50", "ZWE": "<50"},
+      "raw": {"ABW": 97.2, "AFG": 16.1, "AGO": 40.7, "ALB": 85.9, "AND": 94.4, "ARE": 100.0, "ARG": 89.7, "ARM": 81.3, "ATG": 72.7, "AUS": 96.1, "AUT": 91.9, "AZE": 90.8, "BDI": 8.6, "BEL": 95.8, "BEN": 34.0, "BFA": 28.3, "BGD": 53.4, "BGR": 82.4, "BHR": 100.0, "BHS": 92.5, "BIH": 86.1, "BLR": 94.3, "BLZ": 80.0, "BMU": 98.4, "BOL": 79.7, "BRA": 84.5, "BRB": 70.4, "BRN": 96.3, "BTN": 91.3, "BWA": 57.5, "CAF": 13.8, "CAN": 94.4, "CHE": 97.3, "CHL": 95.6, "CHN": 91.6, "CIV": 41.4, "CMR": 46.3, "COD": 19.7, "COG": 47.3, "COL": 79.3, "COM": 32.5, "CPV": 74.7, "CRI": 87.2, "CUB": 70.5, "CUW": 68.1, "CYM": 81.1, "CYP": 89.6, "CZE": 87.7, "DEU": 93.5, "DJI": 65.3, "DMA": 82.0, "DNK": 99.8, "DOM": 91.0, "DZA": 77.4, "ECU": 77.2, "EGY": 74.6, "ERI": 14.3, "ESP": 95.8, "EST": 92.2, "ETH": 21.9, "FIN": 93.7, "FJI": 74.7, "FRA": 88.7, "FRO": 97.6, "FSM": 39.5, "GAB": 68.7, "GBR": 95.5, "GEO": 83.8, "GHA": 72.2, "GIB": 94.4, "GIN": 33.3, "GMB": 49.5, "GNB": 29.8, "GNQ": 63.3, "GRC": 86.3, "GRD": 70.2, "GRL": 69.5, "GTM": 60.2, "GUM": 80.5, "GUY": 83.0, "HKG": 95.8, "HND": 58.6, "HRV": 83.6, "HTI": 47.9, "HUN": 93.8, "IDN": 72.8, "IND": 70.0, "IRL": 97.2, "IRN": 85.3, "IRQ": 81.5, "ISL": 98.2, "ISR": 88.2, "ITA": 89.2, "JAM": 90.1, "JOR": 95.6, "JPN": 85.5, "KAZ": 93.4, "KEN": 35.0, "KGZ": 92.0, "KHM": 68.5, "KIR": 89.4, "KNA": 76.9, "KOR": 97.9, "KWT": 100.0, "LAO": 65.6, "LBN": 80.6, "LBR": 32.2, "LBY": 82.0, "LCA": 68.2, "LIE": 98.3, "LKA": 54.6, "LSO": 51.8, "LTU": 89.2, "LUX": 99.1, "LVA": 92.7, "MAC": 89.8, "MAR": 91.2, "MCO": 99.0, "MDA": 77.4, "MDG": 18.7, "MDV": 85.2, "MEX": 83.1, "MHL": 65.9, "MKD": 93.1, "MLI": 36.8, "MLT": 93.9, "MMR": 45.4, "MNE": 88.9, "MNG": 85.1, "MOZ": 20.5, "MRT": 45.8, "MUS": 73.3, "MWI": 19.0, "MYS": 98.0, "NAM": 64.9, "NCL": 82.0, "NER": 15.6, "NGA": 41.2, "NIC": 61.4, "NLD": 97.0, "NOR": 99.0, "NPL": 46.3, "NRU": 83.0, "NZL": 93.5, "OMN": 95.3, "PAK": 57.3, "PAN": 72.8, "PER": 82.0, "PHL": 67.3, "PLW": 83.9, "PNG": 18.8, "POL": 88.6, "PRI": 87.3, "PRT": 88.5, "PRY": 81.6, "PSE": 86.6, "PYF": 72.7, "QAT": 98.1, "ROU": 91.3, "RUS": 94.4, "RWA": 31.7, "SAU": 100.0, "SDN": 18.6, "SEN": 60.1, "SGP": 94.4, "SLB": 29.0, "SLE": 25.1, "SLV": 66.5, "SMR": 97.4, "SOM": 27.9, "SRB": 87.7, "SSD": 6.7, "STP": 59.1, "SUR": 87.4, "SVK": 89.8, "SVN": 90.8, "SWE": 95.8, "SWZ": 63.4, "SYC": 87.8, "SYR": 33.8, "TCD": 12.6, "TGO": 39.5, "THA": 90.9, "TJK": 55.8, "TKM": 18.0, "TLS": 35.0, "TON": 67.4, "TTO": 82.2, "TUN": 76.5, "TUR": 89.8, "TUV": 35.2, "TZA": 31.2, "UGA": 8.9, "UKR": 82.5, "UNK": 89.4, "URY": 92.0, "USA": 94.7, "UZB": 89.5, "VCT": 76.2, "VEN": 76.7, "VGB": 77.7, "VIR": 64.4, "VNM": 84.2, "VUT": 22.4, "YEM": 17.5, "ZAF": 78.4, "ZMB": 17.1, "ZWE": 41.6},
+      "unknownLabel": "No data",
+      "source": {
+        "name": "World Bank / ITU (IT.NET.USER.ZS)",
+        "url": "https://data.worldbank.org/indicator/IT.NET.USER.ZS",
+        "year": 2024,
+        "fetchedAt": "2026-10-05"
+      },
+      "notes": "verification: bins <50=48, 50-70=26, 70-85=46, 85-95=58, 95+=30; 208 economies matched (aggregates/CHI dropped, XKX->UNK). Latest non-empty value per economy (API mrnev=1, lastupdated 2026-07-13): years {2015: 1, 2016: 2, 2017: 13, 2018: 2, 2019: 2, 2020: 2, 2021: 1, 2022: 1, 2023: 2, 2024: 172, 2025: 10}; source.year=2024 is the modal year. Excluded as stale/placeholder (<2015): ASM 1990=0, MNP 1990=0, PRK 2004=0, TCA 1990=0, WSM 2014=21.2 -> shown as No data. Pre-2022 values kept: ABW:2017, BMU:2017, CUW:2017, CYM:2017, ERI:2020, FRO:2017, GIB:2016, GRL:2017, GUM:2017, MMR:2020, NCL:2017, PYF:2017, SDN:2017, SSD:2019, SYR:2018, TKM:2016, TLS:2021, TUV:2017, UNK:2018, VGB:2017, VIR:2017, VUT:2015, YEM:2019. raw = % of population, 1 decimal.",
+      "durationSec": 7
+    }
+  ]
+}

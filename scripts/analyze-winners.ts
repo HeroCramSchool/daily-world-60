@@ -85,6 +85,8 @@ function features(v: VideoStat): Array<[string, string]> {
     ["hour", hourBucket(v)],
     ["dow", DOW[new Date(v.publishedAt).getUTCDay()]],
     ["variant", v.variant ?? "legacy"],
+    // map 枠 (publish-map.ts) と news 本編を分けて集計する
+    ["format", v.format ?? "news"],
   ];
 }
 
