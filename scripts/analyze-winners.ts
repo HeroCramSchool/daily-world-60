@@ -217,14 +217,15 @@ async function main() {
   console.log(`[analyze] map: n=${mapCohort.length}${mapMed !== undefined ? ` median=${mapMed}` : ""}`);
 
   // 施策台帳 (experiments/registry.json) で結果が決まった施策の学び。Routine が台本作りの参考にする (PDCA の A)。
-  const learned = learningsOf(loadRegistryOrEmpty());
+  // 台本で動かせるのは本編の題材・見出しだけなので、lane=news の学びだけを渡す (描画・枠の施策は learnings.md とレポートに残す)
+  const learned = learningsOf(loadRegistryOrEmpty()).filter(l => l.lane === "news");
   const RESULT: Record<string, string> = { adopted: "採用", rejected: "不採用", inconclusive: "判定不能", stopped: "停止" };
   patterns += [
     ``,
     ``,
     `## 確定した学び (施策台帳・オーナー決定済み)`,
     ...(learned.length
-      ? learned.slice(0, 10).map(l => `- ${l.on} ${l.id} (${RESULT[l.result] ?? l.result}): ${l.learning} → ${l.action}`)
+      ? learned.slice(0, 10).map(l => `- ${l.on} ${l.id} (${RESULT[l.result] ?? l.result}): ${l.learning}`)
       : [`- まだ無い`]),
     `上の勝ち負けの集計より、こちらの決定を優先する。ハードゲートは常に優先。`,
   ].join("\n");

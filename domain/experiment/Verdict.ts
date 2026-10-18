@@ -5,7 +5,8 @@
 import type { Experiment } from "./Experiment.js";
 import { holds, type RuleVars } from "./Rule.js";
 
-export type Row = { videoId: string; date: string; arm: string; at7d?: number };
+/** matured = 公開から7日たった（at7d が無ければスナップショットの欠け）。 */
+export type Row = { videoId: string; date: string; arm: string; at7d?: number; matured?: boolean };
 export type VerdictState = "collecting" | "adopt" | "reject" | "inconclusive" | "stop" | "manual";
 export type ArmSummary = { arm: string; n: number; median?: number; geoMean?: number };
 export type Verdict = {
@@ -107,12 +108,15 @@ export function evaluate(e: Experiment, rows: Row[], today: string, defaults: De
   const arms = e.arms ?? [];
   const summaries = summarize(rows, arms);
   const decideOn = e.window?.decideOn ?? "9999-12-31";
-  const due = today >= decideOn;
+  // 判定日でも、期間内にまだ7日たっていない動画が残っていれば待つ（欠けた数字で決めない）
+  const waiting = rows.filter(r => r.at7d === undefined && r.matured === false).length;
+  const due = today >= decideOn && waiting === 0;
+  const notDue = today >= decideOn ? `判定日を過ぎたが、まだ7日たっていない動画が${waiting}本ある` : `判定日 ${decideOn} まで集計中`;
 
   if (e.decide?.manual || e.design === "observational") {
     return {
       state: due ? "manual" : "collecting",
-      reason: due ? "判定日に来た。数字を見てオーナーが決める" : `判定日 ${decideOn} まで集計中`,
+      reason: due ? "判定日に来た。数字を見てオーナーが決める" : notDue,
       arms: summaries,
       shares: dailyShares(rows, arms),
     };
@@ -124,15 +128,16 @@ export function evaluate(e: Experiment, rows: Row[], today: string, defaults: De
   const ci = clusterBootstrap(rows, treatment, control);
   const nT = summaries.find(s => s.arm === treatment)?.n ?? 0;
   const nC = summaries.find(s => s.arm === control)?.n ?? 0;
+  const medT = summaries.find(s => s.arm === treatment)?.median;
+  const medC = summaries.find(s => s.arm === control)?.median;
   const vars: RuleVars = {
-    ratio, lo: ci?.[0], hi: ci?.[1], n: Math.min(nT, nC), nT, nC,
-    medT: summaries.find(s => s.arm === treatment)?.median,
-    medC: summaries.find(s => s.arm === control)?.median,
+    ratio, lo: ci?.[0], hi: ci?.[1], n: Math.min(nT, nC), nT, nC, medT, medC,
+    medRatio: medT !== undefined && medC !== undefined && medC > 0 ? medT / medC : undefined,
   };
   const base = { treatment, control, ratio, lo: ci?.[0], hi: ci?.[1], arms: summaries };
 
   if (e.decide?.stopIf && holds(e.decide.stopIf, vars)) return { ...base, state: "stop", reason: `停止条件に当たった: ${e.decide.stopIf}` };
-  if (!due) return { ...base, state: "collecting", reason: `判定日 ${decideOn} まで集計中` };
+  if (!due) return { ...base, state: "collecting", reason: notDue };
   const minN = e.decide?.minN ?? 1;
   if (Math.min(nT, nC) < minN) return { ...base, state: "inconclusive", reason: `本数が足りない（${treatment} ${nT}本 / ${control} ${nC}本、必要 ${minN}本）` };
   const adoptIf = e.decide?.adoptIf ?? defaults.adoptIf;

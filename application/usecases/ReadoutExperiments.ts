@@ -4,7 +4,7 @@
  */
 import { isLive, LABEL5, type Experiment, type Registry } from "../../domain/experiment/Experiment.js";
 import { evaluate, type Row, type Verdict } from "../../domain/experiment/Verdict.js";
-import { minDetectableRatio } from "../../domain/experiment/Power.js";
+import { minDetectableRatio2 } from "../../domain/experiment/Power.js";
 
 export type VideoFact = {
   videoId: string;
@@ -17,28 +17,49 @@ export type VideoFact = {
   index?: number;
   exp?: string[];
   arm?: Record<string, string>;
-  /** 投稿7日後の再生数。7日たっていない動画は undefined。 */
+  /** 投稿7日後の再生数。7日たっていない動画と、スナップショットが欠けた動画は undefined。 */
   at7d?: number;
+  /** 公開から7日（168時間）たったか。 */
+  matured: boolean;
 };
 
 export type Ctx = {
   today: string;
   gitChanges: (start: string, end: string) => string[];
   failedRuns: (start: string, end: string) => string[];
+  /** 本編を投稿した台本日（posted-ledger.json から）。無ければ stats-history の動画から推す（RSS の遅れで取りこぼすことがある）。 */
+  postedNewsDays?: Set<string>;
 };
 
 export type Phase = "collecting" | "decide" | "stop";
-export type Readout = { exp: Experiment; verdict: Verdict; phase: Phase; rows: number; pending: number; confounds: string[]; mde?: number };
+export type Readout = {
+  exp: Experiment; verdict: Verdict; phase: Phase; rows: number;
+  /** 7日たっていない本数 */ pending: number;
+  /** 7日たったのに views@7d が出せない本数（スナップショットの欠け） */ missing: number;
+  /** 台帳に記録が無く（format・台本日が無い）対象から外した本数 */ unlinked: number;
+  confounds: string[]; mde?: number;
+};
 
 export const dateOf = (v: VideoFact) => v.scriptDate ?? v.publishedAt.slice(0, 10);
 
 const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
-/** 施策の対象になる動画を、腕つきの行にする（期間・format・腕で絞る）。 */
+/**
+ * 施策の対象になる動画を、腕つきの行にする（期間・format・腕で絞る）。
+ * format が無い動画は本編とみなすが、本編以外も比べる施策では、台帳に記録の無い動画（台本日も無い）を外す
+ * （台帳への追記に失敗した地図が本編の群に混ざらないように）。
+ */
 export function rowsFor(e: Experiment, videos: VideoFact[]): Row[] {
+  return rowsAndUnlinked(e, videos).rows;
+}
+
+export function rowsAndUnlinked(e: Experiment, videos: VideoFact[]): { rows: Row[]; unlinked: number } {
   const population = e.population ?? ["news"];
+  const strict = population.some(p => p !== "news") || (e.armSource?.by === "field" && e.armSource.field === "format");
   const out: Row[] = [];
+  let unlinked = 0;
   for (const v of videos) {
+    if (strict && v.format === undefined && v.scriptDate === undefined) { unlinked++; continue; }
     const fmt = v.format ?? "news";
     if (!population.includes(fmt)) continue;
     const date = dateOf(v);
@@ -51,17 +72,20 @@ export function rowsFor(e: Experiment, videos: VideoFact[]): Row[] {
       arm = raw === undefined || raw === null ? undefined : String(raw);
     }
     if (!arm || !(e.arms ?? []).includes(arm)) continue;
-    out.push({ videoId: v.videoId, date, arm, at7d: v.at7d });
+    out.push({ videoId: v.videoId, date, arm, at7d: v.at7d, matured: v.matured });
   }
-  return out;
+  return { rows: out, unlinked };
 }
 
 /** 本編が1本も出なかった日（期間の中で、昨日まで）。 */
-export function zeroPostDays(videos: VideoFact[], start: string, end: string, today: string): string[] {
-  const posted = new Set(videos.filter(v => (v.format ?? "news") === "news").map(dateOf));
+export function zeroPostDays(videos: VideoFact[], start: string, end: string, today: string, postedNewsDays?: Set<string>): string[] {
+  const posted = postedNewsDays ?? new Set(videos.filter(v => (v.format ?? "news") === "news").map(dateOf));
   const last = end < today ? end : addDays(today, -1);
+  // 台帳は古い日を刈り込む（56日）。記録の無い古い日を「0本」と誤って数えない
+  const oldest = postedNewsDays?.size ? [...postedNewsDays].sort()[0] : start;
+  const from = start > oldest ? start : oldest;
   const out: string[] = [];
-  for (let d = start; d <= last; d = addDays(d, 1)) if (!posted.has(d)) out.push(d);
+  for (let d = from; d <= last; d = addDays(d, 1)) if (!posted.has(d)) out.push(d);
   return out;
 }
 
@@ -71,7 +95,7 @@ export function confounds(e: Experiment, others: Experiment[], videos: VideoFact
   const end = e.window.end < ctx.today ? e.window.end : ctx.today;
   return [
     ...ctx.gitChanges(start, end).map(s => `変更: ${s}`),
-    ...zeroPostDays(videos, start, end, ctx.today).map(d => `事故: ${d} 本編0本`),
+    ...zeroPostDays(videos, start, end, ctx.today, ctx.postedNewsDays).map(d => `事故: ${d} 本編0本`),
     ...ctx.failedRuns(start, end).map(s => `事故: ${s}`),
     ...others.filter(o => o.id !== e.id && o.status === "running" && o.window
       && o.window.start <= end && start <= o.window.end).map(o => `同時に実行中: ${o.id}`),
@@ -81,12 +105,21 @@ export function confounds(e: Experiment, others: Experiment[], videos: VideoFact
 export function readoutExperiments(reg: Registry, videos: VideoFact[], ctx: Ctx): Readout[] {
   const live = reg.experiments.filter(e => e.status === "running" || e.status === "ready");
   return live.map(e => {
-    const rows = rowsFor(e, videos);
+    const { rows, unlinked } = rowsAndUnlinked(e, videos);
     const verdict = evaluate(e, rows, ctx.today, reg.defaultDecide);
     const phase: Phase = verdict.state === "stop" ? "stop" : verdict.state === "collecting" ? "collecting" : "decide";
-    const counts = verdict.arms.map(a => a.n);
-    const mde = counts.length === 2 && Math.min(...counts) > 0 ? minDetectableRatio(Math.min(...counts), reg.sigma) : undefined;
-    return { exp: e, verdict, phase, rows: rows.length, pending: rows.filter(r => r.at7d === undefined).length, confounds: confounds(e, reg.experiments, videos, ctx), mde };
+    // 見分けられる最小の差: 動画ごとの割り付けなら本数、日ごとなら日数で数える（同じ日の動画は独立でない）
+    const sizes = (e.arms ?? []).map(a => {
+      const done = rows.filter(r => r.arm === a && r.at7d !== undefined);
+      return e.unit === "video" ? done.length : new Set(done.map(r => r.date)).size;
+    });
+    const mde = sizes.length === 2 ? minDetectableRatio2(sizes[0], sizes[1], reg.sigma) : undefined;
+    return {
+      exp: e, verdict, phase, rows: rows.length,
+      pending: rows.filter(r => r.at7d === undefined && !r.matured).length,
+      missing: rows.filter(r => r.at7d === undefined && r.matured).length,
+      unlinked, confounds: confounds(e, reg.experiments, videos, ctx), mde: mde !== undefined && Number.isFinite(mde) ? mde : undefined,
+    };
   });
 }
 
@@ -109,8 +142,10 @@ export function readoutLines(r: Readout, sigma: number): string[] {
       : `- ${arms || "対象の動画はまだ無い"}`,
   ];
   if (v.shares) lines.push(`- 日の合計に占める割合: ${Object.entries(v.shares).map(([k, s]) => `${k} ${pct(s)}`).join(" / ")}`);
-  if (r.mde !== undefined) lines.push(`- この本数で見分けられる最小の差: ${r.mde.toFixed(1)}倍（σ=${sigma}）`);
+  if (r.mde !== undefined) lines.push(`- この本数で見分けられる最小の差: ${r.mde.toFixed(1)}倍（σ=${sigma}・${r.exp.unit === "video" ? "本数" : "日数"}で計算）`);
   if (r.pending) lines.push(`- まだ7日たっていない動画: ${r.pending}本`);
+  if (r.missing) lines.push(`- 7日たったが記録が欠けて数えられない動画: ${r.missing}本`);
+  if (r.unlinked) lines.push(`- 台帳に記録が無く対象から外した動画: ${r.unlinked}本`);
   if (r.exp.window) lines.push(`- 期間: ${r.exp.window.start}〜${r.exp.window.end} · 判定日 ${r.exp.window.decideOn}`);
   if (r.confounds.length) lines.push(`- 同じ期間の変更・事故（交絡の候補）:`, ...r.confounds.slice(0, 12).map(c => `  - ${c}`), ...(r.confounds.length > 12 ? [`  - ほか ${r.confounds.length - 12} 件`] : []));
   return lines;
@@ -159,17 +194,25 @@ export function issueFor(r: Readout, sigma: number): { title: string; body: stri
   };
 }
 
+/** その週の月曜（UTC）。週報の見出しと重複防止に使う。 */
+export function mondayOf(day: string): string {
+  const dow = new Date(`${day}T00:00:00Z`).getUTCDay();
+  return addDays(day, -((dow + 6) % 7));
+}
+
+export const weeklyHeading = (day: string) => `## PDCA 週報 · ${mondayOf(day)} の週`;
+
 export function weeklySummary(reg: Registry, readouts: Readout[], videos: VideoFact[], ctx: Ctx): string {
   const weekStart = addDays(ctx.today, -7);
   const soon = addDays(ctx.today, 14);
   const decide = readouts.filter(r => r.phase !== "collecting");
   const upcoming = reg.experiments.filter(e => e.status === "running" && e.window && e.window.decideOn > ctx.today && e.window.decideOn <= soon);
   const changes = ctx.gitChanges(weekStart, ctx.today);
-  const zero = zeroPostDays(videos, weekStart, ctx.today, ctx.today);
+  const zero = zeroPostDays(videos, weekStart, ctx.today, ctx.today, ctx.postedNewsDays);
   const failed = ctx.failedRuns(weekStart, ctx.today);
   const ideas = reg.experiments.filter(e => e.status === "idea" || e.status === "draft");
   return [
-    `## PDCA 週報 · ${ctx.today}`,
+    weeklyHeading(ctx.today),
     "",
     `実行中 ${reg.experiments.filter(e => e.status === "running").length} · 判定待ち ${decide.length} · 候補 ${ideas.length} · 決まった施策 ${reg.experiments.filter(e => e.decision).length}`,
     "",

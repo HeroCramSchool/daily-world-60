@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validateRegistry, conflicts, learningsMarkdown, type Experiment, type Registry } from "./Experiment.js";
 import { parseRule, holds } from "./Rule.js";
-import { minDetectableRatio, nPerArmFor } from "./Power.js";
-import { assignArm, armsFor, hookLayoutFor, hash32 } from "./Assignment.js";
+import { minDetectableRatio, minDetectableRatio2, nPerArmFor } from "./Power.js";
+import { assignArm, armsFor, armRecordFor, hookLayoutFor, hash32 } from "./Assignment.js";
 import { evaluate, geoMeanRatio, clusterBootstrap, dailyShares, type Row } from "./Verdict.js";
 
 const plan5 = { konkyo: "a", kasetsu: "b", kitai: "c", hakarikata: "d", yameru: "e" };
@@ -91,4 +91,31 @@ test("観察（順位ごと）は判定日にオーナー判断、日の合計�
   const v = evaluate(e, rs, "2026-12-07", reg([]).defaultDecide);
   assert.equal(v.state, "manual");
   assert.equal(dailyShares(rs, ["1", "2", "3"])!["1"].toFixed(2), "0.60");
+});
+
+test("手動のレイアウト指定は hook 施策の対象から外す", () => {
+  const hook = base({ id: "hook-x", lane: "hook", arms: ["top", "legacy"], control: "legacy", unit: "day" });
+  const r = armRecordFor([base(), hook], "2026-11-05", 1, "legacy");
+  assert.equal(r.variant, "legacy");
+  assert.ok(!(r.exp ?? []).includes("hook-x"));
+  assert.ok((r.exp ?? []).includes("x-2026-11"));
+});
+
+test("比で判定する施策は腕2つ・群の大きさが違う検出力", () => {
+  assert.ok(validateRegistry(reg([base({ arms: ["a", "b", "c"] })])).errors.some(m => m.includes("腕を2つ")));
+  assert.ok(minDetectableRatio2(10, 60, 1.41) > minDetectableRatio(35, 1.41));
+});
+
+test("判定日でも7日たっていない動画が残れば待つ・中央値の比で判定できる", () => {
+  const rs: Row[] = [];
+  for (let d = 1; d <= 10; d++) {
+    const day = `2026-11-${String(d).padStart(2, "0")}`;
+    rs.push({ videoId: `t${d}`, date: day, arm: "b", at7d: 300, matured: true }, { videoId: `c${d}`, date: day, arm: "a", at7d: 100, matured: true });
+  }
+  const e = base({ decide: { minN: 5, adoptIf: "medRatio>=2", rejectIf: "medRatio<=1" } });
+  assert.equal(evaluate(e, rs, "2026-12-07", reg([]).defaultDecide).state, "adopt");
+  const waiting = [...rs, { videoId: "late", date: "2026-11-30", arm: "a", matured: false }];
+  const v = evaluate(e, waiting, "2026-12-07", reg([]).defaultDecide);
+  assert.equal(v.state, "collecting");
+  assert.match(v.reason, /7日たっていない/);
 });

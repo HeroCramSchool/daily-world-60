@@ -103,6 +103,8 @@ export function validateRegistry(reg: Registry): Check {
     if (!e.armSource) errors.push(p("armSource が無い"));
     else if (e.armSource.by === "field" && !FIELDS.includes(e.armSource.field)) errors.push(p(`armSource.field が不正: ${e.armSource.field}`));
     if (e.design === "randomized" && e.armSource?.by === "field") warnings.push(p("randomized なのに armSource が field（乱数で割り付けていない）"));
+    if (e.design !== "observational" && !e.decide?.manual && (e.arms?.length ?? 0) !== 2) errors.push(p("比で判定する施策は腕を2つにする（3つ以上は observational か manual）"));
+    if (!isClosed(e) && e.window && e.window.decideOn < addDaysStr(e.window.end, 8)) warnings.push(p("decideOn は end の8日後以降にする（最終日の動画が7日たつのを待つ）"));
 
     const plan = e.plan5;
     for (const k of ["konkyo", "kasetsu", "kitai", "hakarikata", "yameru"] as const) {
@@ -138,15 +140,17 @@ export function validateRegistry(reg: Registry): Check {
   return { errors, warnings };
 }
 
+const addDaysStr = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+
 export const LABEL5: Record<keyof Plan5, string> = {
   konkyo: "根拠の数字", kasetsu: "仮説", kitai: "期待する効果", hakarikata: "測り方", yameru: "やめる条件",
 };
 
 /** 決まった施策の学び（learnings.md と winning-patterns.md の「確定した学び」に載せる）。 */
-export function learningsOf(reg: Registry): Array<{ id: string; on: string; result: string; learning: string; action: string }> {
+export function learningsOf(reg: Registry): Array<{ id: string; lane?: Lane; on: string; result: string; learning: string; action: string }> {
   return (reg.experiments ?? [])
     .filter(e => isClosed(e) && e.decision)
-    .map(e => ({ id: e.id, on: e.decision!.on, result: e.decision!.result, learning: e.decision!.learning, action: e.decision!.action }))
+    .map(e => ({ id: e.id, lane: e.lane, on: e.decision!.on, result: e.decision!.result, learning: e.decision!.learning, action: e.decision!.action }))
     .sort((a, b) => b.on.localeCompare(a.on) || a.id.localeCompare(b.id));
 }
 

@@ -9,6 +9,12 @@ export function minDetectableRatio(nPerArm: number, sigma: number): number {
   return Math.exp(Z * sigma * Math.sqrt(2 / nPerArm));
 }
 
+/** 群の大きさが違うとき（例: 地図 10本と本編 60本）。 */
+export function minDetectableRatio2(nT: number, nC: number, sigma: number): number {
+  if (!(nT > 0) || !(nC > 0)) return Infinity;
+  return Math.exp(Z * sigma * Math.sqrt(1 / nT + 1 / nC));
+}
+
 export function nPerArmFor(ratio: number, sigma: number): number {
   if (!(ratio > 1)) return Infinity;
   return Math.ceil(2 * (Z * sigma / Math.log(ratio)) ** 2);

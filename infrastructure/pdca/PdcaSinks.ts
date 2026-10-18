@@ -47,29 +47,40 @@ function ensureLabel(): void {
   run("gh", ["label", "create", LABEL, "--color", "C2410C", "--description", "PDCA の判定・週報（自動）", "--force"]);
 }
 
-function findOpenIssue(title: string): number | undefined {
-  const json = run("gh", ["issue", "list", "--label", LABEL, "--state", "open", "--limit", "100", "--json", "number,title"]);
-  return (JSON.parse(json) as Array<{ number: number; title: string }>).find(i => i.title === title)?.number;
+function findIssue(title: string): { number: number; state: string } | undefined {
+  const json = run("gh", ["issue", "list", "--label", LABEL, "--state", "all", "--limit", "200", "--json", "number,title,state"]);
+  return (JSON.parse(json) as Array<{ number: number; title: string; state: string }>).find(i => i.title === title);
 }
 
-/** 同じ題の Issue が開いていれば何もしない（毎日の集計で重ねて立てない）。 */
+/**
+ * 判定待ち・停止の Issue。開いていれば本文を最新の数字に更新し、閉じていれば（オーナーが片付けた）立て直さない。
+ */
 export function upsertIssue(title: string, body: string): string {
   if (DRY) { console.log(`[pdca][dry] issue: ${title}\n${body}\n`); return "dry"; }
   ensureLabel();
-  const existing = findOpenIssue(title);
-  if (existing) return `exists #${existing}`;
+  const existing = findIssue(title);
+  if (existing && existing.state.toUpperCase() === "OPEN") {
+    run("gh", ["issue", "edit", String(existing.number), "--body", body]);
+    return `updated #${existing.number}`;
+  }
+  if (existing) return `closed #${existing.number}（立て直さない）`;
   const url = run("gh", ["issue", "create", "--title", title, "--label", LABEL, "--body", body]).trim();
   return `created ${url}`;
 }
 
-/** 「PDCA 週報」Issue に1週分をコメントする（無ければ作る）。 */
-export function postWeekly(body: string): string {
+/** 「PDCA 週報」Issue に1週分をコメントする（無ければ作る）。同じ週の見出しのコメントがあれば書かない。 */
+export function postWeekly(body: string, heading: string, force = false): string {
   if (DRY) { console.log(`[pdca][dry] weekly:\n${body}\n`); return "dry"; }
   ensureLabel();
-  let n = findOpenIssue(WEEKLY_TITLE);
+  const found = findIssue(WEEKLY_TITLE);
+  let n = found && found.state.toUpperCase() === "OPEN" ? found.number : undefined;
   if (!n) {
-    const url = run("gh", ["issue", "create", "--title", WEEKLY_TITLE, "--label", LABEL, "--body", "毎週月曜に施策の状況をここへ追記する（stats.yml が自動で書く）。"]).trim();
+    const url = run("gh", ["issue", "create", "--title", WEEKLY_TITLE, "--label", LABEL, "--body", "毎週、施策の状況をここへ追記する（stats.yml が自動で書く）。"]).trim();
     n = Number(url.split("/").pop());
+  }
+  if (!force) {
+    const comments = JSON.parse(run("gh", ["issue", "view", String(n), "--json", "comments"])) as { comments: Array<{ body: string }> };
+    if (comments.comments.some(c => c.body.startsWith(heading))) return "exists";
   }
   run("gh", ["issue", "comment", String(n), "--body", body]);
   return `commented #${n}`;

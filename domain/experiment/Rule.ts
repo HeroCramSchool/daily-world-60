@@ -2,11 +2,11 @@
  * 判定の決まりの小さな式（eval を使わない）。
  * 例: "ratio>=1.3 && lo>=0.8" / "ratio<1.0" / "nT>=6 && medT<76.5"
  * 変数: ratio, lo, hi（treatment/control の幾何平均比と95%区間）, n（両群の少ない方の本数）,
- *       nT, nC（各群の本数）, medT, medC（各群の中央値）
+ *       nT, nC（各群の本数）, medT, medC（各群の中央値）, medRatio（medT / medC）
  */
 export type RuleVars = Partial<Record<RuleVar, number>>;
-export type RuleVar = "ratio" | "lo" | "hi" | "n" | "nT" | "nC" | "medT" | "medC";
-const VARS: RuleVar[] = ["ratio", "lo", "hi", "n", "nT", "nC", "medT", "medC"];
+export type RuleVar = "ratio" | "lo" | "hi" | "n" | "nT" | "nC" | "medT" | "medC" | "medRatio";
+const VARS: RuleVar[] = ["ratio", "lo", "hi", "n", "nT", "nC", "medT", "medC", "medRatio"];
 type Cmp = { v: RuleVar; op: ">=" | "<=" | ">" | "<"; x: number };
 export type ParsedRule = Cmp[][]; // OR of ANDs
 

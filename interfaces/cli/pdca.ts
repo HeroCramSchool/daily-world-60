@@ -14,11 +14,12 @@ import type { drive_v3 } from "googleapis";
 import { validateRegistry, learningsMarkdown, isLive, type Lane, type Registry } from "../../domain/experiment/Experiment.js";
 import { minDetectableRatio, nPerArmFor } from "../../domain/experiment/Power.js";
 import { armsFor, hookLayoutFor } from "../../domain/experiment/Assignment.js";
-import { readoutExperiments, renderReport, issueFor, weeklySummary, type VideoFact, type Ctx } from "../../application/usecases/ReadoutExperiments.js";
+import { readoutExperiments, renderReport, issueFor, weeklySummary, weeklyHeading, type VideoFact, type Ctx } from "../../application/usecases/ReadoutExperiments.js";
 import { loadRegistry, LEARNINGS_PATH } from "../../infrastructure/pdca/RegistryFile.js";
 import { DRY, gitChanges, failedRuns, upsertIssue, postWeekly, stepSummary } from "../../infrastructure/pdca/PdcaSinks.js";
 import { loadHistory, localFile, upsertTextFile, viewsAt, ageHours } from "../../scripts/lib/stats.js";
 import { driveClient, findFolderId } from "../../scripts/fetch-scripts-from-drive.js";
+import { loadLedger } from "../../scripts/lib/ledger.js";
 
 const AT_HOURS = 168;
 const REPORT_NAME = "experiments-report.md";
@@ -44,6 +45,19 @@ function check(reg: Registry): number {
   return errors.length ? 1 : 0;
 }
 
+/** 本編を投稿した台本日。Drive の posted-ledger.json が読めなければ undefined（stats-history から推す）。 */
+async function postedNewsDays(drive?: drive_v3.Drive): Promise<Set<string> | undefined> {
+  if (!drive) return undefined;
+  try {
+    const { entries } = await loadLedger();
+    if (!entries.length) return undefined;
+    return new Set(entries.filter(e => (e.format ?? "news") === "news").map(e => e.date));
+  } catch (e) {
+    console.warn(`[pdca] posted-ledger.json を読めない (${e instanceof Error ? e.message : e})`);
+    return undefined;
+  }
+}
+
 async function videoFacts(): Promise<{ videos: VideoFact[]; drive?: drive_v3.Drive; folderId?: string }> {
   let drive: drive_v3.Drive | undefined;
   let folderId: string | undefined;
@@ -59,15 +73,16 @@ async function videoFacts(): Promise<{ videos: VideoFact[]; drive?: drive_v3.Dri
     videoId: v.videoId, title: v.title, publishedAt: v.publishedAt, scriptDate: v.scriptDate,
     format: v.format, variant: v.variant, rank: v.rank, index: v.index, exp: v.exp, arm: v.arm,
     at7d: ageHours(v, now) >= AT_HOURS ? viewsAt(v, AT_HOURS) : undefined,
+    matured: ageHours(v, now) >= AT_HOURS,
   }));
   return { videos, drive, folderId };
 }
 
-const ctxOf = (): Ctx => ({ today: today(), gitChanges, failedRuns });
+const ctxOf = async (drive?: drive_v3.Drive): Promise<Ctx> => ({ today: today(), gitChanges, failedRuns, postedNewsDays: await postedNewsDays(drive) });
 
 async function readout(reg: Registry): Promise<void> {
   const { videos, drive, folderId } = await videoFacts();
-  const ctx = ctxOf();
+  const ctx = await ctxOf(drive);
   const rs = readoutExperiments(reg, videos, ctx);
   const md = renderReport(reg, rs, ctx.today);
   const outDir = process.env.STATS_OUT_DIR?.trim();
@@ -87,21 +102,30 @@ async function readout(reg: Registry): Promise<void> {
   }
   stepSummary(md);
   for (const r of rs) {
-    console.log(`[pdca] ${r.exp.id}: ${r.phase} (${r.verdict.state}) rows=${r.rows} pending=${r.pending}`);
+    console.log(`[pdca] ${r.exp.id}: ${r.phase} (${r.verdict.state}) rows=${r.rows} pending=${r.pending} missing=${r.missing} unlinked=${r.unlinked}`);
     const issue = issueFor(r, reg.sigma);
-    if (issue) console.log(`[pdca] issue ${upsertIssue(issue.title, issue.body)}`);
+    if (!issue) continue;
+    try {
+      console.log(`[pdca] issue ${upsertIssue(issue.title, issue.body)}`);
+    } catch (e) {
+      console.warn(`::warning::${r.exp.id} の Issue を書けない（${e instanceof Error ? e.message : e}）`);
+    }
   }
 }
 
+/** 週に1回。その週（月曜始まり）の分がまだ無ければ出す（月曜の回が落ちても翌日以降に拾う）。 */
 async function weekly(reg: Registry, force: boolean): Promise<void> {
-  const ctx = ctxOf();
-  const dow = new Date(`${ctx.today}T00:00:00Z`).getUTCDay();
-  if (dow !== 1 && !force) { console.log(`[pdca] weekly: 月曜ではない（${ctx.today}）ので出さない。--force で出せる`); return; }
-  const { videos } = await videoFacts();
+  const { videos, drive } = await videoFacts();
+  const ctx = await ctxOf(drive);
   const rs = readoutExperiments(reg, videos, ctx);
   const body = weeklySummary(reg, rs, videos, ctx);
-  stepSummary(body);
-  console.log(`[pdca] weekly ${postWeekly(body)}`);
+  try {
+    const res = postWeekly(body, weeklyHeading(ctx.today), force);
+    if (res !== "exists") stepSummary(body);
+    console.log(`[pdca] weekly ${res}`);
+  } catch (e) {
+    console.warn(`::warning::週報を書けない（${e instanceof Error ? e.message : e}）`);
+  }
 }
 
 async function main() {

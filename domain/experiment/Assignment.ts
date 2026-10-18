@@ -60,3 +60,15 @@ export function hookLayoutFor(experiments: Experiment[], date: string, index: nu
   const a = e ? assignArm(e, date, index) : "legacy";
   return a === "top" ? "top" : "legacy";
 }
+
+export type ArmRecord = { exp?: string[]; arm?: Record<string, string>; variant: HookLayout };
+
+/**
+ * 1本の動画が入る施策・腕・1フレーム目のレイアウト。描画（prep-short）と台帳（publish-all）が同じものを使う。
+ * 手動でレイアウトを指定した動画（ffmpeg 経路の legacy を含む）は、hook 施策の対象から外す（描画と記録をずらさない）。
+ */
+export function armRecordFor(experiments: Experiment[], date: string, index: number, override?: string): ArmRecord {
+  const ov = override === "top" || override === "legacy" ? override : undefined;
+  const { exp, arm } = armsFor(experiments, ov ? ["news"] : ["news", "hook"], date, index);
+  return { ...(exp.length ? { exp, arm } : {}), variant: hookLayoutFor(experiments, date, index, ov) };
+}

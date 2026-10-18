@@ -12,7 +12,13 @@ on:
       - "infrastructure/pdca/**"
       - "interfaces/cli/pdca.ts"
       - "scripts/publish-all.ts"
+      - "scripts/collect-stats.ts"
+      - "scripts/analyze-winners.ts"
+      - "scripts/fetch-scripts-from-drive.ts"
+      - "scripts/lib/**"
       - "remotion/prep-short.ts"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/pdca-check.yml"
   workflow_dispatch:
 
