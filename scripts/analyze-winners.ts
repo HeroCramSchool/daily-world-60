@@ -5,6 +5,8 @@ import {
   TRACK_DAYS, type VideoStat, loadHistory, localFile, upsertTextFile, viewsAt, ageHours,
 } from "./lib/stats.js";
 import type { drive_v3 } from "googleapis";
+import { learningsOf } from "../domain/experiment/Experiment.js";
+import { loadRegistryOrEmpty } from "../infrastructure/pdca/RegistryFile.js";
 
 /**
  * stats-history.json から勝ちパターンを抽出し Drive に2ファイル書く:
@@ -213,6 +215,19 @@ async function main() {
       : `- n=${mapCohort.length}, views@7d 中央値 ${mapMed}, 本編中央値比 ${newsMed ? `${(mapMed / newsMed).toFixed(2)}x (本編 ${newsMed})` : "- (本編の 7日計測なし)"}`,
   ].join("\n");
   console.log(`[analyze] map: n=${mapCohort.length}${mapMed !== undefined ? ` median=${mapMed}` : ""}`);
+
+  // 施策台帳 (experiments/registry.json) で結果が決まった施策の学び。Routine が台本作りの参考にする (PDCA の A)。
+  const learned = learningsOf(loadRegistryOrEmpty());
+  const RESULT: Record<string, string> = { adopted: "採用", rejected: "不採用", inconclusive: "判定不能", stopped: "停止" };
+  patterns += [
+    ``,
+    ``,
+    `## 確定した学び (施策台帳・オーナー決定済み)`,
+    ...(learned.length
+      ? learned.slice(0, 10).map(l => `- ${l.on} ${l.id} (${RESULT[l.result] ?? l.result}): ${l.learning} → ${l.action}`)
+      : [`- まだ無い`]),
+    `上の勝ち負けの集計より、こちらの決定を優先する。ハードゲートは常に優先。`,
+  ].join("\n");
 
   const tracked = rows.filter(r => r.ageDays <= TRACK_DAYS).sort((a, b) => (b.at7d ?? b.current) - (a.at7d ?? a.current));
   const report = [

@@ -7,6 +7,17 @@ import { publishTikTok } from "./publishers/tiktok.js";
 import { driveClient, findFolderId } from "./fetch-scripts-from-drive.js";
 import { bgmCredit, readBgmUsed } from "./lib/bgm-credit.js";
 import { LEDGER_DAYS, loadLedger, saveLedger, type LedgerEntry } from "./lib/ledger.js";
+import { armsFor, hookLayoutFor } from "../domain/experiment/Assignment.js";
+import { isLive } from "../domain/experiment/Experiment.js";
+import { loadRegistryOrEmpty } from "../infrastructure/pdca/RegistryFile.js";
+
+// 施策台帳 (experiments/registry.json)。投稿した動画に、入っている施策と腕を台帳へ残す (PDCA の D)。
+const LIVE_EXPERIMENTS = loadRegistryOrEmpty().experiments.filter(isLive);
+function ledgerArms(date: string, index: number): Pick<LedgerEntry, "exp" | "arm" | "variant"> {
+  const { exp, arm } = armsFor(LIVE_EXPERIMENTS, ["news", "hook"], date, index);
+  const variant = hookLayoutFor(LIVE_EXPERIMENTS, date, index, process.env.HOOK_LAYOUT?.trim() || undefined);
+  return { ...(exp.length ? { exp, arm } : {}), variant };
+}
 
 /**
  * 投稿パイプライン (v11): 3 ストーリーをそれぞれ 60 秒 1 動画として
@@ -213,7 +224,7 @@ async function main() {
         ...(story.hookPattern ? { hookPattern: story.hookPattern } : {}),
         ...(story.hookText ? { hookText: story.hookText } : {}),
         ...(story.rank ? { rank: story.rank } : {}),
-        ...(process.env.HOOK_LAYOUT ? { variant: process.env.HOOK_LAYOUT } : {}),
+        ...ledgerArms(date, story.index),
       });
     }
 

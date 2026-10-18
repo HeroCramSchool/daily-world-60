@@ -4,7 +4,7 @@ import { driveClient, findFolderId } from "../fetch-scripts-from-drive.js";
 //     翌日・別バッチ・手動投稿分も含めて重複を防ぐ ───
 export const LEDGER_NAME = "posted-ledger.json";
 export const LEDGER_DAYS = 14;
-export interface LedgerEntry { date: string; code: string; headline: string; videoId?: string; hookPattern?: string; hookText?: string; index?: number; rank?: number; variant?: string; url?: string; format?: "news" | "map"; }
+export interface LedgerEntry { date: string; code: string; headline: string; videoId?: string; hookPattern?: string; hookText?: string; index?: number; rank?: number; variant?: string; url?: string; format?: "news" | "map" | "overnight"; exp?: string[]; arm?: Record<string, string>; }
 
 export async function loadLedger(): Promise<{ entries: LedgerEntry[]; fileId?: string }> {
   const folderName = process.env.DRIVE_FOLDER_NAME ?? "Daily World 60";

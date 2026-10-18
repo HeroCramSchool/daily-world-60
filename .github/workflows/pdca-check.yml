@@ -1,0 +1,38 @@
+name: PDCA — 台帳の検査
+
+# 施策台帳 (experiments/registry.json) や判定のコードを変える PR で、
+# 5点・判定の決まり・枠の重なり・learnings.md の同期・テスト・型を検査する。
+
+on:
+  pull_request:
+    paths:
+      - "experiments/**"
+      - "domain/experiment/**"
+      - "application/usecases/ReadoutExperiments.ts"
+      - "infrastructure/pdca/**"
+      - "interfaces/cli/pdca.ts"
+      - "scripts/publish-all.ts"
+      - "remotion/prep-short.ts"
+      - ".github/workflows/pdca-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: 台帳の検査
+        run: npm run pdca:check
+      - name: 判定のテスト
+        run: npm run test:pdca
+      - name: 型の検査
+        run: npm run typecheck:pipeline

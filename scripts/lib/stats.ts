@@ -30,6 +30,9 @@ export type VideoStat = {
   rank?: number;
   variant?: string;
   format?: string;
+  /** 入っている施策（experiments/registry.json の id）と腕。台帳 posted-ledger.json から写す。 */
+  exp?: string[];
+  arm?: Record<string, string>;
   snapshots: Snapshot[];
 };
 
