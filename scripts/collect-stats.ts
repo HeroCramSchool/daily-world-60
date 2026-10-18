@@ -105,7 +105,7 @@ async function enrichFromLedger(drive: drive_v3.Drive, folderId: string, history
     console.warn(`[stats] enrich: posted-ledger.json not found`);
     return;
   }
-  let entries: Array<{ date?: string; code?: string; headline?: string; videoId?: string; hookPattern?: string; hookText?: string; index?: number; rank?: number; variant?: string; format?: string }> = [];
+  let entries: Array<{ date?: string; code?: string; headline?: string; videoId?: string; hookPattern?: string; hookText?: string; index?: number; rank?: number; variant?: string; format?: string; exp?: string[]; arm?: Record<string, string> }> = [];
   try {
     const res = await drive.files.get({ fileId: id, alt: "media" }, { responseType: "text" });
     const parsed = JSON.parse(res.data as unknown as string);
@@ -129,6 +129,8 @@ async function enrichFromLedger(drive: drive_v3.Drive, folderId: string, history
     v.rank = meta.rank ?? v.rank;
     v.variant = meta.variant ?? v.variant;
     v.format = meta.format ?? v.format;
+    v.exp = meta.exp ?? v.exp;
+    v.arm = meta.arm ?? v.arm;
     enriched++;
   }
   console.log(`[stats] enrich: ${enriched}/${missing.length} matched from ledger (${byVideoId.size} entries with videoId)`);

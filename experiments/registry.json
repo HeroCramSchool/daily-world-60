@@ -1,0 +1,154 @@
+{
+  "version": 1,
+  "sigma": 1.41,
+  "sigmaNote": "本編128本（2026-08-22〜10-10 投稿・経過7日以上）の log(再生+1) の標準偏差。2026-10-18 計算。見分けられる最小の差の計算に使う",
+  "defaultDecide": {
+    "adoptIf": "ratio>=1.3 && lo>=0.8",
+    "rejectIf": "ratio<1.0"
+  },
+  "experiments": [
+    {
+      "id": "hook-layout-2026-10",
+      "title": "1フレーム目のレイアウト A/B（top / legacy）",
+      "status": "rejected",
+      "design": "comparison",
+      "lane": "hook",
+      "unit": "day",
+      "arms": [
+        "top",
+        "legacy"
+      ],
+      "control": "legacy",
+      "armSource": {
+        "by": "field",
+        "field": "variant"
+      },
+      "population": [
+        "news"
+      ],
+      "plan5": {
+        "konkyo": "フィードには押す判断が無く、1フレーム目と最初の1秒がサムネの代わりになる。legacy は見出しが約0.9秒遅れて下段（右レール・題名帯と重なる位置）に出る（PR #11）",
+        "kasetsu": "見出しを上段に0フレーム目から出せば、スワイプされにくくなり再生数が増える",
+        "kitai": "top の views@7d が legacy を上回る。2倍未満の差は「判定保留」（PR #11 の記載）",
+        "hakarikata": "台帳の variant 別に、投稿7日後の中央値・当たり率・はずれ率を比べる。割り付けは台本日の偶奇（偶数日=top）",
+        "yameru": "PR #11 では 10/6〜11/2 投稿分で判定する予定だった。2026-10-18 に本数と割り付けの偏りから判定不能として早めに終えた"
+      },
+      "window": {
+        "start": "2026-10-04",
+        "end": "2026-10-15",
+        "decideOn": "2026-10-18"
+      },
+      "decide": {
+        "minN": 10,
+        "adoptIf": "ratio>=1.3 && lo>=0.8",
+        "rejectIf": "ratio<1.0"
+      },
+      "verdict": {
+        "state": "inconclusive",
+        "ratio": 1.0,
+        "lo": 0.3,
+        "hi": 3.14,
+        "on": "2026-10-18"
+      },
+      "decision": {
+        "result": "inconclusive",
+        "action": "legacy に固定して終了。publish.yml の日付の偶奇による割り付けを削除",
+        "by": "owner（2026-10-18 チャットで推奨案を承認）",
+        "on": "2026-10-18",
+        "learning": "冒頭レイアウトは各18本（台本日10/4〜10/15）で差が見えなかった（累計再生の幾何平均の比1.00、日ごとの95%区間0.30〜3.14。経過7日未満の動画も含む）。見続け率にも差なし。日付の偶奇での割り付けは A/B 前から偶数日が1.39倍と偏っていたので使わない"
+      },
+      "source": "PR #11（2026-10-04）・docs/new-structure-2026-10-18.md",
+      "notes": "割り付けは乱数でなく台本日の偶奇。10/16〜10/18 の top/legacy は判定に入れていない"
+    },
+    {
+      "id": "map-lane-2026-10",
+      "title": "地図ショート枠（7秒・無音・月水金）を本編と比べる",
+      "status": "running",
+      "design": "comparison",
+      "lane": "map",
+      "unit": "day",
+      "arms": [
+        "map",
+        "news"
+      ],
+      "control": "news",
+      "armSource": {
+        "by": "field",
+        "field": "format"
+      },
+      "population": [
+        "map",
+        "news"
+      ],
+      "plan5": {
+        "konkyo": "海外調査 P1: GeoX（登録1.1K）で442K回。4チャンネル・3言語で再現。日本では5〜9秒の型が空いている",
+        "kasetsu": "塗り分け地図1枚の無音ループは、本編より下振れしにくく伸びる",
+        "kitai": "投稿7日後の中央値が本編の2倍以上（docs/map-short.md）",
+        "hakarikata": "同じ期間の地図枠と本編の views@7d の中央値の比（docs/map-short.md）。幾何平均の比と日ごとの95%区間も並べる",
+        "yameru": "地図枠の中央値が本編以下、またはコメント0が8本以上（コメント数は自動集計していないので目視）"
+      },
+      "window": {
+        "start": "2026-10-07",
+        "end": "2026-10-28",
+        "decideOn": "2026-11-05"
+      },
+      "decide": {
+        "minN": 8,
+        "adoptIf": "medRatio>=2",
+        "rejectIf": "medRatio<=1"
+      },
+      "source": "PR #13・docs/map-short.md",
+      "notes": "地図10枚は 10/28 に尽きる。続けるなら判定の前に次の地図を足す"
+    },
+    {
+      "id": "posts-per-day-2026-10",
+      "title": "本編の1日の本数（A=3本 / B=編集順位の上位2本 / C=1本）",
+      "status": "running",
+      "design": "observational",
+      "lane": "news",
+      "unit": "day",
+      "arms": [
+        "1",
+        "2",
+        "3"
+      ],
+      "control": "1",
+      "armSource": {
+        "by": "field",
+        "field": "rank"
+      },
+      "population": [
+        "news"
+      ],
+      "plan5": {
+        "konkyo": "2026-09 の分析: 1日1本にすると3本の合計の43%（最良の1本を当てても73%）になる",
+        "kasetsu": "編集順位の下位の本は合計にあまり効いていない",
+        "kitai": "数値の基準は 9/25 の計画に書いていない。順位ごとの views@7d と、日の合計に占める割合を見て決める",
+        "hakarikata": "台本日 9/25〜10/19 の本編を編集順位（1〜3）で分け、views@7d の中央値と日の合計に占める割合を出す",
+        "yameru": "2026-10-27 に A/B/C のどれかに決める（オーナー判断）"
+      },
+      "window": {
+        "start": "2026-09-25",
+        "end": "2026-10-19",
+        "decideOn": "2026-10-27"
+      },
+      "decide": {
+        "minN": 10,
+        "manual": true
+      },
+      "source": "2026-09-25 の改善計画（オーナー承認済み）"
+    },
+    {
+      "id": "overnight-map-2026-11",
+      "title": "一晩カウント地図（大規模な夜間攻撃の夜だけ・8秒・無音ループ）",
+      "status": "idea",
+      "source": "docs/new-structure-2026-10-18.md（オーナー判断待ち7点）"
+    },
+    {
+      "id": "why-explainer",
+      "title": "Why 型の解説（地図アニメ＋ナレーション・事件の48時間後）",
+      "status": "idea",
+      "source": "海外調査 P2（hero-cram-school/docs/research/youtube-overseas-rising-2026-10-05.md）"
+    }
+  ]
+}

@@ -8,10 +8,21 @@ on:
   schedule:
     - cron: '30 17 * * *'
   workflow_dispatch:
+    inputs:
+      pdca_dry:
+        description: "PDCA: Issue も Drive の experiments-report.md も書かない（確認用）"
+        type: boolean
+        default: false
+      pdca_weekly:
+        description: "PDCA: 月曜でなくても週報を出す"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
   id-token: write
+  issues: write     # PDCA: 判定待ち・週報の Issue
+  actions: read     # PDCA: 投稿ワークフローの失敗を交絡の候補に並べる
 
 concurrency:
   group: dw60-stats
@@ -28,6 +39,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # PDCA: 施策の期間の変更履歴 (git log) を交絡の候補に並べる
+          persist-credentials: false   # トークンを .git/config に残さない (gh は GH_TOKEN だけで動く)
 
       - name: Authenticate to Google Cloud (WIF, keyless)
         uses: google-github-actions/auth@v2
@@ -49,3 +63,22 @@ jobs:
 
       - name: Analyze winners -> winning-patterns.md
         run: npx tsx scripts/analyze-winners.ts
+
+      # PDCA の C: 施策台帳 (experiments/registry.json) の施策ごとに途中経過と判定を出す。
+      # Drive の experiments-report.md を上書きし、判定待ち・停止条件の施策だけ Issue を立てる (同じ題が開いていれば立てない)。
+      - name: PDCA — 施策ごとの判定
+        continue-on-error: true   # 判定が落ちても視聴数の収集と勝ちパターンは保存済み。赤ではなく注意で知らせる
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PDCA_DRY: ${{ inputs.pdca_dry && '1' || '' }}
+        run: npx tsx interfaces/cli/pdca.ts readout
+
+      # 週に1回: その週（月曜始まり）の分がまだ Issue に無ければ書く。月曜の回が落ちても翌日以降に拾う
+      - name: PDCA — 週報
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PDCA_DRY: ${{ inputs.pdca_dry && '1' || '' }}
+          WEEKLY_FORCE: ${{ inputs.pdca_weekly && '--force' || '' }}
+        run: npx tsx interfaces/cli/pdca.ts weekly $WEEKLY_FORCE

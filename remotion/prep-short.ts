@@ -4,6 +4,9 @@ import { spawn } from "node:child_process";
 import { laneFromStory, mapSceneParts } from "../scripts/lib/mapscene.js";
 import { recordBgmUsed } from "../scripts/lib/bgm-credit.js";
 import { pickBgm, isConflictStory } from "../scripts/lib/bgm-select.js";
+import { armRecordFor, hookLayoutFor, type ArmRecord } from "../domain/experiment/Assignment.js";
+import { isLive } from "../domain/experiment/Experiment.js";
+import { loadRegistryOrEmpty } from "../infrastructure/pdca/RegistryFile.js";
 
 /**
  * 日次ショート (9:16) の props を作る。
@@ -37,8 +40,10 @@ const MIN_PHOTO_SEC = Number(process.env.MIN_PHOTO_SEC ?? "2.0");
 const BGM_VOLUME = process.env.BGM_VOLUME ?? "0.25";
 // 戦争・紛争系のニュースでは、明るい報道ベッドではなく元の news-bed に戻す (オーナー指示 2026-09-02)。
 const BGM_CONFLICT_PATH = process.env.BGM_CONFLICT_PATH ?? "";
-// 1 フレーム目の A/B (top | legacy)。publish.yml が日付の偶奇で決めて渡す。それ以外の値は legacy。
-const HOOK_LAYOUT: "top" | "legacy" = process.env.HOOK_LAYOUT === "top" ? "top" : "legacy";
+// 1 フレーム目のレイアウト (top | legacy)。手動の HOOK_LAYOUT > 施策台帳の hook 施策の腕 > legacy。
+// armRecordFor() の結果を $OUT_DIR/experiment-arms.json に残し、publish-all.ts はそれを台帳に写す（描画と記録をずらさない）。
+const HOOK_OVERRIDE = process.env.HOOK_LAYOUT?.trim() || undefined;
+const LIVE_EXPERIMENTS = loadRegistryOrEmpty().experiments.filter(isLive);
 
 const ACCENTS = ["#F5E63B", "#FFB347", "#5EEAD4"];
 const accentFor = (i: number) => ACCENTS[(i - 1) % ACCENTS.length] ?? ACCENTS[0];
@@ -69,9 +74,13 @@ async function main() {
   const only = process.env.ONLY_CODE?.toLowerCase();
   const stories = only ? script.stories.filter(s => s.country.code.toLowerCase() === only) : script.stories;
 
-  console.log(`[prep-short] HOOK_LAYOUT=${HOOK_LAYOUT}`);
+  console.log(`[prep-short] hook layout: ${stories.map(st => `${st.index}=${hookLayoutFor(LIVE_EXPERIMENTS, date, st.index, HOOK_OVERRIDE)}`).join(" ")} (override: ${HOOK_OVERRIDE ?? "-"})`);
   const out: unknown[] = [];
   for (const story of stories) out.push(await buildStory(dir, pub, story, date));
+
+  // 描画したレイアウトと施策の腕を出力ディレクトリに残す。publish-all はこれを台帳に写す (後日投稿でもずれない)
+  const arms: Record<string, ArmRecord> = Object.fromEntries(stories.map(st => [String(st.index), armRecordFor(LIVE_EXPERIMENTS, date, st.index, HOOK_OVERRIDE)]));
+  await fs.writeFile(path.join(dir, "experiment-arms.json"), JSON.stringify(arms, null, 2));
 
   const props = { date, fps: FPS, videos: out };
   await fs.writeFile(path.join(HERE, "props-short.json"), JSON.stringify(props, null, 2));
@@ -277,7 +286,7 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
     question: qIdx >= 0 ? tail(qIdx) : null,
     outro: tail(outroIdx),
     date,
-    hookLayout: HOOK_LAYOUT,
+    hookLayout: armRecordFor(LIVE_EXPERIMENTS, date, story.index, HOOK_OVERRIDE).variant,
   };
 }
 
