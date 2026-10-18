@@ -59,11 +59,11 @@ export function rowsAndUnlinked(e: Experiment, videos: VideoFact[]): { rows: Row
   const out: Row[] = [];
   let unlinked = 0;
   for (const v of videos) {
+    const date = dateOf(v);
+    if (e.window && (date < e.window.start || date > e.window.end)) continue;
     if (strict && v.format === undefined && v.scriptDate === undefined) { unlinked++; continue; }
     const fmt = v.format ?? "news";
     if (!population.includes(fmt)) continue;
-    const date = dateOf(v);
-    if (e.window && (date < e.window.start || date > e.window.end)) continue;
     let arm: string | undefined;
     if (e.armSource?.by === "hash") arm = v.exp?.includes(e.id) ? v.arm?.[e.id] : undefined;
     else if (e.armSource?.by === "field") {
