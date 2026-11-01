@@ -56,7 +56,7 @@ export type CheckOptions = {
   now: Date;
   /** 出典の URL のホストがこのどれかで終わること（例 "apnews.com"）。 */
   allowedHosts: string[];
-  /** 1つ目の事実の文の記事がこれより古ければ誤り（公開日時が分かるときだけ）。 */
+  /** 事実の文の記事がこれより古ければ誤り。公開日時が分かる事実の文すべてに当てる（1つ目の文だけに当てていた頃の名前のまま）。 */
   maxLeadAgeHours: number;
 };
 
@@ -94,11 +94,17 @@ export function normalizeText(s: string): string {
 
 /**
  * 文に出てくる数を正規化した文字列で返す（重複は除く・出てきた順）。
- * "1,200"→"1200"、"3.50"→"3.5"、"40%"→"40"、"$94bn"→"94"、"1st"→"1"、"50-60"→"50","60"。
- * 語は "zero"〜"nineteen"・"twenty"〜"ninety"（"twenty-five"→"25"、"twenty-first"→"21"）・"dozen"→"12" だけを数にする。
+ * "1,200"→"1200"、"3.50"→"3.5"、"$94bn"→"94"、"1st"→"1"、"50-60"→"50","60"。
+ * "40%"・"40 percent"・"40 per cent" は "40%"（"40" とは別の数）。
+ * 語は "zero"〜"nineteen"・"twenty"〜"ninety"（"twenty-five"→"25"、"twenty-first"→"21"）・"dozen"→"12" を数にする。
+ * 序数の語も数字にする（"third"→"3"、"fifth"→"5"。"5th" と同じ）。
  * "1.2 million" は "1.2"、"five hundred" は "5"、"a million" は "1"（桁の語は返さない。桁は checkFacts が別に照合するので、
  * "five hundred" が引用文の "5" や "500" に一致して通ることは無い）。年（2026）も数として扱う。
- * 大まかな量の語（tens・dozens・hundreds・thousands・millions・billions・half・quarter）はそのまま返し、引用文にも同じ語を求める。
+ * 大まかな量の語（tens・dozens・hundreds・thousands・millions・billions・half・quarter）と
+ * 倍数・分数・増減の語（twice・doubled→"double"・tripled→"triple"・halved・thirds・"tenfold"/"10-fold"→"10fold"）はそのまま返し、
+ * 引用文にも同じ語を求める。
+ * 文字に数字が続く型番・名前（"F-16"・"Shahed-136"・"Kh-101"・"S-300"・"G7"）は数にせず、その語のまま返す（"f-16"）。
+ * ただし "post-2022"・"under-18s"・"mid-2025" のような前に付く語の後の数字は数のまま。
  */
 export function numbersIn(s: string): string[] {
   return scanNumbers(s).plain;
@@ -117,21 +123,32 @@ export function canonicalUrl(url: string): string {
 const UNIT_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
   "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
 const TENS_WORDS = new Map([["twenty", 20], ["thirty", 30], ["forty", 40], ["fifty", 50], ["sixty", 60], ["seventy", 70], ["eighty", 80], ["ninety", 90]]);
-const ORDINAL_UNITS = ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth"];
+const ORDINAL_WORDS = ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth",
+  "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", "seventeenth", "eighteenth", "nineteenth"];
+const ORDINAL_TENS = new Map([["twentieth", 20], ["thirtieth", 30], ["fortieth", 40], ["fiftieth", 50], ["sixtieth", 60], ["seventieth", 70], ["eightieth", 80], ["ninetieth", 90], ["hundredth", 100], ["thousandth", 1000]]);
 const SCALE_WORDS = ["hundred", "thousand", "million", "billion", "trillion", "lakh", "crore", "dozen"];
 const SCALE_ABBR = new Map([["k", "thousand"], ["m", "million"], ["mn", "million"], ["mln", "million"], ["b", "billion"], ["bn", "billion"], ["bln", "billion"], ["tn", "trillion"], ["trn", "trillion"]]);
 const AMOUNT_WORDS = ["tens", "dozens", "hundreds", "thousands", "millions", "billions", "trillions", "half", "quarter"];
-const NUMBER_TOKEN = /(?<![\p{L}\p{N}.])\.\d+|\d+(?:,\d{3}(?!\d))*(?:\.\d+)?|\p{L}+/gu;
+const CHANGE_WORDS = new Map<string, string>([
+  ["twice", "twice"], ["thrice", "thrice"], ["thirds", "thirds"], ["quarters", "quarters"],
+  ...["double", "doubled", "doubles", "doubling"].map(w => [w, "double"] as [string, string]),
+  ...["triple", "tripled", "triples", "tripling"].map(w => [w, "triple"] as [string, string]),
+  ...["quadruple", "quadrupled", "quadruples", "quadrupling"].map(w => [w, "quadruple"] as [string, string]),
+  ...["halve", "halved", "halves", "halving"].map(w => [w, "halved"] as [string, string]),
+]);
+// 型番（f-16・shahed-136・g7）は1語。前に付く語（post-2022・under-18s）の後の数字は数のまま
+const NUMBER_TOKEN = /(?<![\p{L}\p{N}.])\.\d+(?: ?%)?|\d+(?:,\d{3}(?!\d))*(?:\.\d+)?(?: ?%)?|(?!(?:pre|post|mid|under|over|non|anti|late|early|top|sub|ex|up|near)-\d)\p{L}+-\d+(?:\p{L}+\d+)*|\p{L}{1,3}\d+(?:\p{L}+\d+)*|\p{L}+/gu;
 
-type Tok = { s: string; num: boolean; gap: string };
-/** plain は numbersIn の答え。scaled は桁の語つきの数（"1.2 million"、"5 hundred"）。 */
-type Nums = { plain: string[]; scaled: string[] };
+type Tok = { s: string; num: boolean; code: boolean; gap: string };
+/** plain は numbersIn の答え。scaled は桁の語つきの数（"1.2 million"、"5 hundred"）。raw は数ごとの文中の書き方（"one"・"five hundred"）。 */
+type Nums = { plain: string[]; scaled: string[]; raw: Map<string, string> };
 
 function canonNumber(raw: string): string {
-  const [i, f = ""] = raw.replace(/,/g, "").split(".");
+  const pct = raw.endsWith("%");
+  const [i, f = ""] = raw.replace(/ ?%$/, "").replace(/,/g, "").split(".");
   const int = i.replace(/^0+(?=\d)/, "") || "0";
   const frac = f.replace(/0+$/, "");
-  return frac ? `${int}.${frac}` : int;
+  return (frac ? `${int}.${frac}` : int) + (pct ? "%" : "");
 }
 
 function tokenize(s: string): Tok[] {
@@ -139,27 +156,46 @@ function tokenize(s: string): Tok[] {
   const out: Tok[] = [];
   let end = 0;
   for (const m of t.matchAll(NUMBER_TOKEN)) {
-    out.push({ s: m[0], num: /^[\d.]/.test(m[0]), gap: t.slice(end, m.index) });
+    const num = /^[\d.]/.test(m[0]);
+    out.push({ s: m[0], num, code: !num && /\d/.test(m[0]), gap: t.slice(end, m.index) });
     end = m.index! + m[0].length;
   }
   return out;
+}
+
+/** "tenfold"→"10fold"。数の語で始まらない "unfold"・"manifold" は数にしない。 */
+function foldOf(w: string): string | undefined {
+  const m = /^(\p{L}+)fold$/u.exec(w);
+  if (!m) return undefined;
+  const u = UNIT_WORDS.indexOf(m[1]);
+  const n = u >= 2 ? u : TENS_WORDS.get(m[1]) ?? (m[1] === "hundred" ? 100 : m[1] === "thousand" ? 1000 : undefined);
+  return n === undefined ? undefined : `${n}fold`;
 }
 
 function scanNumbers(s: string): Nums {
   const toks = tokenize(s);
   const plain: string[] = [];
   const scaled: string[] = [];
-  const push = (a: string[], v: string) => { if (!a.includes(v)) a.push(v); };
+  const raw = new Map<string, string>();
+  const spell = (a: number, b: number) => toks.slice(a, b).map((x, k) => (k ? x.gap : "") + x.s).join("");
+  const push = (a: string[], v: string, from: number, to: number) => {
+    if (!a.includes(v)) a.push(v);
+    if (!raw.has(v)) raw.set(v, spell(from, to));
+  };
   const joined = (t?: Tok): t is Tok => !!t && !t.num && (t.gap === " " || t.gap === "-");
+  const attached = (t?: Tok): t is Tok => !!t && !t.num && (t.gap === "" || t.gap === " " || t.gap === "-");
   for (let i = 0; i < toks.length;) {
     const t = toks[i];
     const next = toks[i + 1];
     let v: string | undefined;
     let j = i + 1;
     if (t.num) v = canonNumber(t.s);
+    else if (t.code) push(plain, t.s, i, j);
     else if (UNIT_WORDS.includes(t.s)) v = String(UNIT_WORDS.indexOf(t.s));
+    else if (ORDINAL_WORDS.includes(t.s)) v = String(ORDINAL_WORDS.indexOf(t.s));
+    else if (ORDINAL_TENS.has(t.s)) v = String(ORDINAL_TENS.get(t.s));
     else if (TENS_WORDS.has(t.s)) {
-      const u = joined(next) ? Math.max(UNIT_WORDS.indexOf(next.s), ORDINAL_UNITS.indexOf(next.s)) : -1;
+      const u = joined(next) ? Math.max(UNIT_WORDS.indexOf(next.s), ORDINAL_WORDS.indexOf(next.s)) : -1;
       const unit = u >= 1 && u <= 9 ? u : 0;
       if (unit) j++;
       v = String(TENS_WORDS.get(t.s)! + unit);
@@ -168,8 +204,19 @@ function scanNumbers(s: string): Nums {
       // "half a million" を "a million"（1 million）として通さない
       const prev = toks[i - 1];
       v = prev && t.gap === " " && (prev.s === "half" || prev.s === "quarter") ? prev.s : "1";
-    } else if (AMOUNT_WORDS.includes(t.s)) push(plain, t.s);
+    } else if (AMOUNT_WORDS.includes(t.s)) push(plain, t.s, i, j);
+    else if (CHANGE_WORDS.has(t.s)) push(plain, CHANGE_WORDS.get(t.s)!, i, j);
+    else {
+      const fold = foldOf(t.s);
+      if (fold) push(plain, fold, i, j);
+    }
     if (v === undefined) { i++; continue; }
+    if (attached(toks[j]) && toks[j].s === "fold") { push(plain, `${v}fold`, i, j + 1); i = j + 1; continue; }
+    if (!v.endsWith("%")) {
+      if (joined(toks[j]) && toks[j].s === "percent") { v += "%"; j++; }
+      else if (joined(toks[j]) && toks[j].s === "per" && toks[j + 1]?.s === "cent" && toks[j + 1].gap === " ") { v += "%"; j += 2; }
+    }
+    const k = j;
     const names: string[] = [];
     for (; j < toks.length; j++) {
       const x = toks[j];
@@ -178,22 +225,25 @@ function scanNumbers(s: string): Nums {
       else if (!names.length && SCALE_ABBR.has(x.s) && (x.gap === "" || (x.gap === " " && x.s.length > 1))) names.push(SCALE_ABBR.get(x.s)!);
       else break;
     }
-    push(plain, v);
-    if (names.length) push(scaled, `${v} ${names.join(" ")}`);
+    push(plain, v, i, names.length ? j : k);
+    if (names.length) push(scaled, `${v} ${names.join(" ")}`, i, j);
     i = j;
   }
-  return { plain, scaled };
+  return { plain, scaled, raw };
 }
 
 /**
  * 台本を出典の本文と照合する。errors が1件でもあればその本は出さない。
  * - 行数・語数・見出しの長さ（LIMITS）
- * - fact: source 必須・ホストが allowedHosts・docs に同じ URL の本文がある・quote が本文に含まれる・say の数がすべて quote にある
+ * - fact: source 必須・ホストが allowedHosts・docs に同じ URL の本文がある・quote が本文に語の区切りどおりに含まれる・
+ *   say の数（型番・% を含む）がすべて quote にある
  * - framing: source を持たない・数は fact の行で確かめた数だけ
- * - hook: 数字から始まり、数は fact の行で確かめた数だけ
- * - visual: counter/bars の値は確かめた数、quote_card の text はその行の quote の一部、
- *   map_zoom/route の地名はいずれかの fact の quote に出てくる
- * - 1つ目の fact の publishedAt が分かり maxLeadAgeHours より古ければ誤り
+ * - hook: 数字（または around・about・nearly・almost・over・more than・at least・up to・some の後に数字）から始まり、
+ *   数は fact の行で確かめた数だけ
+ * - visual: counter/bars の値と見出しの数は確かめた数、map_zoom/route の地名はいずれかの fact の quote に出てくる
+ * - quote_card は fact の行だけ。text はその行の quote の一部で、quote の中で引用符の内側にある言葉
+ *   （本人の発言）か、who がその行の source.outlet と同じ（媒体の地の文を媒体の言葉として見せる）こと
+ * - publishedAt が分かる fact の記事が maxLeadAgeHours より古ければ誤り（どの fact でも）
  * warnings: 最後の文が見出しの最初の数に戻っていない など
  * 数は numbersIn に加えて桁の語（million など）も照合する。「確かめた数」は fact の say の数のうち、その行の quote にあったもの。
  * 地名・引用カードの文は語の区切りで照合する（"Niger" は "Nigeria" に一致しない）。誤りの文は先頭に行の id を付ける。
@@ -251,11 +301,13 @@ export function checkFacts(sb: Storyboard, docs: FetchedDoc[], opts: CheckOption
     const key = canonicalUrl(typeof src.url === "string" ? src.url : "");
     const same = docList.filter(d => typeof d?.url === "string" && canonicalUrl(d.url) === key);
     if (!same.length) fail(`出典 ${String(src.url)} の本文を取得していない`);
-    else if (nq && !same.some(d => normalizeText(d.text ?? "").includes(nq))) fail(`引用文が出典の本文に無い「${quote.slice(0, 80)}」`);
+    else if (nq && !same.some(d => hasPhrase(normalizeText(d.text ?? ""), quote))) {
+      fail(`引用文が出典の本文に無い「${quote.slice(0, 80)}」。本文の連続した部分を、語の途中で切らずにそのまま写す`);
+    }
 
     const q = toSet(scanNumbers(quote));
     const s = scanNumbers(say);
-    for (const n of missingIn(s, q)) errors.push(`${id}: 数 ${n} が引用文に無い（引用文の数: ${listOf(q)}）${wordHint(say, n)}`);
+    for (const n of missingIn(s, q)) errors.push(`${id}: ${what(n)} が引用文に無い（引用文の数: ${listOf(q)}）${wordHint(s, n)}`);
     if (!trusted) return;
     trustedQuotes.push(nq);
     for (const n of s.plain) if (q.plain.has(n)) verified.plain.add(n);
@@ -271,7 +323,10 @@ export function checkFacts(sb: Storyboard, docs: FetchedDoc[], opts: CheckOption
     const where = isFact ? `引用文に無い（引用文の数: ${listOf(ref)}）` : `事実の文で確かめた数に無い（確かめた数: ${listOf(verified)}）`;
     const unverified = (text: string) => missingIn(scanNumbers(text), ref);
     const say = typeof l.say === "string" ? l.say : "";
-    if (!isFact) for (const n of unverified(say)) errors.push(`${id}: 数 ${n} が${where}${wordHint(say, n)}`);
+    if (!isFact) {
+      const sayNums = scanNumbers(say);
+      for (const n of missingIn(sayNums, ref)) errors.push(`${id}: ${what(n)} が${where}${wordHint(sayNums, n)}`);
+    }
 
     const v = l.visual as Visual | undefined;
     if (!v || typeof v !== "object") { errors.push(`${id}: visual が無い`); return; }
@@ -292,7 +347,7 @@ export function checkFacts(sb: Storyboard, docs: FetchedDoc[], opts: CheckOption
         const own = numbersIn(String(v.value));
         if (!own.length) errors.push(`${id}: counter の値 ${v.value} を数として読めない`);
         for (const n of unverified(`${v.value} ${label}`)) {
-          errors.push(own.includes(n) ? `${id}: counter の値 ${n} が${where}` : `${id}: counter の見出し「${label}」の数 ${n} が${where}`);
+          errors.push(own.includes(n) ? `${id}: counter の値 ${n} が${where}` : `${id}: counter の見出し「${label}」の${what(n)} が${where}`);
         }
         break;
       }
@@ -303,22 +358,35 @@ export function checkFacts(sb: Storyboard, docs: FetchedDoc[], opts: CheckOption
           const label = typeof it?.label === "string" ? it.label : "";
           if (!label.trim()) errors.push(`${id}: bars の項目に label が無い`);
           if (typeof it?.value !== "number" || !Number.isFinite(it.value)) { errors.push(`${id}: bars の値が数でない（${label}）`); continue; }
-          if (!numbersIn(String(it.value)).length) errors.push(`${id}: bars の値 ${it.value} を数として読めない`);
-          for (const n of unverified(String(it.value))) errors.push(`${id}: bars の値 ${n} が${where}`);
-          for (const n of unverified(label)) errors.push(`${id}: bars の見出し「${label}」の数 ${n} が${where}`);
+          const own = numbersIn(String(it.value));
+          if (!own.length) errors.push(`${id}: bars の値 ${it.value} を数として読めない`);
+          // counter と同じく値と見出しを続けて読む（"40" と "% of Kyiv" で 40%）
+          for (const n of unverified(`${it.value} ${label}`)) {
+            errors.push(own.includes(n) ? `${id}: bars の値 ${n} が${where}` : `${id}: bars の見出し「${label}」の${what(n)} が${where}`);
+          }
         }
         break;
       }
       case "quote_card": {
+        if (!isFact) {
+          errors.push(`${id}: framing の文に引用カードは置けない。発言は出典のある fact の文で見せ、framing は counter・bars・map_zoom・route にする`);
+          break;
+        }
         const text = typeof v.text === "string" ? v.text : "";
-        if (typeof v.who !== "string" || !v.who.trim()) errors.push(`${id}: 引用カードの who が空`);
-        else for (const n of unverified(v.who)) errors.push(`${id}: 引用カードの who「${v.who}」の数 ${n} が${where}`);
+        const who = typeof v.who === "string" ? v.who : "";
+        if (!who.trim()) errors.push(`${id}: 引用カードの who が空`);
+        else for (const n of unverified(who)) errors.push(`${id}: 引用カードの who「${who}」の${what(n)} が${where}`);
         const w = wordCount(text);
         if (!w) errors.push(`${id}: 引用カードの text が空`);
         else if (w > LIMITS.maxQuoteCardWords) errors.push(`${id}: 引用カードの語数 ${w}（上限 ${LIMITS.maxQuoteCardWords}）`);
-        const quotes = isFact ? [normalizeText(ownQuote)] : trustedQuotes;
-        if (w && !quotes.some(q => hasPhrase(q, text))) {
-          errors.push(`${id}: 引用カードの文が${isFact ? "この行の引用文" : "どの事実の引用文"}の一部でもない「${text.slice(0, 60)}」`);
+        if (!w) break;
+        const outlet = typeof l.source?.outlet === "string" ? l.source.outlet : "";
+        if (!hasPhrase(normalizeText(ownQuote), text)) errors.push(`${id}: 引用カードの文がこの行の引用文の一部でもない「${text.slice(0, 60)}」`);
+        else if (normalizeText(text).includes('"')) errors.push(`${id}: 引用カードの text に引用符（"）を入れない。引用符の内側の言葉だけを写す`);
+        else if (who.trim() && normalizeText(who) !== normalizeText(outlet) && !insideQuotes(ownQuote, text)) {
+          // 記者の地の文・間接話法（According to him, …）を、本人の言葉として引用符つきで見せない
+          errors.push(`${id}: 引用カードの文が引用文の中で引用符（"）の内側に無い（本人の言葉ではない）。`
+            + `本人の発言なら引用符の内側の言葉だけを写す。記者の地の文・間接話法なら who を出典の媒体名「${outlet}」にするか、counter・map_zoom に替える`);
         }
         break;
       }
@@ -328,19 +396,21 @@ export function checkFacts(sb: Storyboard, docs: FetchedDoc[], opts: CheckOption
   });
 
   const hook = typeof sb?.hook === "string" ? sb.hook.trim() : "";
-  if (!/^\d/.test(hook)) errors.push(`hook: 数字から始まっていない「${hook}」`);
+  if (!HOOK_START.test(hook)) errors.push(`hook: 数字から始まっていない「${hook}」（数字の前に置けるのは around・about・nearly・almost・over・more than・at least・up to・some だけ）`);
   const hookLen = [...hook].length;
   if (hookLen > LIMITS.maxHookChars) errors.push(`hook: ${hookLen} 字（上限 ${LIMITS.maxHookChars} 字）`);
   const hookNums = scanNumbers(hook);
-  for (const n of missingIn(hookNums, verified)) errors.push(`hook: 数 ${n} が事実の文で確かめた数に無い（確かめた数: ${listOf(verified)}）`);
+  for (const n of missingIn(hookNums, verified)) errors.push(`hook: ${what(n)} が事実の文で確かめた数に無い（確かめた数: ${listOf(verified)}）${wordHint(hookNums, n)}`);
 
-  const lead = facts[0];
-  const published = lead?.source?.publishedAt;
-  // Date.parse は "Sunday, Nov 1" を 2001 年と読むので ISO 形式のときだけ使う
-  const pubMs = typeof published === "string" && /^\d{4}-\d{2}-\d{2}/.test(published.trim()) ? Date.parse(published.trim()) : NaN;
-  if (lead && Number.isFinite(pubMs)) {
+  for (const f of facts) {
+    const published = f.source?.publishedAt;
+    // Date.parse は "Sunday, Nov 1" を 2001 年と読むので ISO 形式のときだけ使う
+    const pubMs = typeof published === "string" && /^\d{4}-\d{2}-\d{2}/.test(published.trim()) ? Date.parse(published.trim()) : NaN;
+    if (!Number.isFinite(pubMs)) continue;
     const hours = (opts.now.getTime() - pubMs) / 3_600_000;
-    if (hours > opts.maxLeadAgeHours) errors.push(`${ids[lines.indexOf(lead)]}: 1つ目の事実の記事が ${Math.round(hours)} 時間前（上限 ${opts.maxLeadAgeHours} 時間）`);
+    if (hours > opts.maxLeadAgeHours) {
+      errors.push(`${ids[lines.indexOf(f)]}: 事実の記事が ${Math.round(hours)} 時間前（上限 ${opts.maxLeadAgeHours} 時間）。${opts.maxLeadAgeHours} 時間以内の新しい記事の文に替えるか、この文を外す`);
+    }
   }
 
   const firstHookNum = hookNums.plain.find(n => /^\d/.test(n));
@@ -357,21 +427,54 @@ const toSet = (n: Nums): NumSet => ({ plain: new Set(n.plain), scaled: new Set(n
 const missingIn = (sub: Nums, ref: NumSet) => [...sub.plain.filter(x => !ref.plain.has(x)), ...sub.scaled.filter(x => !ref.scaled.has(x))];
 const listOf = (ref: NumSet) => [...new Set([...ref.plain, ...ref.scaled])].join(", ") || "なし";
 
-/** 数字で書いていない数（"one"・"a million" など）で落ちたときに、直す側が気づけるようにする。 */
-const wordHint = (text: string, n: string) => (/^\d/.test(n) && !normalizeText(text).includes(n.split(" ")[0]) ? "。語で書いた数（one・a million など）も数える" : "");
+/** 誤りの文での呼び名。型番（"f-16"）は数ではないので分けて書く。 */
+const what = (n: string) => (/^\p{L}+-?\d/u.test(n) ? `型番・名前 ${n}` : `数 ${n}`);
+
+/** 数字で書いていない数（"one"・"third"・"a million" など）で落ちたときに、どの語を数と読んだかを直す側に示す。 */
+const wordHint = (nums: Nums, n: string) => {
+  const raw = nums.raw.get(n);
+  return /^\d/.test(n) && raw && /^\p{L}/u.test(raw) ? `。語で書いた数「${raw}」を ${n} と読んだ（one・third・a million などの語も数として照らす）` : "";
+};
+
+const HOOK_START = /^(?:(?:around|about|nearly|almost|over|more than|at least|up to|some)\s+)?\d/i;
 
 const hasAlnum = (s: string | undefined) => !!s && /[\p{L}\p{N}]/u.test(s);
 const wordCount = (s: unknown) => (typeof s === "string" ? s.trim().split(/\s+/).filter(hasAlnum).length : 0);
 
-function hasPhrase(hay: string, needle: unknown): boolean {
+/** hay（正規化済み）の中で needle が語の区切りどおりに出てくる位置。 */
+function phraseAt(hay: string, needle: unknown): number[] {
   const n = typeof needle === "string" ? normalizeText(needle) : "";
-  if (!n) return false;
+  const at: number[] = [];
+  if (!n) return at;
   for (let i = hay.indexOf(n); i >= 0; i = hay.indexOf(n, i + 1)) {
     const left = !hasAlnum(n[0]) || !hasAlnum(hay[i - 1]);
     const right = !hasAlnum(n[n.length - 1]) || !hasAlnum(hay[i + n.length]);
-    if (left && right) return true;
+    if (left && right) at.push(i);
   }
-  return false;
+  return at;
+}
+
+function hasPhrase(hay: string, needle: unknown): boolean {
+  return phraseAt(hay, needle).length > 0;
+}
+
+/** 開きの引用符か。直前が文頭・空白・( [ : - で、直後が空白でない。 */
+const opensAt = (s: string, i: number) => (i === 0 || /[\s(\[:-]/.test(s[i - 1])) && i + 1 < s.length && !/\s/.test(s[i + 1]);
+
+/**
+ * text が引用文の中で引用符（"）の内側にあるか。直前の引用符が開きなら内側。
+ * 前に引用符が無く、後ろの最初の引用符が閉じなら、発言の途中から始まる引用文の内側。
+ * 引用符の数の偶奇では見ない（発言の途中から始まる・途中で終わる引用文で、閉じの後ろや開きの前を内側に数えてしまう）。
+ */
+function insideQuotes(quote: string, text: string): boolean {
+  const q = normalizeText(quote);
+  const len = normalizeText(text).length;
+  return phraseAt(q, text).some(i => {
+    const before = i > 0 ? q.lastIndexOf('"', i - 1) : -1;
+    if (before >= 0) return opensAt(q, before);
+    const after = q.indexOf('"', i + len);
+    return after >= 0 && !opensAt(q, after);
+  });
 }
 
 function hostOf(url: unknown): string | null {

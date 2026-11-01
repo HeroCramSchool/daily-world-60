@@ -3,10 +3,13 @@
  * 例: "ratio>=1.3 && lo>=0.8" / "ratio<1.0" / "nT>=6 && medT<76.5"
  * 変数: ratio, lo, hi（treatment/control の幾何平均比と95%区間）, n（両群の少ない方の本数）,
  *       nT, nC（各群の本数）, medT, medC（各群の中央値）, medRatio（medT / medC）
+ *       nT48, medRatio48（投稿48時間後の再生での treatment の本数と中央値の比。stopIf だけで使う）
  */
 export type RuleVars = Partial<Record<RuleVar, number>>;
-export type RuleVar = "ratio" | "lo" | "hi" | "n" | "nT" | "nC" | "medT" | "medC" | "medRatio";
-const VARS: RuleVar[] = ["ratio", "lo", "hi", "n", "nT", "nC", "medT", "medC", "medRatio"];
+export type RuleVar = "ratio" | "lo" | "hi" | "n" | "nT" | "nC" | "medT" | "medC" | "medRatio" | "nT48" | "medRatio48";
+/** 期間中に止める判断のための早い数字。採用・不採用は7日後の数字で決める。 */
+export const EARLY_VARS: RuleVar[] = ["nT48", "medRatio48"];
+const VARS: RuleVar[] = ["ratio", "lo", "hi", "n", "nT", "nC", "medT", "medC", "medRatio", ...EARLY_VARS];
 type Cmp = { v: RuleVar; op: ">=" | "<=" | ">" | "<"; x: number };
 export type ParsedRule = Cmp[][]; // OR of ANDs
 
@@ -14,7 +17,7 @@ export function parseRule(src: string): ParsedRule {
   const text = src.trim();
   if (!text) throw new Error("式が空");
   return text.split("||").map(orPart => orPart.split("&&").map(term => {
-    const m = term.trim().match(/^([A-Za-z]+)\s*(>=|<=|>|<)\s*(-?\d+(?:\.\d+)?)$/);
+    const m = term.trim().match(/^([A-Za-z][A-Za-z0-9]*)\s*(>=|<=|>|<)\s*(-?\d+(?:\.\d+)?)$/);
     if (!m) throw new Error(`式を読めない: "${term.trim()}"（例: ratio>=1.3）`);
     if (!VARS.includes(m[1] as RuleVar)) throw new Error(`使えない変数: ${m[1]}（${VARS.join(", ")}）`);
     return { v: m[1] as RuleVar, op: m[2] as Cmp["op"], x: Number(m[3]) };

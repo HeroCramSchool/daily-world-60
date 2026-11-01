@@ -313,7 +313,9 @@ jobs:
         timeout-minutes: 15
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          EXPLAINER_DAILY_CAP_USD: ${{ vars.EXPLAINER_DAILY_CAP_USD || '2' }}
+          # 1本 $1.2 を投稿順に押さえる (EXPLAINER_STORY_CAP_USD)。3本で $3.6 なので上限の既定は $4
+          EXPLAINER_DAILY_CAP_USD: ${{ vars.EXPLAINER_DAILY_CAP_USD || '4' }}
+          EXPLAINER_STORY_CAP_USD: ${{ vars.EXPLAINER_STORY_CAP_USD || '1.2' }}
         run: npx tsx scripts/write-explainers.ts ${{ steps.date.outputs.realdate }}
 
       - name: Step B — Per-story narrations (voice + vtt)

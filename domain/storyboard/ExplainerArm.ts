@@ -16,7 +16,9 @@ export type ExplainerStatus =
   | "no_docs"
   | "check_failed"
   | "refuted"
-  | "refusal";
+  | "refusal"
+  // その本の呼び出しが1回でも返った後に止まった（締め切り・予算切れ・max_tokens・API の誤りなど）。中身で決まりうるので比較から外さない
+  | "incomplete";
 
 export type ExplainerStatusEntry = { status: ExplainerStatus; code: string; errors?: string[]; costUsd?: number };
 /** $OUT_DIR/explainer-status.json。キーは投稿順 (story.index)。 */

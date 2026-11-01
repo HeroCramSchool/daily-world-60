@@ -15,15 +15,18 @@ import { loadRegistryOrEmpty } from "../infrastructure/pdca/RegistryFile.js";
 
 // 施策台帳 (experiments/registry.json)。投稿した動画に、入っている施策と腕を台帳へ残す (PDCA の D)。
 // 描画時に prep-short が $OUT_DIR/experiment-arms.json に書いた記録があればそれを正とする (後日投稿でも描画と一致させる)。
-const LIVE_EXPERIMENTS = loadRegistryOrEmpty().experiments.filter(isLive);
-type RenderedArm = ArmRecord & { style?: Style };
-function ledgerArms(rendered: Record<string, RenderedArm> | undefined, date: string, index: number): Pick<LedgerEntry, "exp" | "arm" | "variant" | "style"> {
+// styleFor には絞り込む前の台帳を渡す (isLive は adopted を落とす)。armRecordFor は今までどおり動いている施策だけ。
+const REGISTRY_EXPERIMENTS = loadRegistryOrEmpty().experiments;
+const LIVE_EXPERIMENTS = REGISTRY_EXPERIMENTS.filter(isLive);
+/** fallback: "render" は、照合に通った台本があったのに描画で今の形式に戻った本 (prep-short が付ける)。 */
+type RenderedArm = ArmRecord & { style?: Style; fallback?: "render" };
+function ledgerArms(rendered: Record<string, RenderedArm> | undefined, date: string, index: number): Pick<LedgerEntry, "exp" | "arm" | "variant" | "style"> & { fallback?: "render" } {
   try {
     const rec = rendered?.[String(index)];
     if (rec) return { ...rec, style: rec.style === "explainer" ? "explainer" : "legacy" };
     // 描画の記録が無い本 (ffmpeg 経路など) は今の形式で描いている。解説形式に割り付けた本と手動で形式を決めた本は、新旧の比較から外す
     const fresh = armRecordFor(LIVE_EXPERIMENTS, date, index, process.env.HOOK_LAYOUT?.trim() || undefined);
-    return finalizeArmRecord(fresh, styleFor(LIVE_EXPERIMENTS, date, index, process.env.EXPLAINER), undefined, "legacy");
+    return finalizeArmRecord(fresh, styleFor(REGISTRY_EXPERIMENTS, date, index, process.env.EXPLAINER), undefined, "legacy");
   } catch (e) {
     // 投稿の後で例外を出すと台帳が保存されず重複投稿につながるので、施策なしで記録して続ける
     console.warn(`[publish] 施策の腕を出せない (${e instanceof Error ? e.message : e}) — 施策なしで記録する`);
@@ -31,14 +34,18 @@ function ledgerArms(rendered: Record<string, RenderedArm> | undefined, date: str
   }
 }
 type SourceLink = { outlet: string; url: string };
-/** 解説形式の本の出典 (storyboard の事実の文の媒体と URL)。媒体ごとに最初の URL を1つ・最大3つ。storyboard が無ければ空。 */
-async function readStoryboardSources(dir: string, index: number, code: string): Promise<SourceLink[]> {
+/**
+ * 解説形式の本の storyboard から、出典 (事実の文の媒体と URL。媒体ごとに最初の URL を1つ・最大3つ) と
+ * 画面の見出し (prep-short と同じ大文字) を読む。storyboard が無ければ空。
+ */
+async function readStoryboardForPost(dir: string, index: number, code: string): Promise<{ sources: SourceLink[]; hook?: string }> {
   let sb: Storyboard;
   try {
     sb = JSON.parse(await fs.readFile(path.join(dir, storyboardFile(index, code)), "utf-8"));
   } catch {
-    return [];
+    return { sources: [] };
   }
+  const hook = typeof sb?.hook === "string" && sb.hook.trim() ? sb.hook.trim().toUpperCase() : undefined;
   const out: SourceLink[] = [];
   for (const l of Array.isArray(sb?.lines) ? sb.lines : []) {
     const s = l?.kind === "fact" ? l.source : undefined;
@@ -52,7 +59,21 @@ async function readStoryboardSources(dir: string, index: number, code: string): 
     out.push({ outlet, url });
     if (out.length >= 3) break;
   }
-  return out;
+  return { sources: out, ...(hook ? { hook } : {}) };
+}
+
+/**
+ * タイトルの頭と、台帳に残す見出し。タイトルは画面1フレーム目の見出しと完全一致させる (2026-06-27)。
+ * 解説形式で描いた本の1フレーム目は storyboard の見出し (照合済み) なので、それを使い、Routine の文型 (hookPattern) は付けない。
+ * 今の形式の本は Routine の hookText。無い/長すぎる回は見出しに戻す。
+ */
+function titleHook(story: Pick<Story, "headline" | "hookText" | "hookPattern">, shownHook?: string): { titleHead: string; hookText?: string; hookPattern?: string } {
+  const hookTitle = (shownHook ?? story.hookText)?.trim();
+  return {
+    titleHead: hookTitle && hookTitle.length <= 90 ? hookTitle : story.headline,
+    hookText: shownHook ?? story.hookText,
+    hookPattern: shownHook ? undefined : story.hookPattern,
+  };
 }
 async function readRenderedArms(dir: string): Promise<Record<string, RenderedArm> | undefined> {
   try {
@@ -208,15 +229,15 @@ async function main() {
     const ttCover = path.join(dir, `tiktok-cover-${code}.png`);
 
     const countryName = story.country.name ?? story.country.code;
-    // タイトルは画面1フレーム目の hookText と完全一致させる (2026-06-27):
+    // prep-short が storyboard を使わず今の形式で描いた本には、解説の出典を載せない
+    const renderedStyle = renderedArms?.[String(story.index)]?.style;
+    const { sources, hook: storyboardHook } = renderedStyle === "legacy" ? { sources: [] as SourceLink[], hook: undefined } : await readStoryboardForPost(dir, story.index, story.country.code);
+    // タイトルは画面1フレーム目の見出しと完全一致させる (2026-06-27):
     //   旧「見出し全文(11-14語の受け身文)」はフィードの topic model が読む最弱の言い回し。
     //   既存の 3-6語 hookText を front-frame・最初の発話・タイトルで揃える = 初速のレバー。
-    //   hookText が無い/長すぎる回のみ見出しにフォールバック。発見用ハッシュタグは2つだけ。
-    const hookTitle = story.hookText?.trim();
-    const titleHead = hookTitle && hookTitle.length <= 90 ? hookTitle : story.headline;
-    const ytTitle = `${titleHead} #Shorts #WorldNews`;
-    // prep-short が storyboard を使わず今の形式で描いた本には、解説の出典を載せない
-    const sources = renderedArms?.[String(story.index)]?.style === "legacy" ? [] : await readStoryboardSources(dir, story.index, story.country.code);
+    //   解説形式で描いた本だけ storyboard の見出しを使う (描画の記録が無い本は今の形式で描いている)。発見用ハッシュタグは2つだけ。
+    const hook = titleHook(story, renderedStyle === "explainer" ? storyboardHook : undefined);
+    const ytTitle = `${hook.titleHead} #Shorts #WorldNews`;
     const ytDesc = buildYoutubeDescription(story, scriptEn.date, await readBgmUsed(dir, code), sources);
     const ytTags = [
       "World News", "Daily News", "60 Seconds", "Short News",
@@ -267,8 +288,8 @@ async function main() {
       newlyPosted.push({
         date, code, headline: story.headline, index: story.index,
         ...(vid ? { videoId: vid } : {}),
-        ...(story.hookPattern ? { hookPattern: story.hookPattern } : {}),
-        ...(story.hookText ? { hookText: story.hookText } : {}),
+        ...(hook.hookPattern ? { hookPattern: hook.hookPattern } : {}),
+        ...(hook.hookText ? { hookText: hook.hookText } : {}),
         ...(story.rank ? { rank: story.rank } : {}),
         ...ledgerArms(renderedArms, date, story.index),
       });
@@ -306,8 +327,8 @@ async function main() {
       country: countryName,
       headline: story.headline,
       // フック文型の成績集計用 (週次で Stayed to watch と突き合わせる)
-      ...(story.hookPattern ? { hookPattern: story.hookPattern } : {}),
-      ...(story.hookText ? { hookText: story.hookText } : {}),
+      ...(hook.hookPattern ? { hookPattern: hook.hookPattern } : {}),
+      ...(hook.hookText ? { hookText: hook.hookText } : {}),
       youtube: ytRes,
       instagram: igRes,
       tiktok: ttRes,

@@ -9,7 +9,7 @@ import {
   type FetchedDoc, type SourceRef, type Storyboard, type StoryLine, type Visual,
 } from "../../domain/storyboard/Storyboard.js";
 import type { CostMeter, Step } from "./CostMeter.js";
-import { OUTLETS, hostOf, isAllowedUrl } from "./outlets.js";
+import { OUTLETS, isAllowedUrl, outletName } from "./outlets.js";
 
 /**
  * 解説形式の台本を Claude API で作る（調べる → 書く → 照合 → 反証）。
@@ -17,6 +17,8 @@ import { OUTLETS, hostOf, isAllowedUrl } from "./outlets.js";
  * 書く: 構造化出力で台本を書かせ、checkFacts で数字と引用を本文と照合する。
  * 反証: 別の呼び出しに、引用と言い過ぎ・主語のすり替え・時制のずれが無いかを探させる。
  * 照合か反証で落ちたら1回だけ直させる。直しても落ちたら status で返し、呼ぶ側は今の形式で描く。
+ * その本の呼び出しが1回でも返った後に止まったら（締め切り・予算切れ・API の誤りなど）incomplete。
+ * 返る前なら api_error / cap（中身を見る前に決まるので、呼ぶ側は比較から外してよい）。
  */
 
 export const MODEL = "claude-opus-5-5";
@@ -25,7 +27,7 @@ const MAX_CONTINUATIONS = 4;
 const DOC_CHARS_FOR_WRITER = 15_000;
 const CONTEXT_CHARS = 300;
 const MAX_LEAD_AGE_HOURS = 48;
-// SDK は時間切れも1回だけ試し直す（maxRetries 1）。全体の締め切りは write-explainers が signal で掛ける
+// SDK の timeout は応答ヘッダーが届くまでしか効かず、流れ始めたストリームは止めない。段ごとの時間は signal で掛ける
 const TIMEOUT_MS: Record<Step, number> = { research: 8 * 60_000, write: 4 * 60_000, refute: 4 * 60_000 };
 const MAX_TOKENS: Record<Step, number> = { research: 32_000, write: 32_000, refute: 16_000 };
 
@@ -41,7 +43,11 @@ export type DeskClient = {
   beta: { messages: { stream(body: StreamParams, options?: { timeout?: number; maxRetries?: number; signal?: AbortSignal }): { finalMessage(): Promise<BetaMessage> } } };
 };
 
-export type HttpPage = { title?: string; text: string };
+/** publishedAt: HTML の meta・JSON-LD・<time> にあった公開日時（ISO 8601）。 */
+export type HttpPage = { title?: string; text: string; publishedAt?: string };
+
+/** ページの日付。publishedAt はページ自身の公開日時、updatedAt は検索結果の page_age（最終更新）。 */
+export type PageDates = { publishedAt?: string; updatedAt?: string };
 
 export type NewsDeskOptions = {
   client: DeskClient;
@@ -50,8 +56,10 @@ export type NewsDeskOptions = {
   /** web_fetch で Routine の出典を取れなかったときに、コードで取りに行く。 */
   httpGet?: (url: string) => Promise<HttpPage | null>;
   prompts?: Partial<Record<"research" | "writer" | "refute", string>>;
-  /** 全体の締め切り。切れたら呼び出しを止め、その本は api_error（比較から外す）。 */
+  /** 全体の締め切り。切れたら呼び出しを止める（その本の呼び出しが返った後なら incomplete、前なら api_error）。 */
   signal?: AbortSignal;
+  /** 段ごとの1回の呼び出しの時間（ミリ秒）。試験で短くする。 */
+  stepTimeoutMs?: Partial<Record<Step, number>>;
 };
 
 const RESEARCH_TOOLS: Anthropic.Beta.BetaToolUnion[] = [
@@ -69,7 +77,7 @@ export const STORYBOARD_SCHEMA = {
   additionalProperties: false,
   required: ["hook", "whyPicked", "lines"],
   properties: {
-    hook: { type: "string", description: "On-screen headline, at most 40 characters, starts with the key number." },
+    hook: { type: "string", description: "On-screen headline, at most 40 characters, starts with the key number (or its qualifier, then the number)." },
     whyPicked: { type: "string" },
     lines: {
       type: "array",
@@ -82,11 +90,12 @@ export const STORYBOARD_SCHEMA = {
           id: STR,
           kind: { type: "string", enum: ["fact", "framing"] },
           say: STR,
+          // 媒体名は URL からコードが入れる（outletName）ので書かせない
           source: nullable({
             type: "object",
             additionalProperties: false,
-            required: ["outlet", "url", "quote"],
-            properties: { outlet: STR, url: STR, quote: STR },
+            required: ["url", "quote"],
+            properties: { url: STR, quote: STR },
           }),
           visual: {
             type: "object",
@@ -143,6 +152,7 @@ export class NewsDesk implements NewsDeskPort {
   private readonly httpGet: (url: string) => Promise<HttpPage | null>;
   private readonly prompts: Record<"research" | "writer" | "refute", string>;
   private readonly signal?: AbortSignal;
+  private readonly timeoutMs: Record<Step, number>;
 
   constructor(opts: NewsDeskOptions) {
     this.client = opts.client;
@@ -150,6 +160,7 @@ export class NewsDesk implements NewsDeskPort {
     this.now = opts.now ?? (() => new Date());
     this.httpGet = opts.httpGet ?? fetchPageText;
     this.signal = opts.signal;
+    this.timeoutMs = { ...TIMEOUT_MS, ...opts.stepTimeoutMs };
     this.prompts = {
       research: opts.prompts?.research ?? readPrompt("research"),
       writer: opts.prompts?.writer ?? readPrompt("writer"),
@@ -167,49 +178,60 @@ export class NewsDesk implements NewsDeskPort {
       if (!docs.length) return result("no_docs", ["許可した媒体のページを1つも取得できなかった"]);
 
       let repairUsed = false;
-      let draft = await this.draft(story, research.notes, docs, research.hints);
+      let draft = await this.draft(story, research.notes, docs, research.dates);
       if (draft.errors.length) {
         repairUsed = true;
-        draft = await this.repair(story, draft, docs, research.hints, draft.errors);
+        draft = await this.repair(story, draft, docs, research.dates, draft.errors);
         if (draft.errors.length) return result("check_failed", draft.errors);
       }
-      let problems = await this.refute(story, draft.sb!, docs);
+      let problems = await this.refute(story, draft.sb!, docs, research.dates);
       if (problems.length) {
         if (repairUsed) return result("refuted", problems);
-        draft = await this.repair(story, draft, docs, research.hints, problems);
+        draft = await this.repair(story, draft, docs, research.dates, problems);
         if (draft.errors.length) return result("check_failed", draft.errors);
-        problems = await this.refute(story, draft.sb!, docs);
+        problems = await this.refute(story, draft.sb!, docs, research.dates);
         if (problems.length) return result("refuted", problems);
       }
       return result("ok", [], draft.sb);
     } catch (e) {
-      if (e instanceof Stop) return result(e.status, [e.message]);
+      if (e instanceof Stop) {
+        const started = (e.status === "api_error" || e.status === "cap") && this.meter.completedCalls(story.index) > 0;
+        return result(started ? "incomplete" : e.status, [e.message]);
+      }
       throw e;
     }
   }
 
   private async call(story: DeskStory, step: Step, body: CallBody): Promise<BetaMessage> {
     if (this.signal?.aborted) throw new Stop("api_error", `${step}: 全体の締め切りを過ぎたので呼ばない`);
-    const hold = this.meter.reserve(step);
-    if (!hold) throw new Stop("cap", `${step}: 1日の上限 $${this.meter.capUsd} に届くので呼ばない（使った額 $${this.meter.spent.toFixed(3)}）`);
+    const hold = this.meter.reserve(step, story.index);
+    if (!hold) {
+      const budget = this.meter.storyBudget(story.index);
+      throw new Stop("cap", budget === undefined
+        ? `${step}: 1回の実行の上限 $${this.meter.capUsd} に届くので呼ばない（使った額 $${this.meter.spent.toFixed(3)}）`
+        : `${step}: この本の予算 $${budget} に届くので呼ばない（この本で使った額 $${this.meter.storyCost(story.index).toFixed(3)}）`);
+    }
+    const stepTimer = AbortSignal.timeout(this.timeoutMs[step]);
+    const signal = this.signal ? AbortSignal.any([this.signal, stepTimer]) : stepTimer;
     let msg: BetaMessage;
     try {
       msg = await this.client.beta.messages
-        .stream({ model: MODEL, betas: BETAS, fallbacks: "default", ...body }, { timeout: TIMEOUT_MS[step], maxRetries: 1, ...(this.signal ? { signal: this.signal } : {}) })
+        .stream({ model: MODEL, betas: BETAS, fallbacks: "default", ...body }, { timeout: this.timeoutMs[step], maxRetries: 1, signal })
         .finalMessage();
     } catch (e) {
-      this.meter.release(hold);
+      this.meter.recordEstimate(hold, MODEL);
       if (e instanceof Anthropic.AnthropicError) {
         const status = e instanceof Anthropic.APIError && e.status ? ` ${e.status}` : "";
-        throw new Stop("api_error", `${step}: ${e.name}${status}: ${e.message}`);
+        const why = this.signal?.aborted ? "全体の締め切りで止めた: " : stepTimer.aborted ? `1回の時間 ${this.timeoutMs[step] / 1000} 秒を過ぎた: ` : "";
+        throw new Stop("api_error", `${step}: ${why}${e.name}${status}: ${e.message}`);
       }
       throw e;
     }
-    this.meter.record(hold, story.index, msg.model, msg.usage);
+    this.meter.record(hold, msg.model, msg.usage);
     if (msg.stop_reason === "refusal") {
       throw new Stop("refusal", `${step}: 拒否された（${msg.stop_details?.category ?? "分類なし"}）`);
     }
-    if (msg.stop_reason === "max_tokens") throw new Stop("api_error", `${step}: max_tokens (${body.max_tokens}) で出力が切れた`);
+    if (msg.stop_reason === "max_tokens") throw new Stop("incomplete", `${step}: max_tokens (${body.max_tokens}) で出力が切れた`);
     return msg;
   }
 
@@ -227,24 +249,28 @@ export class NewsDesk implements NewsDeskPort {
       });
       done.push(...msg.content);
       if (msg.stop_reason !== "pause_turn") break;
-      if (turn >= MAX_CONTINUATIONS) throw new Stop("api_error", `research: pause_turn が ${MAX_CONTINUATIONS} 回続けても終わらない`);
+      if (turn >= MAX_CONTINUATIONS) throw new Stop("incomplete", `research: pause_turn が ${MAX_CONTINUATIONS} 回続けても終わらない`);
     }
 
     const docs = extractDocs(done).filter(d => isAllowedUrl(d.url));
+    const dates = new Map<string, PageDates>();
+    for (const [key, updatedAt] of extractPageAges(done, this.now())) dates.set(key, { updatedAt });
     const src = story.sourceUrl?.trim();
     if (src && isAllowedUrl(src) && !docs.some(d => canonicalUrl(d.url) === canonicalUrl(src))) {
       const page = await this.httpGet(src);
-      if (page && page.text.trim().length >= 200) {
-        docs.push({ url: src, ...(page.title ? { title: page.title } : {}), text: page.text, retrievedAt: this.now().toISOString(), via: "http" });
+      const text = page ? stripRelatedLinks(page.text) : "";
+      if (page && text.trim().length >= 200) {
+        docs.push({ url: src, ...(page.title ? { title: page.title } : {}), text, retrievedAt: this.now().toISOString(), via: "http" });
+        if (page.publishedAt) dates.set(canonicalUrl(src), { ...dates.get(canonicalUrl(src)), publishedAt: page.publishedAt });
       }
     }
     const notes = done.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text").map(b => b.text).join("\n").trim();
-    return { docs, notes, hints: extractPublishedHints(done) };
+    return { docs, notes, dates };
   }
 
   private writeRequest(story: DeskStory, notes: string, docs: FetchedDoc[]): BetaMessageParam {
     const pages = docs.map((d, i) => {
-      const attrs = `id="${i + 1}" url="${d.url}" outlet="${hostOf(d.url) ?? ""}"${d.title ? ` title="${d.title.replace(/"/g, "'")}"` : ""}`;
+      const attrs = `id="${i + 1}" url="${d.url}" outlet="${outletName(d.url)}"${d.title ? ` title="${d.title.replace(/"/g, "'")}"` : ""}`;
       return `<page ${attrs}>\n${d.text.slice(0, DOC_CHARS_FOR_WRITER)}\n</page>`;
     }).join("\n\n");
     return {
@@ -257,12 +283,12 @@ export class NewsDesk implements NewsDeskPort {
     };
   }
 
-  private async draft(story: DeskStory, notes: string, docs: FetchedDoc[], hints: Map<string, string>): Promise<Draft> {
+  private async draft(story: DeskStory, notes: string, docs: FetchedDoc[], dates: Map<string, PageDates>): Promise<Draft> {
     const messages = [this.writeRequest(story, notes, docs)];
-    return this.runWriter(story, messages, docs, hints);
+    return this.runWriter(story, messages, docs, dates);
   }
 
-  private async repair(story: DeskStory, prev: Draft, docs: FetchedDoc[], hints: Map<string, string>, problems: string[]): Promise<Draft> {
+  private async repair(story: DeskStory, prev: Draft, docs: FetchedDoc[], dates: Map<string, PageDates>, problems: string[]): Promise<Draft> {
     const fix: BetaMessageParam = {
       role: "user",
       content: "Our checks found these problems (some are written in Japanese). Fix exactly these. Do not add new facts; " +
@@ -271,10 +297,10 @@ export class NewsDesk implements NewsDeskPort {
     };
     // 前の答えは thinking ごとそのまま返す（履歴を書き換えない）
     const messages: BetaMessageParam[] = [...prev.messages, { role: "assistant", content: prev.content }, fix];
-    return this.runWriter(story, messages, docs, hints);
+    return this.runWriter(story, messages, docs, dates);
   }
 
-  private async runWriter(story: DeskStory, messages: BetaMessageParam[], docs: FetchedDoc[], hints: Map<string, string>): Promise<Draft> {
+  private async runWriter(story: DeskStory, messages: BetaMessageParam[], docs: FetchedDoc[], dates: Map<string, PageDates>): Promise<Draft> {
     const msg = await this.call(story, "write", {
       max_tokens: MAX_TOKENS.write,
       system: this.prompts.writer,
@@ -288,24 +314,24 @@ export class NewsDesk implements NewsDeskPort {
     } catch (e) {
       return { ...base, errors: [`全体: 台本の JSON を読めない（${e instanceof Error ? e.message : e}）`] };
     }
-    const { sb, errors } = toStoryboard(raw, story, hints);
+    const { sb, errors } = toStoryboard(raw, story, dates);
     if (!sb) return { ...base, errors };
     const check = checkFacts(sb, docs, { now: this.now(), allowedHosts: [...OUTLETS], maxLeadAgeHours: MAX_LEAD_AGE_HOURS });
     return { ...base, sb, errors: check.errors };
   }
 
-  private async refute(story: DeskStory, sb: Storyboard, docs: FetchedDoc[]): Promise<string[]> {
+  private async refute(story: DeskStory, sb: Storyboard, docs: FetchedDoc[], dates: Map<string, PageDates>): Promise<string[]> {
     const msg = await this.call(story, "refute", {
       max_tokens: MAX_TOKENS.refute,
       system: this.prompts.refute,
-      messages: [{ role: "user", content: refuteRequest(sb, docs) }],
+      messages: [{ role: "user", content: refuteRequest(sb, docs, dates) }],
       output_config: { effort: "high", format: { type: "json_schema", schema: REFUTE_SCHEMA } },
     });
     let verdict: { pass?: unknown; problems?: unknown };
     try {
       verdict = JSON.parse(textOf(msg.content));
     } catch (e) {
-      throw new Stop("api_error", `refute: 答えの JSON を読めない（${e instanceof Error ? e.message : e}）`);
+      throw new Stop("incomplete", `refute: 答えの JSON を読めない（${e instanceof Error ? e.message : e}）`);
     }
     const problems = (Array.isArray(verdict.problems) ? verdict.problems : [])
       .map((p: { lineId?: unknown; problem?: unknown }) => `${String(p?.lineId ?? "?")}: ${String(p?.problem ?? "").trim()}`);
@@ -338,13 +364,16 @@ function researchRequest(story: DeskStory): string {
   return `Story picked by our editor:\n${storyText(story)}\n\nResearch this event.`;
 }
 
-function refuteRequest(sb: Storyboard, docs: FetchedDoc[]): string {
-  const parts = [`Hook: ${JSON.stringify(sb.hook)}`, "", "Lines:"];
+function refuteRequest(sb: Storyboard, docs: FetchedDoc[], dates: Map<string, PageDates>): string {
+  const parts = [`Script date: ${sb.date}`, `Hook: ${JSON.stringify(sb.hook)}`, "", "Lines:"];
   for (const l of sb.lines) {
     parts.push(`[${l.id}] ${l.kind}`, `  say: ${JSON.stringify(l.say)}`, `  visual: ${JSON.stringify(l.visual)}`);
     if (l.kind === "fact" && l.source) {
+      const d = dates.get(canonicalUrl(l.source.url));
       parts.push(
         `  outlet: ${l.source.outlet} (${l.source.url})`,
+        `  page published: ${d?.publishedAt ?? "unknown"}`,
+        `  page last updated (search result): ${d?.updatedAt ?? "unknown"}`,
         `  quote: ${JSON.stringify(l.source.quote)}`,
         `  page text around the quote: ${JSON.stringify(contextOf(l.source, docs))}`,
       );
@@ -364,6 +393,32 @@ function contextOf(src: SourceRef, docs: FetchedDoc[]): string {
   return around(doc.text, src.quote) ?? around(normalizeText(doc.text), normalizeText(src.quote)) ?? "";
 }
 
+// 本文に差し込まれた別記事へのリンクの行（Ukrinform の「Read also: <見出し>」など）。web_fetch の Markdown の飾りも許す
+const RELATED_LINK = /^[\s>*_#|•·\-–—[]*(?:read (?:also|more)|also read|see also|related(?: articles?| stories| news| coverage| content| reading)?|most (?:read|popular|viewed)|recommended(?: for you| stories| reading)?|more (?:on this|stories|from [^:]{1,40})|you (?:may|might) also like|trending(?: now)?)(?:[\s*_]*\]\(|[\s*_\]]*(?:[:：|»›]|$))/i;
+
+const SENTENCE_END = /[.!?…"”]$/;
+
+/**
+ * 関連記事のリンクの行を落とす。その見出しは別の記事（別の日のこともある）なので、引用の元にさせない。
+ * 「Related」だけの行のように見出しが次の行に来るときは、続く見出しらしい行（文の終わりの記号が無い行）も落とす。
+ */
+export function stripRelatedLinks(text: string): string {
+  const out: string[] = [];
+  let inList = false;
+  for (const line of text.split("\n")) {
+    const m = RELATED_LINK.exec(line);
+    if (m) {
+      inList = !line.slice(m[0].length).replace(/[\s*_\]:：|»›]/g, "");
+      continue;
+    }
+    const t = line.trim();
+    if (inList && t && t.length <= 200 && !SENTENCE_END.test(t)) continue;
+    if (t) inList = false;
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
 /** web_fetch の結果から本文（text）を集める。取得の失敗と PDF（base64）は使わない。同じ URL は長い方を残す。 */
 export function extractDocs(blocks: readonly BetaContentBlock[]): FetchedDoc[] {
   const byUrl = new Map<string, FetchedDoc>();
@@ -371,11 +426,13 @@ export function extractDocs(blocks: readonly BetaContentBlock[]): FetchedDoc[] {
     if (b.type !== "web_fetch_tool_result" || b.content.type !== "web_fetch_result") continue;
     const r = b.content;
     const source = r.content?.source;
-    if (source?.type !== "text" || typeof source.data !== "string" || !source.data.trim()) continue;
+    if (source?.type !== "text" || typeof source.data !== "string") continue;
+    const text = stripRelatedLinks(source.data);
+    if (!text.trim()) continue;
     const doc: FetchedDoc = {
       url: r.url,
       ...(r.content.title ? { title: r.content.title } : {}),
-      text: source.data,
+      text,
       ...(r.retrieved_at ? { retrievedAt: r.retrieved_at } : {}),
       via: "web_fetch",
     };
@@ -387,23 +444,28 @@ export function extractDocs(blocks: readonly BetaContentBlock[]): FetchedDoc[] {
 }
 
 /**
- * 検索結果の page_age を、その URL の記事の公開日時の手がかりにする（canonicalUrl → ISO 8601）。
- * "April 30, 2025" のように年が書いてあり読めるものだけ。"2 days ago" などは使わない。
+ * 検索結果の page_age（canonicalUrl → ISO 8601）。ドキュメントの定義は「最終更新」で公開日ではない。
+ * 公開日は最終更新より前なので、古ければ確実に古いという片側の判定にだけ使える。
+ * "April 30, 2025" のように年のあるものと、"3 hours ago" のような相対の書き方（now から引く）を読む。
  */
-export function extractPublishedHints(blocks: readonly BetaContentBlock[]): Map<string, string> {
-  const hints = new Map<string, string>();
+export function extractPageAges(blocks: readonly BetaContentBlock[], now: Date): Map<string, string> {
+  const ages = new Map<string, string>();
   for (const b of blocks) {
     if (b.type !== "web_search_tool_result" || !Array.isArray(b.content)) continue;
     for (const r of b.content) {
-      const iso = toIso(r.page_age);
-      if (iso && !hints.has(canonicalUrl(r.url))) hints.set(canonicalUrl(r.url), iso);
+      const iso = toIso(r.page_age, now);
+      if (iso && !ages.has(canonicalUrl(r.url))) ages.set(canonicalUrl(r.url), iso);
     }
   }
-  return hints;
+  return ages;
 }
 
-function toIso(s: string | null | undefined): string | null {
+const UNIT_MS: Record<string, number> = { minute: 60_000, hour: 3_600_000, day: 86_400_000, week: 7 * 86_400_000, month: 30 * 86_400_000, year: 365 * 86_400_000 };
+
+function toIso(s: string | null | undefined, now?: Date): string | null {
   const t = String(s ?? "").trim();
+  const rel = /^(\d+|an?|one)\s+(minute|hour|day|week|month|year)s?\s+ago$/i.exec(t);
+  if (rel && now) return new Date(now.getTime() - (/^\d/.test(rel[1]) ? Number(rel[1]) : 1) * UNIT_MS[rel[2].toLowerCase()]).toISOString();
   if (!/\b(19|20)\d{2}\b/.test(t)) return null;
   const ms = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(t) ? `${t}T00:00:00Z` : t);
   return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
@@ -445,10 +507,11 @@ function toVisual(v: RawVisual | null | undefined, id: string, errors: string[])
 }
 
 /**
- * 構造化出力の平らな JSON を台本の型に直す。version・date・storyIndex・countryCode と出典の公開日時はコードが入れる。
+ * 構造化出力の平らな JSON を台本の型に直す。version・date・storyIndex・countryCode と出典の媒体名・日付はコードが入れる。
+ * 出典の publishedAt は、ページ自身の公開日時が無ければ page_age（最終更新）を入れる（最終更新が古ければ記事も古いので、落とす側には正しく効く）。
  * 形の誤りがあれば sb は返さない（直しの呼び出しに errors を渡す）。
  */
-export function toStoryboard(raw: unknown, story: DeskStory, hints: Map<string, string>): { sb?: Storyboard; errors: string[] } {
+export function toStoryboard(raw: unknown, story: DeskStory, dates: Map<string, PageDates>): { sb?: Storyboard; errors: string[] } {
   const r = raw as { hook?: unknown; whyPicked?: unknown; lines?: unknown } | null;
   if (!r || typeof r !== "object" || !Array.isArray(r.lines)) return { errors: ["全体: 台本の JSON の形が違う（lines が無い）"] };
   const errors: string[] = [];
@@ -459,12 +522,13 @@ export function toStoryboard(raw: unknown, story: DeskStory, hints: Map<string, 
     const visual = toVisual(l.visual as RawVisual | null, id, errors);
     if (!visual) return;
     const line: StoryLine = { id, kind: l.kind, say: typeof l.say === "string" ? l.say.trim() : "", visual };
-    const s = l.source as { outlet?: unknown; url?: unknown; quote?: unknown } | null | undefined;
+    const s = l.source as { url?: unknown; quote?: unknown } | null | undefined;
     if (s && typeof s === "object") {
       const url = typeof s.url === "string" ? s.url.trim() : "";
-      const publishedAt = hints.get(canonicalUrl(url));
+      const d = dates.get(canonicalUrl(url));
+      const publishedAt = d?.publishedAt ?? d?.updatedAt;
       line.source = {
-        outlet: isStr(s.outlet) ? s.outlet.trim() : (hostOf(url) ?? ""),
+        outlet: outletName(url),
         url,
         quote: typeof s.quote === "string" ? s.quote : "",
         ...(publishedAt ? { publishedAt } : {}),
@@ -489,34 +553,131 @@ export function toStoryboard(raw: unknown, story: DeskStory, hints: Map<string, 
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“", mdash: "—", ndash: "–", hellip: "…" };
 
-/** HTML を本文の文字列にする。<article> があればその中だけを使う。 */
-export function htmlToText(html: string): HttpPage {
-  const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1];
-  const article = /<article[\s>][\s\S]*?<\/article>/i.exec(html)?.[0];
-  const body = article && article.length > 500 ? article : html;
-  const decode = (s: string) => s
-    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
-    .replace(/&([a-z]+);/gi, (m, e) => ENTITIES[e.toLowerCase()] ?? m);
-  const text = decode(body
-    .replace(/<!--[\s\S]*?-->/g, " ")
-    .replace(/<(script|style|noscript|svg|template|iframe)[\s\S]*?<\/\1>/gi, " ")
-    .replace(/<\/?(p|div|br|li|ul|ol|h[1-6]|tr|section|article|header|footer|figure|figcaption|blockquote)\b[^>]*>/gi, "\n")
-    .replace(/<[^>]+>/g, " "))
-    .split("\n").map(s => s.replace(/[ \t ]+/g, " ").trim()).filter(Boolean).join("\n");
-  return { ...(title ? { title: decode(title).replace(/\s+/g, " ").trim() } : {}), text };
+const decode = (s: string) => s
+  .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+  .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+  .replace(/&([a-z]+);/gi, (m, e) => ENTITIES[e.toLowerCase()] ?? m);
+
+const textOfHtml = (html: string) => decode(html
+  .replace(/<!--[\s\S]*?-->/g, " ")
+  .replace(/<(script|style|noscript|svg|template|iframe|aside|nav)\b[\s\S]*?<\/\1>/gi, " ")
+  .replace(/<\/?(p|div|br|li|ul|ol|h[1-6]|tr|section|article|header|footer|figure|figcaption|blockquote)\b[^>]*>/gi, "\n")
+  .replace(/<[^>]+>/g, " "))
+  .split("\n").map(s => s.replace(/[ \t ]+/g, " ").trim()).filter(Boolean).join("\n");
+
+const PUBLISHED_META = ["article:published_time", "og:article:published_time", "datepublished", "pubdate", "publishdate"];
+
+function metaContent(html: string, names: readonly string[]): string | undefined {
+  for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
+    const key = /\b(?:property|name|itemprop)\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1]?.toLowerCase();
+    const content = /\bcontent\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1];
+    if (key && content && names.includes(key)) return content;
+  }
+  return undefined;
 }
 
-async function fetchPageText(url: string): Promise<HttpPage | null> {
+/**
+ * HTML を本文の文字列にする。<article> があれば、文字にして一番長いもの（200字以上）だけを使う
+ * （先頭の <article> は「最新の記事」の札のことがある）。aside・nav は落とす。
+ * 公開日時は meta article:published_time → JSON-LD datePublished → 選んだ <article> の <time datetime> の順に読む。
+ */
+export function htmlToText(html: string): HttpPage {
+  const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1];
+  const best = [...html.matchAll(/<article[\s>][\s\S]*?<\/article>/gi)]
+    .map(m => ({ html: m[0], text: textOfHtml(m[0]) }))
+    .reduce<{ html: string; text: string } | undefined>((a, c) => (!a || c.text.length > a.text.length ? c : a), undefined);
+  const article = best && best.text.length >= 200 ? best : undefined;
+  const text = article ? article.text : textOfHtml(html);
+  const published = [
+    metaContent(html, PUBLISHED_META),
+    /"datePublished"\s*:\s*"([^"]+)"/.exec(html)?.[1],
+    article ? /<time\b[^>]*\bdatetime\s*=\s*["']([^"']+)["']/i.exec(article.html)?.[1] : undefined,
+  ].map(s => toIso(s)).find((s): s is string => !!s);
+  return { ...(title ? { title: decode(title).replace(/\s+/g, " ").trim() } : {}), text, ...(published ? { publishedAt: published } : {}) };
+}
+
+const HTTP_UA = "DailyWorld60-factcheck/1.0";
+const ROBOTS_AGENT = "claude-user";
+const MAX_REDIRECTS = 5;
+
+/**
+ * robots.txt でこの URL を取ってよいか。Claude-User の節（無ければ *）の規則を使う（RFC 9309: 最も長く一致した規則、同じ長さなら Allow）。
+ * 自前の HTTP は Claude に渡す本文を取るためなので、Claude-User を断っている媒体は取らない。
+ */
+export function robotsAllows(robotsTxt: string, url: string, agent = ROBOTS_AGENT): boolean {
+  type Rule = { allow: boolean; path: string };
+  type Group = { agents: string[]; rules: Rule[] };
+  const groups: Group[] = [];
+  let cur: Group | undefined;
+  let inAgents = false;
+  for (const raw of robotsTxt.split(/\r\n|\r|\n/)) {
+    const m = /^\s*([A-Za-z-]+)\s*:\s*(.*?)\s*$/.exec(raw.replace(/#.*$/, ""));
+    if (!m) continue;
+    const key = m[1].toLowerCase();
+    if (key === "user-agent") {
+      if (!cur || !inAgents) groups.push(cur = { agents: [], rules: [] });
+      cur.agents.push(m[2].toLowerCase());
+      inAgents = true;
+    } else if ((key === "allow" || key === "disallow") && cur) {
+      cur.rules.push({ allow: key === "allow", path: m[2] });
+      inAgents = false;
+    }
+  }
+  let path: string;
   try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(15_000),
-      redirect: "follow",
-      headers: { "user-agent": "DailyWorld60-factcheck/1.0", accept: "text/html,application/xhtml+xml,text/plain" },
-    });
-    if (!res.ok || !isAllowedUrl(res.url || url)) return null;
-    if (!/html|text\/plain/i.test(res.headers.get("content-type") ?? "")) return null;
-    return htmlToText(await res.text());
+    const u = new URL(url);
+    path = `${u.pathname}${u.search}`;
+  } catch {
+    return false;
+  }
+  const a = agent.toLowerCase();
+  const mine = groups.filter(g => g.agents.includes(a));
+  let best: Rule | undefined;
+  for (const r of (mine.length ? mine : groups.filter(g => g.agents.includes("*"))).flatMap(g => g.rules)) {
+    if (!r.path || !robotsPattern(r.path).test(path)) continue;
+    if (!best || r.path.length > best.path.length || (r.path.length === best.path.length && r.allow)) best = r;
+  }
+  return !best || best.allow;
+}
+
+function robotsPattern(p: string): RegExp {
+  const anchored = p.endsWith("$");
+  const body = (anchored ? p.slice(0, -1) : p).split("*").map(s => s.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*");
+  return new RegExp(`^${body}${anchored ? "$" : ""}`);
+}
+
+async function robotsAllowUrl(url: string, fetchFn: typeof fetch): Promise<boolean> {
+  try {
+    const res = await fetchFn(new URL("/robots.txt", url).toString(), { signal: AbortSignal.timeout(10_000), redirect: "follow", headers: { "user-agent": HTTP_UA } });
+    // 読めない robots.txt は断られているものとみなす
+    if (!res.ok) return false;
+    return robotsAllows(await res.text(), url);
+  } catch {
+    return false;
+  }
+}
+
+/** Routine の出典を自前で取る。許可した媒体で、robots.txt が Claude-User に許しているページだけ。転送先も1つずつ確かめる。 */
+export async function fetchPageText(url: string, fetchFn: typeof fetch = fetch): Promise<HttpPage | null> {
+  try {
+    let target = url;
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      if (!isAllowedUrl(target) || !(await robotsAllowUrl(target, fetchFn))) return null;
+      const res = await fetchFn(target, {
+        signal: AbortSignal.timeout(15_000),
+        redirect: "manual",
+        headers: { "user-agent": HTTP_UA, accept: "text/html,application/xhtml+xml,text/plain" },
+      });
+      const loc = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null;
+      if (loc) {
+        target = new URL(loc, target).toString();
+        continue;
+      }
+      if (!res.ok) return null;
+      if (!/html|text\/plain/i.test(res.headers.get("content-type") ?? "")) return null;
+      return htmlToText(await res.text());
+    }
+    return null;
   } catch {
     return null;
   }

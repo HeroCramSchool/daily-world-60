@@ -8,7 +8,7 @@
 - **スクリプト**: 値の取得（World Bank Indicators API v2・REST Countries v3.1 のデータファイル）、ビン分け、下の検査
 - **人**: 候補を確かめて昇格させる
 
-候補の題材は、スクリプト内の `CATALOG`（World Bank 指標 77 件と REST Countries 由来 8 件）に並べてある。指標コードは実行のたびに API で実在を確かめ、無いものは落とす。registry.json・posted.json と id か指標コードが重なる題材は送らない。
+候補の題材は、スクリプト内の `CATALOG`（World Bank 指標 77 件と REST Countries 由来 6 件）に並べてある。郵便番号の有無と公用語の数は入れていない。REST のデータファイル（2026-02-25 更新）では Ireland・Colombia・Albania に郵便番号の書式が無く、India の公用語に Tamil が入っていて、大国の色が事実と違ってしまうため。指標コードは実行のたびに API で実在を確かめ、無いものは落とす。registry.json・posted.json と id か指標コードが重なる題材は送らない。
 
 ## 動かし方
 
@@ -30,7 +30,7 @@ npx tsx scripts/build-map-library.ts --spec-file specs.json    # Claude を使�
 
 Batch は標準の半額で、Opus 5.5 は入力 $2・出力 $10（100 万トークンあたり）。
 
-- 入力: dry-run の本文で数えて 50 件で約 9.4 万トークン、約 $0.19
+- 入力: dry-run の本文で数えて 50 件で約 10.4 万トークン、約 $0.21
 - 出力（思考を含む）: **未実測**。1 件 1〜3 千トークンなら $0.5〜1.5
 - 上限: 全件が max_tokens（16,000）まで出た場合で約 $8.2
 
@@ -48,13 +48,17 @@ Batch は標準の半額で、Opus 5.5 は入力 $2・出力 $10（100 万トー
 | claude | refusal・errored・expired・max_tokens・JSON でない | Batch では fallbacks が使えないので、落として理由を残す |
 | skipped-by-model | Claude が skip を返した（国を順位づける題材、国境の争いなど） | 題材の線引きは prompts/maps/spec.md |
 | checks | 数値は 3〜5 ビン、カテゴリは 2〜5 群。どの色も 8 か国以上 | 色が 1〜2 か国しかない凡例を出さない |
-| checks | 凡例の数字は、そのビンの切れ目と同じ | 「50–100」なのに切れ目が 150、のずれを止める |
-| checks | 見出し・CTA・補足に出る数字は、定義・指標名・切れ目・年に出てくるものだけ | Claude は国の値を知らないので、数字を作らせない |
+| checks | 凡例の数字は、そのビンの切れ目と同じ。向きも見る（先頭に「or more」「+」、中間と最後に「Under」を書かない）。先頭の「0–X」は負の値が無いときだけ。整数で上端を含めて書く「1–2」は範囲の形のときだけで、「Under N」の N は切れ目そのもの | 「50–100」なのに切れ目が 150、負の値を含むのに「0–2%」、のずれを止める |
+| checks | カテゴリの凡例と No data のラベルに数を書かない（指標名・定義に出る数は除く） | 件数は MapShort が凡例の横に描くので、ラベルの数と食い違う |
+| checks | 見出し・CTA・補足に出る数字は、定義・指標名・切れ目・年に出てくるものだけ。英単語の数（nine in ten・half）と全角数字も数える | Claude は国の値を知らないので、数字を作らせない |
+| checks | 見出し・CTA・補足・凡例に国名（countries.json の通称）を書かない | 値を知らない国を名指しさせない |
 | checks | 見出しは大文字 48 字以内、CTA は 40 字以内で絵文字つき、凡例は 22 字以内 | MapShort の枠に収める |
 
-落とさずに `review[].warnings` に書くもの: 1 色が 60% を超える、最も多い年が 5 年以上前。
+落とさずに `review[].warnings` に書くもの: 1 色が 60% を超える、最も多い年が 5 年以上前（2026 年の実行なら 2021 年以前）。
 
-ビン分けは API の値そのままで行う。`raw` には有効 4 桁で残す。年が混ざる指標は descriptionNote に「Latest available year per economy (A–B).」を足す（prep-map.ts が出典行に「(latest available)」を付ける）。
+検査を変えたら `npx tsx --test scripts/build-map-library.test.ts` を通す。
+
+ビン分けは API の値そのままで行う。`raw` には有効 4 桁で残す。1 か国でも年が違う指標は descriptionNote に「Latest available year per economy (A–B).」を足す（prep-map.ts が出典行に「(latest available)」を付ける）。
 
 ## 人が確かめて registry.json に足す手順
 
@@ -63,7 +67,7 @@ Batch は標準の半額で、Opus 5.5 は入力 $2・出力 $10（100 万トー
    ```bash
    curl -s "https://api.worldbank.org/v2/country/JPN/indicator/SP.DYN.TFRT.IN?format=json&date=2015:2026"
    ```
-   REST Countries 由来（english-official など）は REST の誤りが過去にあった（VIR の通行側、KAZ のタイムゾーン）。Wikipedia などと突き合わせる
+   REST Countries 由来（english-official など）は REST の誤りが過去にあった（VIR の通行側、KAZ のタイムゾーン）。REST と照らしても必ず一致するので、Wikipedia など REST 以外と突き合わせる（notes の指示もそうなっている）
 3. 描画して見る。prep-map.ts は `remotion/props-map.json` を上書きするので、控えを取って戻す
    ```bash
    mkdir -p /tmp/maps-review

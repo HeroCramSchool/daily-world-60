@@ -52,8 +52,10 @@ const BGM_CONFLICT_PATH = process.env.BGM_CONFLICT_PATH ?? "";
 // 1 フレーム目のレイアウト (top | legacy)。手動の HOOK_LAYOUT > 施策台帳の hook 施策の腕 > legacy。
 // armRecordFor() の結果を $OUT_DIR/experiment-arms.json に残し、publish-all.ts はそれを台帳に写す（描画と記録をずらさない）。
 const HOOK_OVERRIDE = process.env.HOOK_LAYOUT?.trim() || undefined;
-const LIVE_EXPERIMENTS = loadRegistryOrEmpty().experiments.filter(isLive);
+const REGISTRY_EXPERIMENTS = loadRegistryOrEmpty().experiments;
+const LIVE_EXPERIMENTS = REGISTRY_EXPERIMENTS.filter(isLive);
 // 解説形式か今の形式か。手動の EXPLAINER=on|off > 施策台帳の explainer 施策の腕 > 採用済みなら explainer > legacy。
+// styleFor には絞り込む前の台帳を渡す（isLive は adopted を落とすので、採用の後に解説形式にならない）。
 // 解説形式に割り付けた本でも、write-explainers が台本 (storyboard-<i>-<code>.json) を残さなかった本は今の形式で描く。
 const EXPLAINER_OVERRIDE = process.env.EXPLAINER?.trim() || undefined;
 
@@ -88,8 +90,10 @@ async function main() {
   const stories = only ? script.stories.filter(s => s.country.code.toLowerCase() === only) : script.stories;
 
   console.log(`[prep-short] hook layout: ${stories.map(st => `${st.index}=${hookLayoutFor(LIVE_EXPERIMENTS, date, st.index, HOOK_OVERRIDE)}`).join(" ")} (override: ${HOOK_OVERRIDE ?? "-"})`);
-  const decisions = new Map<number, StyleDecision>(stories.map(st => [st.index, styleFor(LIVE_EXPERIMENTS, date, st.index, EXPLAINER_OVERRIDE)]));
+  const decisions = new Map<number, StyleDecision>(stories.map(st => [st.index, styleFor(REGISTRY_EXPERIMENTS, date, st.index, EXPLAINER_OVERRIDE)]));
   const rendered = new Map<number, Style>();
+  // 照合に通った台本があったのに描画で今の形式に戻った本。腕は解説形式のまま数えるので、件数が見えるよう印を残す
+  const renderFallback = new Set<number>();
   const out: unknown[] = [];
   for (const story of stories) {
     const sb = await readStoryboard(dir, story, decisions.get(story.index)!);
@@ -99,6 +103,7 @@ async function main() {
         rendered.set(story.index, "explainer");
         continue;
       } catch (e) {
+        renderFallback.add(story.index);
         console.warn(`[prep-short] ${story.country.code.toLowerCase()}: explainer failed (${e instanceof Error ? e.message : e}) — falling back to legacy`);
       }
     }
@@ -111,10 +116,12 @@ async function main() {
   const styleOf = (i: number) => rendered.get(i) ?? "legacy";
   console.log(`[prep-short] style: ${stories.map(st => {
     const want = decisions.get(st.index)!.style;
-    return `${st.index}=${styleOf(st.index)}${styleOf(st.index) === want ? "" : `(assigned ${want}: ${statusOf(st.index) ?? "no status"})`}`;
+    return `${st.index}=${styleOf(st.index)}${styleOf(st.index) === want ? "" : `(assigned ${want}: ${renderFallback.has(st.index) ? "render failed" : statusOf(st.index) ?? "no status"})`}`;
   }).join(" ")} (by: ${[...new Set([...decisions.values()].map(d => d.by))].join(",") || "-"}, override: ${EXPLAINER_OVERRIDE ?? "-"})`);
-  const arms: Record<string, StyledArmRecord> = Object.fromEntries(stories.map(st => [String(st.index),
-    finalizeArmRecord(armRecordFor(LIVE_EXPERIMENTS, date, st.index, HOOK_OVERRIDE), decisions.get(st.index)!, statusOf(st.index), styleOf(st.index))]));
+  const arms: Record<string, StyledArmRecord & { fallback?: "render" }> = Object.fromEntries(stories.map(st => [String(st.index), {
+    ...finalizeArmRecord(armRecordFor(LIVE_EXPERIMENTS, date, st.index, HOOK_OVERRIDE), decisions.get(st.index)!, statusOf(st.index), styleOf(st.index)),
+    ...(renderFallback.has(st.index) ? { fallback: "render" as const } : {}),
+  }]));
   await fs.writeFile(path.join(dir, "experiment-arms.json"), JSON.stringify(arms, null, 2));
 
   const props = { date, fps: FPS, videos: out };
@@ -359,7 +366,7 @@ async function readStatusFile(dir: string): Promise<ExplainerStatusFile | undefi
 }
 
 type Place = { lon: number; lat: number; label: string };
-type MapCtx = { dir: string; pub: string; code: string; accent: string; country: string; locate: (place: string) => Promise<GeoPoint | null> };
+type MapCtx = { dir: string; pub: string; code: string; focus: string | null; accent: string; country: string; markers: Story["mapMarkers"]; locate: (place: string) => Promise<GeoPoint | null> };
 
 /**
  * 解説形式の1本。台本の文をそのまま読み上げ、文ごとに1つの絵 (地図・数・棒・ルート・引用) を当てる。
@@ -381,10 +388,12 @@ async function buildExplainer(dir: string, pub: string, story: Story, sb: Storyb
   const memo = new Map<string, Promise<GeoPoint | null>>();
   const locate = (place: string) => {
     const k = place.trim().toLowerCase();
-    if (!memo.has(k)) memo.set(k, geocode(place, story.country.code, { markers: story.mapMarkers, cacheFile }));
+    if (!memo.has(k)) memo.set(k, geocode(place, story.country.code, { markers: story.mapMarkers, countryName: story.country.name, cacheFile }));
     return memo.get(k)!;
   };
-  const ctx: MapCtx = { dir, pub, code, accent, country, locate };
+  // Routine は世界全体の話に GL と 🌍 を使う (2026-06-13 the global economy など)。そのときは Greenland を塗らない
+  const worldwide = code === "gl" && story.country.flag !== "🇬🇱";
+  const ctx: MapCtx = { dir, pub, code, focus: worldwide ? null : code, accent, country, markers: story.mapMarkers, locate };
   // 絵を先に作る (描けない台本で音声合成を待たない)
   const visuals: XVisual[] = [];
   for (let k = 0; k < lines.length; k++) visuals.push(await placeVisual(lines[k].visual, `${tag}-${k + 1}`, ctx));
@@ -454,7 +463,7 @@ async function placeVisual(v: Visual, file: string, ctx: MapCtx): Promise<XVisua
       return { kind: "quote_card", who: v.who, text: v.text };
     case "map_zoom": {
       const pts = await locatePlaces(Array.isArray(v.places) ? v.places : [], ctx);
-      return { kind: "map_zoom", ...await mapImage(pts.length ? pts : await countryPlace(ctx), file, ctx) };
+      return { kind: "map_zoom", ...(pts.length ? await mapImage(pts, file, ctx) : await countryMap(file, ctx)) };
     }
     case "route": {
       const pts = await locatePlaces([v.from, v.to], ctx);
@@ -463,7 +472,7 @@ async function placeVisual(v: Visual, file: string, ctx: MapCtx): Promise<XVisua
         return { kind: "route", bg: m.bg, from: m.points[0], to: m.points[1], labels: m.labels };
       }
       // 片方でも座標が無ければ矢印は引けない。分かった地点 (無ければ国) の地図にする
-      return { kind: "map_zoom", ...await mapImage(pts.length ? pts : await countryPlace(ctx), file, ctx) };
+      return { kind: "map_zoom", ...(pts.length ? await mapImage(pts, file, ctx) : await countryMap(file, ctx)) };
     }
     default:
       throw bad(`unknown visual ${String((v as { kind?: unknown } | undefined)?.kind)}`);
@@ -481,16 +490,27 @@ async function locatePlaces(places: unknown[], ctx: MapCtx): Promise<Place[]> {
   return out;
 }
 
-/** 地名がどれも座標にならなかったときの、国の中心に国名の点1つ。 */
-async function countryPlace(ctx: MapCtx): Promise<Place[]> {
+// 国も mapMarkers も座標にならないときの視点。点は打たない
+const WORLD_VIEW: Place[] = [{ lon: -100, lat: -40, label: "" }, { lon: 100, lat: 60, label: "" }];
+
+/**
+ * 地名がどれも座標にならなかったときの地図。国の中心に国名の点1つ。
+ * 国も引けなければ例外にせず (本全体が今の形式に戻るので)、点を打たずに mapMarkers の範囲 (無ければ世界) を映す。
+ */
+async function countryMap(file: string, ctx: MapCtx): Promise<{ bg: string; points: XPoint[]; labels: XMapLabel[] }> {
   const c = countryLonLat(ctx.code);
   const g = c ? { lon: c[0], lat: c[1] } : await ctx.locate(ctx.country);
-  if (!g) throw new Error(`no coordinates for the places nor for ${ctx.country}`);
-  return [{ lon: g.lon, lat: g.lat, label: ctx.country }];
+  if (g) return mapImage([{ lon: g.lon, lat: g.lat, label: ctx.country }], file, ctx);
+  const marks: Place[] = (ctx.markers ?? [])
+    .filter(m => typeof m?.lon === "number" && typeof m.lat === "number" && Number.isFinite(m.lon) && Number.isFinite(m.lat) && Math.abs(m.lon) <= 180 && Math.abs(m.lat) <= 90)
+    .map(m => ({ lon: m.lon!, lat: m.lat!, label: "" }));
+  console.warn(`[prep-short] ${ctx.code}: no coordinates for the places nor for ${ctx.country} — ${marks.length ? "mapMarkers" : "world"} view without a pin`);
+  // 国を引けなかった本は国コードも当てにならない (Routine は GL を「世界全体」にも使い、Greenland が塗られる) ので、どの国も塗らない
+  return { ...await mapImage(marks.length ? marks : WORLD_VIEW, file, ctx, null), points: [] };
 }
 
-async function mapImage(pts: Place[], file: string, ctx: MapCtx): Promise<{ bg: string; points: XPoint[]; labels: XMapLabel[] }> {
-  const scene = realMapScene(pts, ctx.code);
+async function mapImage(pts: Place[], file: string, ctx: MapCtx, focus: string | null = ctx.focus): Promise<{ bg: string; points: XPoint[]; labels: XMapLabel[] }> {
+  const scene = realMapScene(pts, focus ?? undefined);
   const png = `xmap-${file}.png`;
   const svgPath = path.join(ctx.dir, `_rs-xmap-${file}.svg`);
   await fs.writeFile(svgPath, scene.svg, "utf-8");

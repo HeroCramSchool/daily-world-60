@@ -17,6 +17,7 @@ FACTS: 8-15 candidate facts. For each one:
 - PUBLISHED: the page's publication time, if the page shows one
 
 Prefer facts with counts (drones, missiles, attacks, ships, troops, distances) and named places.
+Never take a QUOTE from a related-article link or headline (lines such as "Read also:", "Related", "See also"); it reports a different article, maybe from another day.
 
 CONFLICTS: numbers or claims that differ between pages or between sides.
 STALE: anything that seems older than 36 hours.

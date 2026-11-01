@@ -23,9 +23,11 @@ export const explainerFrames = (v: ExplainerVideo, fps: number) => Math.max(1, M
 type Seg = { beat: XBeat; from: number; to: number };
 
 /** 文ごとの図の区間 (フレーム)。1 つ目は 0 フレーム目から、最後はループの戻りの手前まで。 */
-function segmentsOf(beats: XBeat[], fps: number, loopStart: number): Seg[] {
+export function segmentsOf(beats: XBeat[], fps: number, loopStart: number): Seg[] {
   const out: Seg[] = [];
-  for (const [i, b] of beats.entries()) {
+  for (const b of beats) {
+    // alignBeats は語が尽きた後ろの文に長さ0の区間を付ける。読まれない文の図は出さない
+    if (!b.words?.length || !(b.end > b.start)) continue;
     const prev = out[out.length - 1];
     const from = prev ? Math.max(prev.from + 1, Math.round(b.start * fps)) : 0;
     if (prev && from >= loopStart) break;
@@ -33,6 +35,20 @@ function segmentsOf(beats: XBeat[], fps: number, loopStart: number): Seg[] {
     out.push({ beat: b, from, to: loopStart });
   }
   return out;
+}
+
+/**
+ * 見出しの不透明度。1 つ目の文の間と戻りは hero、それ以外は compact。大小が重なると二重に見えるので、
+ * 切り替えの前半で古い方を消し、後半で新しい方を出す。文が1つなら切り替えないので hero のまま。
+ */
+export function hookOpacity(segs: Seg[], frame: number, loopStart: number): { hero: number; compact: number } {
+  if (segs.length < 2) return { hero: 1, compact: 0 };
+  const half = TRANS_F / 2;
+  const inLoop = frame >= loopStart;
+  const swap = inLoop ? loopStart : segs[1].from;
+  const outP = easeOut(frame, swap, half);
+  const inP = easeOut(frame, swap + half, half);
+  return inLoop ? { hero: inP, compact: 1 - outP } : { hero: 1 - outP, compact: inP };
 }
 
 const VisualView: React.FC<{ visual: XVisual; accent: string; local: number; span: number; instant: boolean }> = ({
@@ -76,15 +92,7 @@ export const Explainer: React.FC<{ v: ExplainerVideo }> = ({ v }) => {
     <VisualView visual={segs[i].beat.visual} accent={v.accent} local={local} span={segs[i].to - segs[i].from} instant={instant} />
   );
 
-  // 見出し: 1 つ目の文の間と戻りは hero、それ以外は compact。大小が重なると二重に見えるので、
-  // 切り替えの前半で古い方を消し、後半で新しい方を出す
-  const half = TRANS_F / 2;
-  const second = segs[1]?.from ?? Infinity;
-  const swap = inLoop ? loopStart : second;
-  const outP = easeOut(frame, swap, half);
-  const inP = easeOut(frame, swap + half, half);
-  const heroO = segs.length < 2 ? 1 : inLoop ? inP : 1 - outP;
-  const compactO = segs.length < 2 ? 0 : inLoop ? 1 - outP : inP;
+  const hook = hookOpacity(segs, frame, loopStart);
 
   // 字幕: その文の頭から次の文の頭まで。最後の文は戻りの手前まで (語がまだ続くならその終わりまで)
   const capSeg = segs.findIndex((s, i) => {
@@ -117,8 +125,8 @@ export const Explainer: React.FC<{ v: ExplainerVideo }> = ({ v }) => {
       <Scrim variant="map" />
       <TopStripe />
       <CountryLine name={v.country.name} accent={v.accent} />
-      <HookCard text={v.hook} accent={v.accent} mode="hero" opacity={heroO} fps={fps} />
-      <HookCard text={v.hook} accent={v.accent} mode="compact" opacity={compactO} fps={fps} />
+      <HookCard text={v.hook} accent={v.accent} mode="hero" opacity={hook.hero} fps={fps} />
+      <HookCard text={v.hook} accent={v.accent} mode="compact" opacity={hook.compact} fps={fps} />
       {capBeat && capBeat.beat.words?.length > 0 && (
         <Caption words={capBeat.beat.words} time={frame / fps} local={frame - capBeat.from} accent={v.accent} fps={fps} />
       )}

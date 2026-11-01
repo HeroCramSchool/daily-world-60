@@ -20,6 +20,8 @@
     "pdca:check": "tsx interfaces/cli/pdca.ts check",
     "test:pdca": "tsx --test domain/experiment/experiment.test.ts",
     "test:storyboard": "tsx --test domain/storyboard/storyboard.test.ts",
+    "test:explainer": "tsx --test remotion/src/explainer/explainer.test.tsx scripts/lib/geocode.test.ts scripts/lib/realmap.test.ts",
+    "test:maps": "tsx --test scripts/build-map-library.test.ts",
     "test:newsdesk": "tsx --test infrastructure/claude/newsdesk.test.ts",
     "explainers": "tsx scripts/write-explainers.ts",
     "maps:library": "tsx scripts/build-map-library.ts"

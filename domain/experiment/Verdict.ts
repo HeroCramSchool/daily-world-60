@@ -1,12 +1,13 @@
 /**
  * PDCA の C: 判定。投稿7日後の再生数（views@7d）を、日ごとの塊で比べる。
  * 同じ日の動画はニュースの強さを共有していて独立でないので、区間は日単位で引き直して出す。
+ * 同じ日の中で腕が分かれる施策（unit=video）は、比も同じ日どうしの差の平均で出す。
  */
 import type { Experiment } from "./Experiment.js";
-import { holds, type RuleVars } from "./Rule.js";
+import { holds, parseRule, EARLY_VARS, type RuleVars } from "./Rule.js";
 
-/** matured = 公開から7日たった（at7d が無ければスナップショットの欠け）。 */
-export type Row = { videoId: string; date: string; arm: string; at7d?: number; matured?: boolean };
+/** matured = 公開から7日たった（at7d が無ければスナップショットの欠け）。at48h = 投稿48時間後の再生（止める条件用）。 */
+export type Row = { videoId: string; date: string; arm: string; at7d?: number; at48h?: number; matured?: boolean };
 export type VerdictState = "collecting" | "adopt" | "reject" | "inconclusive" | "stop" | "manual";
 export type ArmSummary = { arm: string; n: number; median?: number; geoMean?: number };
 export type Verdict = {
@@ -18,6 +19,8 @@ export type Verdict = {
   lo?: number;
   hi?: number;
   arms: ArmSummary[];
+  /** 投稿48時間後の再生での腕ごとの本数と中央値（止める条件に48時間の数字を使う施策だけ）。 */
+  arms48?: ArmSummary[];
   /** observational（順位ごとなど）: 日の合計に占める割合の平均。 */
   shares?: Record<string, number>;
 };
@@ -53,6 +56,32 @@ export function geoMeanRatio(rows: Row[], treatment: string, control: string): n
   return Math.exp(mean(t) - mean(c));
 }
 
+/**
+ * 日ごとに分けた比: 両方の腕がそろった日だけで「その日の treatment の対数平均 − control の対数平均」を出し、日で平均する。
+ * 片方の腕しか無い日（割り付けで片寄った日・片側だけ比較から外れた日）は落ちるので、日の再生の大小が比に乗らない。
+ */
+export function stratifiedRatio(rows: Row[], treatment: string, control: string): number | undefined {
+  const byDay = new Map<string, { t: number[]; c: number[] }>();
+  for (const r of done(rows)) {
+    const g = byDay.get(r.date) ?? { t: [], c: [] };
+    if (r.arm === treatment) g.t.push(ln1p(r.at7d));
+    else if (r.arm === control) g.c.push(ln1p(r.at7d));
+    byDay.set(r.date, g);
+  }
+  const diffs = [...byDay.values()].filter(g => g.t.length && g.c.length).map(g => mean(g.t) - mean(g.c));
+  return diffs.length ? Math.exp(mean(diffs)) : undefined;
+}
+
+/** 両方の腕に views@7d がある日の行だけ。日ごとに分けた比の区間を、比べられる日だけで引き直すのに使う。 */
+function pairedDays(rows: Row[], treatment: string, control: string): Row[] {
+  const d = done(rows);
+  const daysOf = (arm: string) => new Set(d.filter(r => r.arm === arm).map(r => r.date));
+  const t = daysOf(treatment), c = daysOf(control);
+  return d.filter(r => (r.arm === treatment || r.arm === control) && t.has(r.date) && c.has(r.date));
+}
+
+type RatioStat = (rows: Row[], treatment: string, control: string) => number | undefined;
+
 /** 再現できる乱数（mulberry32）。区間が実行ごとに変わらないようにする。 */
 function rng(seed: number): () => number {
   let a = seed >>> 0;
@@ -65,8 +94,8 @@ function rng(seed: number): () => number {
   };
 }
 
-/** 日を単位に引き直すブートストラップの95%区間。 */
-export function clusterBootstrap(rows: Row[], treatment: string, control: string, iters = 2000, seed = 20261018): [number, number] | undefined {
+/** 日を単位に引き直すブートストラップの95%区間。stat は比の出し方（既定はまとめた比）。 */
+export function clusterBootstrap(rows: Row[], treatment: string, control: string, stat: RatioStat = geoMeanRatio, iters = 2000, seed = 20261018): [number, number] | undefined {
   const d = done(rows).filter(r => r.arm === treatment || r.arm === control);
   const byDay = new Map<string, typeof d>();
   for (const r of d) byDay.set(r.date, [...(byDay.get(r.date) ?? []), r]);
@@ -76,8 +105,9 @@ export function clusterBootstrap(rows: Row[], treatment: string, control: string
   const ratios: number[] = [];
   for (let i = 0; i < iters; i++) {
     const sample: Row[] = [];
-    for (let k = 0; k < days.length; k++) sample.push(...byDay.get(days[Math.floor(rand() * days.length)])!);
-    const r = geoMeanRatio(sample, treatment, control);
+    // 同じ日を2回引いたら2日分として数える（日ごとの比で1日にまとまらないよう、引いた回ごとに日を付け替える）
+    for (let k = 0; k < days.length; k++) sample.push(...byDay.get(days[Math.floor(rand() * days.length)])!.map(r => ({ ...r, date: String(k) })));
+    const r = stat(sample, treatment, control);
     if (r !== undefined && Number.isFinite(r)) ratios.push(r);
   }
   if (ratios.length < iters * 0.5) return undefined;
@@ -124,19 +154,29 @@ export function evaluate(e: Experiment, rows: Row[], today: string, defaults: De
 
   const control = e.control ?? arms[0];
   const treatment = arms.find(a => a !== control) ?? arms[1];
-  const ratio = geoMeanRatio(rows, treatment, control);
-  const ci = clusterBootstrap(rows, treatment, control);
+  // 同じ日の中で腕が分かれる施策は、比と区間を日ごとに分けて出す。中央値（medRatio）は全期間をまとめたまま
+  const byDay = e.unit === "video";
+  const stat = byDay ? stratifiedRatio : geoMeanRatio;
+  const ratioRows = byDay ? pairedDays(rows, treatment, control) : rows;
+  const ratio = stat(ratioRows, treatment, control);
+  const ci = clusterBootstrap(ratioRows, treatment, control, stat);
   const nT = summaries.find(s => s.arm === treatment)?.n ?? 0;
   const nC = summaries.find(s => s.arm === control)?.n ?? 0;
   const medT = summaries.find(s => s.arm === treatment)?.median;
   const medC = summaries.find(s => s.arm === control)?.median;
+  const s48 = summarize(rows.map(r => ({ ...r, at7d: r.at48h })), [treatment, control]);
+  const medT48 = s48[0].median, medC48 = s48[1].median;
   const vars: RuleVars = {
     ratio, lo: ci?.[0], hi: ci?.[1], n: Math.min(nT, nC), nT, nC, medT, medC,
     medRatio: medT !== undefined && medC !== undefined && medC > 0 ? medT / medC : undefined,
+    nT48: s48[0].n,
+    medRatio48: medT48 !== undefined && medC48 !== undefined && medC48 > 0 ? medT48 / medC48 : undefined,
   };
-  const base = { treatment, control, ratio, lo: ci?.[0], hi: ci?.[1], arms: summaries };
+  const stopIf = e.decide?.stopIf;
+  const uses48 = !!stopIf && parseRule(stopIf).flat().some(c => EARLY_VARS.includes(c.v));
+  const base = { treatment, control, ratio, lo: ci?.[0], hi: ci?.[1], arms: summaries, ...(uses48 ? { arms48: s48 } : {}) };
 
-  if (e.decide?.stopIf && holds(e.decide.stopIf, vars)) return { ...base, state: "stop", reason: `停止条件に当たった: ${e.decide.stopIf}` };
+  if (stopIf && holds(stopIf, vars)) return { ...base, state: "stop", reason: `停止条件に当たった: ${stopIf}` };
   if (!due) return { ...base, state: "collecting", reason: notDue };
   const minN = e.decide?.minN ?? 1;
   if (Math.min(nT, nC) < minN) return { ...base, state: "inconclusive", reason: `本数が足りない（${treatment} ${nT}本 / ${control} ${nC}本、必要 ${minN}本）` };

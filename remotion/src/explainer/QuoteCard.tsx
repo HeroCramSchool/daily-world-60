@@ -47,7 +47,8 @@ export const QuoteCard: React.FC<{
             <path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z" fill={accent} transform="rotate(180 12 12)" />
           </svg>
           <div style={{ fontWeight: 800, color: "#FFFFFF", fontSize: body.fontSize, lineHeight: `${body.lineHeight}px` }}>
-            {body.lines.map((l, i) => <div key={i} style={{ whiteSpace: "nowrap" }}>{l}</div>)}
+            {/* どのサイズでも収まらない長い語 (つないだ複合語・URL) は fitLines が全文を1行で返すので、箱の中で折り返す */}
+            {body.lines.map((l, i) => <div key={i} style={{ overflowWrap: "anywhere" }}>{l}</div>)}
           </div>
           <div
             style={{

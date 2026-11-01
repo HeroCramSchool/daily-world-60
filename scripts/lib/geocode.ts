@@ -4,7 +4,8 @@ import { countryLonLat } from "./worldmap.js";
 /**
  * 地名 → 経緯度。解説形式の地図 (remotion/prep-short.ts) が使う。
  * 1) その本の Routine の mapMarkers に同じ名前があればその座標 2) Wikipedia の記事の座標 3) null。
- * Wikipedia の答えは国の中心から遠すぎれば捨てる（同名の別の土地を拾わない）。
+ * Wikipedia は国名が分かれば先に「地名, 国名」の記事を引き、無ければ地名だけで引く（PK の Hyderabad がインドの主記事になる類を避ける）。
+ * どちらの答えも国の中心から遠すぎれば捨てる（同名の別の土地を拾わない）。
  * ネットの失敗では例外を出さない（呼び出し側は国の中心の地図に落とす）。
  */
 
@@ -12,6 +13,8 @@ export type GeoPoint = { lon: number; lat: number; source: "marker" | "wikipedia
 export type GeoMarker = { lon?: number; lat?: number; label?: string };
 export type GeocodeOptions = {
   markers?: GeoMarker[];
+  /** その本の国の英語名（例: Pakistan）。 */
+  countryName?: string;
   /** 結果を残す JSON。出力ディレクトリに置く（同じ日の描き直しで聞き直さない）。 */
   cacheFile?: string;
   fetchImpl?: typeof fetch;
@@ -43,17 +46,29 @@ export async function geocode(name: string, countryCode: string, opts: GeocodeOp
     return c ? { ...c, source: "wikipedia" } : null;
   }
 
-  const found = await askWikipedia(q, opts);
-  // 聞けなかったときは残さない（次の描き直しで聞き直す）
-  if (found === undefined) return null;
-  let ok = found;
-  if (found) {
-    const km = distanceFromCountry(found, cc);
+  const near = (title: string, p: LonLat | null): LonLat | null => {
+    if (!p) return null;
+    const km = distanceFromCountry(p, cc);
     const limit = WIDE_KM[cc] ?? MAX_KM;
     if (km !== null && km > limit) {
-      console.warn(`[geocode] ${q}: ${Math.round(km)} km from ${cc} (limit ${limit} km) — ignored`);
-      ok = null;
+      console.warn(`[geocode] ${title}: ${Math.round(km)} km from ${cc} (limit ${limit} km) — ignored`);
+      return null;
     }
+    return p;
+  };
+  // どちらかを聞けなかったときは残さない（次の描き直しで聞き直す）
+  let ok: LonLat | null = null;
+  const country = String(opts.countryName ?? "").replace(/\s+/g, " ").trim();
+  if (country && want !== country.toLowerCase() && !want.endsWith(`, ${country.toLowerCase()}`)) {
+    const title = `${q}, ${country}`;
+    const found = await askWikipedia(title, opts);
+    if (found === undefined) return null;
+    ok = near(title, found);
+  }
+  if (!ok) {
+    const found = await askWikipedia(q, opts);
+    if (found === undefined) return null;
+    ok = near(q, found);
   }
   if (cache && opts.cacheFile) {
     cache[key] = ok;

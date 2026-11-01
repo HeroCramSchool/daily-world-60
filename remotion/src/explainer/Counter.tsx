@@ -7,10 +7,11 @@ import type { XVisual } from "../lib/explainerTypes";
 
 const COUNT_F = 24;
 
+// 値は引用文と照合した数そのもの。桁を切ると 0.004 が 0.00 になるので丸めない (20 は toLocaleString の上限)
 export const decimalsOf = (n: number) => {
   const s = String(Math.abs(n));
   const i = s.indexOf(".");
-  return i < 0 || s.includes("e") ? 0 : Math.min(2, s.length - i - 1);
+  return i < 0 || s.includes("e") ? 0 : Math.min(20, s.length - i - 1);
 };
 export const fmtNum = (n: number, d: number) =>
   (Number.isFinite(n) ? n : 0).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });

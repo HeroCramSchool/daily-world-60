@@ -1,6 +1,7 @@
 import "dotenv/config";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { pathToFileURL } from "node:url";
 import Anthropic from "@anthropic-ai/sdk";
 import { fetchEconomies, fetchIndicator, fetchLatestValues, indicatorPageUrl, type WbEconomy } from "./lib/worldbank.js";
 
@@ -59,11 +60,12 @@ const PROMPT_PATH = path.join(ROOT, "prompts", "maps", "spec.md");
 
 // ---------------------------------------------------------------- catalog
 
-type RestKey = "borders" | "languages-count" | "official-eng" | "official-fra" | "official-spa" | "official-ara" | "official-por" | "postal-code";
+type RestKey = "borders" | "official-eng" | "official-fra" | "official-spa" | "official-ara" | "official-por";
 type DatasetDef = { id: string; wb: string; hint?: string } | { id: string; rest: RestKey; hint?: string };
 
 // 並び順 = 送る順 (--count はここから先頭 N 件)。登録済み・投稿済みの題材は実行時に除く
-const CATALOG: DatasetDef[] = [
+// 郵便番号の有無と公用語の数は入れない: REST の postalCode.format が IRL・COL・ALB で空、IND の languages に tam が入っている
+export const CATALOG: DatasetDef[] = [
   { id: "fertility-rate", wb: "SP.DYN.TFRT.IN" },
   { id: "electricity-access", wb: "EG.ELC.ACCS.ZS" },
   { id: "english-official", rest: "official-eng" },
@@ -76,7 +78,6 @@ const CATALOG: DatasetDef[] = [
   { id: "forest-cover", wb: "AG.LND.FRST.ZS" },
   { id: "mobile-subscriptions", wb: "IT.CEL.SETS.P2", hint: "Often above 100 because many people have more than one SIM card." },
   { id: "landline-subscriptions", wb: "IT.MLT.MAIN.P2" },
-  { id: "official-languages-count", rest: "languages-count", hint: "Whole-number counts." },
   { id: "drinking-water", wb: "SH.H2O.BASW.ZS" },
   { id: "alcohol-consumption", wb: "SH.ALC.PCAP.LI" },
   { id: "women-in-parliament", wb: "SG.GEN.PARL.ZS" },
@@ -100,7 +101,6 @@ const CATALOG: DatasetDef[] = [
   { id: "fixed-broadband", wb: "IT.NET.BBND.P2" },
   { id: "university-enrollment", wb: "SE.TER.ENRR", hint: "Gross ratio: can be above 100% because students of any age are counted." },
   { id: "female-primary-teachers", wb: "SE.PRM.TCHR.FE.ZS" },
-  { id: "postal-codes", rest: "postal-code" },
   { id: "pupils-per-teacher", wb: "SE.PRM.ENRL.TC.ZS" },
   { id: "clean-cooking-access", wb: "EG.CFT.ACCS.ZS" },
   { id: "basic-sanitation", wb: "SH.STA.BASS.ZS" },
@@ -156,7 +156,6 @@ interface RestCountry {
   ccn3?: string;
   borders?: string[];
   languages?: Record<string, string>;
-  postalCode?: { format?: string | null };
 }
 
 const LANG_NAMES: Record<string, string> = { eng: "English", fra: "French", spa: "Spanish", ara: "Arabic", por: "Portuguese" };
@@ -167,18 +166,6 @@ function restDef(key: RestKey): { field: string; name: string; definition: strin
     name: "Number of countries and territories it shares a land border with",
     definition: "Count of the entries in REST Countries' borders field (land borders only). Islands and places with no land neighbour have 0.",
     get: c => (c.borders ?? []).length,
-  };
-  if (key === "languages-count") return {
-    field: "languages, count", kind: "numeric",
-    name: "Number of official languages",
-    definition: "Count of the languages listed in REST Countries' languages field (its list of official languages) for each country or territory.",
-    get: c => Object.keys(c.languages ?? {}).length,
-  };
-  if (key === "postal-code") return {
-    field: "postalCode", kind: "categorical",
-    name: "Whether the country or territory uses a postal code format",
-    definition: "yes = REST Countries lists a postal code format (postalCode.format); no = it lists none.",
-    get: c => (c.postalCode?.format ? "yes" : "no"),
   };
   const lang = key.slice("official-".length);
   return {
@@ -208,7 +195,7 @@ interface MapEntry {
 }
 interface Registry { maps: Array<{ id: string; source?: { name?: string; url?: string } }> }
 
-interface Loaded {
+export interface Loaded {
   id: string;
   kind: "numeric" | "categorical";
   name: string;
@@ -228,7 +215,7 @@ interface Loaded {
   stale: Array<{ id: string; year: number }>;
 }
 
-interface Ctx {
+export interface Ctx {
   date: string;
   thisYear: number;
   drawable: Set<string>;
@@ -455,7 +442,7 @@ const SPEC_SCHEMA = {
   },
 } as const;
 
-function parseSpec(raw: unknown, dataset: string): MapSpec {
+export function parseSpec(raw: unknown, dataset: string): MapSpec {
   if (!raw || typeof raw !== "object") throw new Error("spec is not an object");
   const o = raw as Record<string, unknown>;
   const str = (k: string, def = "") => {
@@ -490,19 +477,47 @@ function parseSpec(raw: unknown, dataset: string): MapSpec {
   };
 }
 
-/** "Under 1M" → [1000000], "10k–100k" → [10000, 100000], "-2% to 0%" → [-2, 0]。範囲のダッシュは負号にしない */
-function numbersInLabel(s: string): number[] {
+const WORD_NUMBERS: Record<string, number> = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+  twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+  hundred: 100, hundreds: 100, thousand: 1e3, thousands: 1e3, million: 1e6, millions: 1e6, billion: 1e9, billions: 1e9,
+  dozen: 12, dozens: 12, twice: 2, double: 2, triple: 3,
+  half: 0.5, halves: 0.5, third: 1 / 3, thirds: 1 / 3, quarter: 0.25, quarters: 0.25, fifth: 0.2, fifths: 0.2, tenth: 0.1, tenths: 0.1,
+};
+
+/**
+ * "Under 1M" → [1000000], "10k–100k" → [10000, 100000], "-2% to 0%" → [-2, 0], "one in four" → [1, 4]。
+ * 範囲のダッシュは負号にしない。英単語の数と全角数字も数える
+ */
+export function numbersInLabel(s: string): number[] {
   // NFKC は掛けない ("km²" の ² が 2 になる)
-  const t = s.replace(/−/g, "-");
-  const out: number[] = [];
+  const t = s.replace(/−/g, "-").replace(/[０-９]/g, d => String(d.charCodeAt(0) - 0xff10));
+  const found: Array<[number, number]> = [];
   const re = /(-?)(\d+(?:,\d{3})*(?:\.\d+)?)(?:\s*(thousand|million|billion|bn|k|K|M|B)(?![A-Za-z]))?/g;
+  let rest = t;
   for (const m of t.matchAll(re)) {
     const before = t[m.index! - 1] ?? "";
     const negative = m[1] === "-" && !/[\d%A-Za-z.]/.test(before);
     const scale = { thousand: 1e3, k: 1e3, K: 1e3, million: 1e6, M: 1e6, billion: 1e9, bn: 1e9, B: 1e9 }[m[3] ?? ""] ?? 1;
-    out.push((negative ? -1 : 1) * Number(m[2].replace(/,/g, "")) * scale);
+    found.push([m.index!, (negative ? -1 : 1) * Number(m[2].replace(/,/g, "")) * scale]);
+    rest = rest.slice(0, m.index!) + " ".repeat(m[0].length) + rest.slice(m.index! + m[0].length);
   }
-  return out;
+  // "10 thousand" の thousand は上で数えたので、数字の後ろに付いた単位は二重に数えない
+  for (const m of rest.matchAll(/[A-Za-z]+/g)) {
+    const v = WORD_NUMBERS[m[0].toLowerCase()];
+    if (v !== undefined) found.push([m.index!, v]);
+  }
+  return found.sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+}
+
+// 先頭ビンは低い側、最後のビンは高い側。逆向きの言葉を書くと凡例が事実と逆になる
+const UPWARD_WORDS = /\bor more\b|\bor above\b|\bor higher\b|\bmore than\b|\bover\b|\babove\b|\+/i;
+const DOWNWARD_WORDS = /\bunder\b|\bbelow\b|\bless than\b|\bfewer than\b/i;
+
+function countryNamePattern(names: Map<string, string>): RegExp | null {
+  const list = [...new Set(names.values())].filter(Boolean).map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  return list.length ? new RegExp(`(?<![\\p{L}\\p{N}])(?:${list.join("|")})(?![\\p{L}\\p{N}])`, "iu") : null;
 }
 
 const near = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
@@ -531,7 +546,7 @@ interface Review {
   warnings: string[];
 }
 
-function buildCandidate(ds: Loaded, spec: MapSpec, ctx: Ctx, provenance: string): { entry: MapEntry; review: Review } | Rejected {
+export function buildCandidate(ds: Loaded, spec: MapSpec, ctx: Ctx, provenance: string): { entry: MapEntry; review: Review } | Rejected {
   const id = spec.id ?? ds.id;
   const fail = (reason: string, stage: Rejected["stage"] = "checks"): Rejected => ({ id, stage, reason });
   if (spec.skip) return fail(spec.skipReason || "(no reason given)", "skipped-by-model");
@@ -560,12 +575,22 @@ function buildCandidate(ds: Loaded, spec: MapSpec, ctx: Ctx, provenance: string)
     });
     if (edges.some((e, i) => i > 0 && e <= edges[i - 1])) problems.push("bin edges must be strictly increasing");
     const colors = NUMERIC_PICK[bins.length] ?? [];
+    const minVal = Math.min(...[...ds.values.values()].map(Number));
     legend = bins.map((b, i) => {
       const lo = i > 0 ? edges[i - 1] : undefined;
       const hi = i < edges.length ? edges[i] : undefined;
-      const allowed = [lo, hi, ...(hi !== undefined && ds.integer ? [hi - 1] : []), ...(i === 0 ? [0] : [])].filter((x): x is number => x !== undefined);
-      const bad = numbersInLabel(b.label).filter(n => !allowed.some(a => near(a, n)));
-      if (bad.length) problems.push(`label "${b.label}" has ${bad.join(", ")} which is not an edge of its bin (${lo ?? "−∞"}, ${hi ?? "∞"})`);
+      const nums = numbersInLabel(b.label);
+      const downward = DOWNWARD_WORDS.test(b.label);
+      // 整数の上端を含めた書き方 ("1–2" = 1 以上 3 未満) は範囲か、整数 1 つだけのビンのとき。"Under 2" は 2 未満の意味なので許さない
+      const inclusiveTop = hi !== undefined && ds.integer && !downward && (nums.length === 2 || hi - 1 === (lo ?? minVal)) ? [hi - 1] : [];
+      // 先頭ビンの下端を 0 と書けるのは、負の値が無いときだけ
+      const zeroFloor = lo === undefined && nums.length === 2 && minVal >= 0 ? [0] : [];
+      const allowed = [...(lo === undefined ? [] : [lo]), ...(hi === undefined ? [] : [hi, ...inclusiveTop, ...zeroFloor])];
+      const bad = nums.filter(n => !allowed.some(a => near(a, n)));
+      if (bad.length) problems.push(`label "${b.label}" has ${bad.join(", ")} which is not an edge of its bin (${lo ?? "−∞"}, ${hi ?? "∞"})${lo === undefined && minVal < 0 && bad.includes(0) ? ` (the data goes down to ${sig(minVal, 3)})` : ""}`);
+      if (lo === undefined && UPWARD_WORDS.test(b.label)) problems.push(`first bin label "${b.label}" reads as an upper bin (it holds the lowest values)`);
+      if (hi === undefined && downward) problems.push(`last bin label "${b.label}" reads as a lower bin (it holds the highest values)`);
+      if (lo !== undefined && hi !== undefined && (downward || UPWARD_WORDS.test(b.label))) problems.push(`middle bin label "${b.label}" reads as open-ended (write "X–Y")`);
       const key = i === 0 ? `<${fmtEdge(edges[0])}` : hi === undefined ? `${fmtEdge(lo!)}+` : `${fmtEdge(lo!)}-${fmtEdge(hi)}`;
       return { key, label: b.label, color: NUMERIC_COLORS[colors[i] ?? 0] };
     });
@@ -603,10 +628,23 @@ function buildCandidate(ds: Loaded, spec: MapSpec, ctx: Ctx, provenance: string)
 
   // 本文に出る数は、定義・指標名・ビンの切れ目・年に出てくるものだけ (Claude は国の値を知らない)
   const years = [...ds.years.values()];
-  const allowedNums = [...numbersInLabel(`${ds.name} ${ds.definition}`), ...edges, ...years, ctx.thisYear, 0, 1, 100];
-  for (const [field, text] of [["title", spec.title], ["shortTitle", spec.shortTitle], ["cta", spec.cta], ["descriptionNote", spec.descriptionNote]] as const) {
+  const definitionNums = numbersInLabel(`${ds.name} ${ds.definition}`);
+  const allowedNums = [...definitionNums, ...edges, ...years, ctx.thisYear, 0, 1, 100];
+  const texts: Array<[string, string]> = [["title", spec.title], ["shortTitle", spec.shortTitle], ["cta", spec.cta], ["descriptionNote", spec.descriptionNote]];
+  for (const [field, text] of texts) {
     const bad = numbersInLabel(text).filter(n => !allowedNums.some(a => near(a, n)));
     if (bad.length) problems.push(`${field} has number(s) ${bad.join(", ")} not found in the dataset definition or bin edges`);
+  }
+  // 件数は MapShort が凡例の横に描くので、カテゴリと No data のラベルに書いた数はその件数と食い違う
+  const countLabels: Array<[string, string]> = [["unknownLabel", spec.unknownLabel], ...(ds.kind === "categorical" ? legend.map(l => ["group label", l.label] as [string, string]) : [])];
+  for (const [field, text] of countLabels) {
+    const bad = numbersInLabel(text).filter(n => !definitionNums.some(a => near(a, n)));
+    if (bad.length) problems.push(`${field} "${text}" has number(s) ${bad.join(", ")}; MapShort draws the count itself, so this label must not carry numbers`);
+  }
+  const namePattern = countryNamePattern(ctx.names);
+  for (const [field, text] of [...texts, ["unknownLabel", spec.unknownLabel], ...legend.map(l => ["legend label", l.label] as [string, string])]) {
+    const hit = namePattern?.exec(text);
+    if (hit) problems.push(`${field} names a country ("${hit[0]}")`);
   }
   if (problems.length) return fail(problems.join("; "));
 
@@ -632,8 +670,9 @@ function buildCandidate(ds: Loaded, spec: MapSpec, ctx: Ctx, provenance: string)
   const yh = yearHistogram(ds);
   const minY = years.length ? Math.min(...years) : undefined;
   const maxY = years.length ? Math.max(...years) : undefined;
-  if (maxY !== undefined && ds.source.year < ctx.thisYear - 5) warnings.push(`most values are from ${ds.source.year}`);
-  const mixedYears = years.length > 0 && (yh[ds.source.year] ?? 0) / years.length < 0.9;
+  if (maxY !== undefined && ds.source.year <= ctx.thisYear - 5) warnings.push(`most values are from ${ds.source.year}`);
+  // 1 か国でも年が違えば注記する (prep-map.ts はこの注記を見て出典行に "(latest available)" を付ける)
+  const mixedYears = minY !== undefined && minY !== maxY;
 
   const note = [spec.descriptionNote, mixedYears ? `Latest available year per economy (${minY}–${maxY}).` : ""].filter(Boolean).join(" ");
   const entry: MapEntry = {
@@ -657,7 +696,7 @@ function buildNotes(ds: Loaded, legend: MapLegend[], counts: Record<string, numb
   const parts = [
     `auto-built ${ctx.date} by scripts/build-map-library.ts — ${provenance}`,
     `Values fetched by the script from ${ds.dataUrl}${ds.lastUpdated ? ` (source lastupdated ${ds.lastUpdated})` : ""}; the model never saw per-country values.`,
-    `automated checks passed: coverage ${coverage} >= ${MIN_COUNTRIES}; every bin >= ${MIN_PER_BIN} (${legend.map(l => `${l.key}=${counts[l.key]}`).join(", ")}); legend numbers match bin edges; title/CTA numbers only from the definition or edges.`,
+    `automated checks passed: coverage ${coverage} >= ${MIN_COUNTRIES}; every bin >= ${MIN_PER_BIN} (${legend.map(l => `${l.key}=${counts[l.key]}`).join(", ")}); ${ds.kind === "numeric" ? "legend numbers are their bin's edges and the first/last labels point the right way" : "group labels carry no numbers"}; no number in the No-data label; title/CTA/note numbers (digits or number words) only from the definition, edges or years; no country name in any text.`,
   ];
   if (ds.years.size) {
     parts.push(`Latest non-empty value per economy, ${MIN_YEAR} or later: years ${JSON.stringify(yearHistogram(ds))}; source.year = modal year.`);
@@ -671,9 +710,11 @@ function buildNotes(ds: Loaded, legend: MapLegend[], counts: Record<string, numb
     const show = (xs: ReadonlyArray<readonly [string, number]>) => xs.map(([k, v]) => `${k} ${v}`).join(", ");
     parts.push(`raw = ${ds.name}, to 4 significant digits; bins use the unrounded API value. Highest: ${show(sorted.slice(0, 3))}; lowest: ${show(sorted.slice(-3).reverse())}.`);
   }
-  if (ds.source.name.startsWith("REST")) parts.push(`REST Countries data file last updated ${ds.lastUpdated ?? "unknown"}; REST has known stale entries (see driving-side/timezones notes) — spot-check before promoting.`);
+  const rest = ds.source.name.startsWith("REST");
+  if (rest) parts.push(`REST Countries data file last updated ${ds.lastUpdated ?? "unknown"}; REST has known stale entries (see driving-side/timezones notes) — spot-check before promoting.`);
   if (warnings.length) parts.push(`warnings: ${warnings.join("; ")}.`);
-  parts.push("NOT yet human-verified: spot-check 3 countries against the source before moving this entry into registry.json.");
+  // REST の値を REST と照らしても必ず一致するので、別の出典と照らさせる
+  parts.push(`NOT yet human-verified: spot-check 3 countries against ${rest ? "a source other than REST Countries (Wikipedia, GeoNames)" : "the source"} before moving this entry into registry.json.`);
   return parts.join(" ");
 }
 
@@ -979,7 +1020,9 @@ async function main() {
   for (const r of rejected.filter(r => r.stage !== "precheck" || !r.reason.includes("already"))) console.log(`  - ${r.id} [${r.stage}]: ${r.reason}`);
 }
 
-main().catch(e => {
-  console.error(e);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  main().catch(e => {
+    console.error(e);
+    process.exit(1);
+  });
+}

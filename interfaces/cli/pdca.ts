@@ -22,6 +22,8 @@ import { driveClient, findFolderId } from "../../scripts/fetch-scripts-from-driv
 import { loadLedger } from "../../scripts/lib/ledger.js";
 
 const AT_HOURS = 168;
+/** 止める条件（nT48・medRatio48）用。期間中に判断できるよう7日を待たない。 */
+const EARLY_HOURS = 48;
 const REPORT_NAME = "experiments-report.md";
 const today = () => process.env.PDCA_TODAY?.trim() || new Date().toISOString().slice(0, 10);
 
@@ -73,6 +75,7 @@ async function videoFacts(): Promise<{ videos: VideoFact[]; drive?: drive_v3.Dri
     videoId: v.videoId, title: v.title, publishedAt: v.publishedAt, scriptDate: v.scriptDate,
     format: v.format, variant: v.variant, rank: v.rank, index: v.index, exp: v.exp, arm: v.arm,
     at7d: ageHours(v, now) >= AT_HOURS ? viewsAt(v, AT_HOURS) : undefined,
+    at48h: ageHours(v, now) >= EARLY_HOURS ? viewsAt(v, EARLY_HOURS) : undefined,
     matured: ageHours(v, now) >= AT_HOURS,
   }));
   return { videos, drive, folderId };

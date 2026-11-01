@@ -589,6 +589,39 @@ async function generateBeatImage(story: StoryLike, beatText: string, beatIdx: nu
   await pollinate(prompt, (story.index ?? 1) * 100 + beatIdx, dest, 45000);
 }
 
+/** 要約の文ごとのビート画像 (無料の Pollinations) と、PARALLAX=on のときの 2.5D 化。CREDITS.md の行を返す。 */
+async function generateBeats(story: Story, code: string, assets: string): Promise<string> {
+  const beats = splitBeats(story.summary ?? "");
+  let okBeats = 0;
+  await runBounded(beats, BEAT_CONCURRENCY, async (beatText, bi) => {
+    const dest = path.join(assets, `beat-${code}-s${story.index}-b${bi + 1}.jpg`);
+    try {
+      await generateBeatImage(story, beatText, bi, dest);
+      okBeats++;
+    } catch (e) {
+      console.warn(`[broll] beat gen failed (${code} b${bi + 1}): ${e instanceof Error ? e.message : e} — will fall back to stock`);
+    }
+  });
+  console.log(`[broll] ${code}: ${okBeats}/${beats.length} beat images generated`);
+
+  // 2.5Dパララックス化 (rembg 前景分離 + 2層合成 → motion.mp4)。逐次・失敗はスキップ。
+  if (PARALLAX_ON && okBeats > 0) {
+    let okMotion = 0;
+    for (let bi = 0; bi < beats.length; bi++) {
+      const beatJpg = path.join(assets, `beat-${code}-s${story.index}-b${bi + 1}.jpg`);
+      if (!(await exists(beatJpg))) continue;
+      try {
+        await generateParallax(beatJpg, bi);
+        okMotion++;
+      } catch (e) {
+        console.warn(`[broll] parallax failed (${code} b${bi + 1}): ${e instanceof Error ? e.message : e} — still image fallback`);
+      }
+    }
+    console.log(`[broll] ${code}: ${okMotion}/${beats.length} parallax motion clips generated`);
+  }
+  return `- beat-${code}-s${story.index}-b1..${okBeats}.jpg — AI beat illustrations (Pollinations flux, free)`;
+}
+
 /** 要約を文(ビート)に分割。短すぎる断片は除外、MAX_BEAT_IMAGES で上限。 */
 function splitBeats(summary: string): string[] {
   return (summary ?? "")
@@ -670,10 +703,11 @@ async function main() {
     const code = story.country.code.toLowerCase();
     const countryName = story.country.name ?? COUNTRY_NAMES[story.country.code.toUpperCase()] ?? story.country.code;
 
-    // 解説形式の本 (write-explainers が storyboard を書いた本) はデータから描く図だけで作るので、写真も AI 画像も取らない。
-    // 投稿用画像 (generate-social-images) と prep-short が今の形式に戻したときのために、単色の下地と国旗だけ置く。
+    // 解説形式の本 (write-explainers が storyboard を書いた本) はデータから描く図だけで作るので、写真も AI hero もモーションも作らない。
+    // 下地 (= 投稿用画像 generate-social-images の背景) は単色のまま。ただし prep-short が今の形式に戻したとき
+    // 紺一色の動画にならないよう、無料のビート画像だけは今の形式の本と同じに作る (有料の fal・runpod は使わない)。
     if (await exists(path.join(dir, storyboardFile(story.index, story.country.code)))) {
-      console.log(`[broll] ${code}: storyboard あり (解説形式) — 画像の取得と生成を飛ばす (単色の下地と国旗だけ)`);
+      console.log(`[broll] ${code}: storyboard あり (解説形式) — 写真・AI hero・モーションを飛ばす (単色の下地・国旗と、今の形式に戻ったとき用の無料のビート画像だけ)`);
       await solidFallback(path.join(assets, `bg-${code}-s${story.index}-1.jpg`), countryName);
       for (let n = 2; n <= BG_COUNT; n++) {
         await fs.copyFile(path.join(assets, `bg-${code}-s${story.index}-1.jpg`), path.join(assets, `bg-${code}-s${story.index}-${n}.jpg`)).catch(() => {});
@@ -681,7 +715,9 @@ async function main() {
       await fetchFlag(story.country.code, path.join(assets, `${code}.png`)).catch(e => {
         console.warn(`[broll] flag fetch failed (${code}): ${e instanceof Error ? e.message : e}`);
       });
-      creditLines.push(`## Story ${story.index} — ${countryName}: ${story.headline}`, `- bg-${code}-s${story.index}-1..${BG_COUNT}.jpg — solid-color placeholder (explainer: data graphics only)`, "");
+      creditLines.push(`## Story ${story.index} — ${countryName}: ${story.headline}`, `- bg-${code}-s${story.index}-1..${BG_COUNT}.jpg — solid-color placeholder (explainer: data graphics only)`);
+      if (AI_BEATS_ON) creditLines.push(await generateBeats(story, code, assets));
+      creditLines.push("");
       continue;
     }
 
@@ -787,37 +823,7 @@ async function main() {
     // ビート画像: 要約の文ごとに1枚のAIイラストを生成 (beat-{code}-s{index}-b{n}.jpg)。
     // build-news-video が body cue i にこれを割り当て、その文の内容を絵で描く=分かりやすい。
     // 失敗/拒否時はファイルを書かない → build 側が stock(bg) にフォールバック (黒画面なし)。
-    if (AI_BEATS_ON) {
-      const beats = splitBeats(story.summary ?? "");
-      let okBeats = 0;
-      await runBounded(beats, BEAT_CONCURRENCY, async (beatText, bi) => {
-        const dest = path.join(assets, `beat-${code}-s${story.index}-b${bi + 1}.jpg`);
-        try {
-          await generateBeatImage(story, beatText, bi, dest);
-          okBeats++;
-        } catch (e) {
-          console.warn(`[broll] beat gen failed (${code} b${bi + 1}): ${e instanceof Error ? e.message : e} — will fall back to stock`);
-        }
-      });
-      creditLines.push(`- beat-${code}-s${story.index}-b1..${okBeats}.jpg — AI beat illustrations (Pollinations flux, free)`);
-      console.log(`[broll] ${code}: ${okBeats}/${beats.length} beat images generated`);
-
-      // 2.5Dパララックス化 (rembg 前景分離 + 2層合成 → motion.mp4)。逐次・失敗はスキップ。
-      if (PARALLAX_ON && okBeats > 0) {
-        let okMotion = 0;
-        for (let bi = 0; bi < beats.length; bi++) {
-          const beatJpg = path.join(assets, `beat-${code}-s${story.index}-b${bi + 1}.jpg`);
-          if (!(await exists(beatJpg))) continue;
-          try {
-            await generateParallax(beatJpg, bi);
-            okMotion++;
-          } catch (e) {
-            console.warn(`[broll] parallax failed (${code} b${bi + 1}): ${e instanceof Error ? e.message : e} — still image fallback`);
-          }
-        }
-        console.log(`[broll] ${code}: ${okMotion}/${beats.length} parallax motion clips generated`);
-      }
-    }
+    if (AI_BEATS_ON) creditLines.push(await generateBeats(story, code, assets));
 
     // 国旗 PNG
     await fetchFlag(story.country.code, path.join(assets, `${code}.png`)).catch(e => {
