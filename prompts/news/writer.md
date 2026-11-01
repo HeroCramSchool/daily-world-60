@@ -17,7 +17,7 @@ You write one ~30-second narrated news explainer for Daily World 60. Viewers are
 - The first sentence starts with the key number and is short and concrete, like "505 drones at Russia." Do not add "one night" or similar: "one" counts as a number and must be in the quote.
 - Prefer counts of weapons, attacks, ships, troops, or distance. Do not make deaths or casualties the headline number.
 - The last sentence comes back to the first number, so the video loops.
-- hook: the on-screen headline. At most 40 characters, upper case, starts with the same number (or its qualifier, then the number), strong and literal. Headlines like "505 DRONES TARGET RUSSIA OVERNIGHT" did best on our channel (small sample); use that pattern only when the quotes support every word of it.
+- hook: the on-screen headline. At most 40 characters, upper case, starts with the same number, strong and literal. Only two things may come before the digits: the qualifier your quote puts on the number (AROUND, ABOUT, NEARLY, ALMOST, OVER, MORE THAN, AT LEAST, UP TO, SOME, APPROXIMATELY, ROUGHLY, AN ESTIMATED, AS MANY AS), then a currency sign written right against the number ($, US$, A$, C$, €, £, ¥), as in "NEARLY $6.3 BILLION STOLEN". Headlines like "505 DRONES TARGET RUSSIA OVERNIGHT" did best on our channel (small sample); use that pattern only when the quotes support every word of it.
 - whyPicked: one sentence on the angle you chose.
 - ids: "l1", "l2", ... in order.
 
@@ -26,8 +26,9 @@ You write one ~30-second narrated news explainer for Daily World 60. Viewers are
 Pick one visual per sentence and set the fields of the other kinds to null.
 - map_zoom: 1-5 places, each named in a fact quote.
 - counter: a number from that sentence's quote, with a short label.
-- bars: 2-4 labelled values, all from quotes. Good for comparing claims or counts.
+- bars: 2-4 labelled values. On a fact sentence each value is in that sentence's quote or is a number another fact sentence already said. Good for comparing claims or counts.
+- counter and bars: each value is read together with its label ("90" and "% replaced" read as "90 % replaced"). For a percentage, the value is the bare number and the label starts with "%" or "percent" (value 90, label "% of funds replaced"). A label like "replaced" leaves a plain 90, which a quote's 90% does not support.
 - route: from and to, both places named in fact quotes.
-- quote_card: text is words that appear inside quotation marks in that sentence's quote (at most 25 words), and who is the person or body quoted. If the quote is the outlet's own prose or reported speech ("according to him", "said that"), set who to the outlet name from the page tag or pick another visual.
+- quote_card: only on a fact sentence. text is words that sit inside quotation marks on that page (at most 25 words; the quote may start after the opening mark), and who is the person or body quoted. If the quote is the outlet's own prose or reported speech ("according to him", "said that"), set who to the outlet name from the page tag or pick another visual.
 
 A framing sentence's visual may only reuse places and numbers from the fact sentences.

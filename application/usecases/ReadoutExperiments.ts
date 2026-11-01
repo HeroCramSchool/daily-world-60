@@ -99,8 +99,10 @@ export function confounds(e: Experiment, others: Experiment[], videos: VideoFact
     ...ctx.gitChanges(start, end).map(s => `変更: ${s}`),
     ...zeroPostDays(videos, start, end, ctx.today, ctx.postedNewsDays).map(d => `事故: ${d} 本編0本`),
     ...ctx.failedRuns(start, end).map(s => `事故: ${s}`),
-    ...others.filter(o => o.id !== e.id && o.status === "running" && o.window
-      && o.window.start <= end && start <= o.window.end).map(o => `同時に実行中: ${o.id}`),
+    // 決定済みの施策も、期間が重なれば交絡の候補として残す（決めた日に running から外れても期間中は動いていた）
+    ...others.filter(o => o.id !== e.id && o.status !== "idea" && o.status !== "draft" && o.window
+      && o.window.start <= end && start <= o.window.end)
+      .map(o => o.status === "running" ? `同時に実行中: ${o.id}` : `期間が重なる施策: ${o.id}（${o.status}）`),
   ];
 }
 

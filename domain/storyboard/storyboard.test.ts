@@ -64,6 +64,10 @@ test("numbersIn: 型番・名前の数字は数にしない（F-16 は 16 では
   assert.ok(!numbersIn("Shahed-136 drones").includes("136"));
   // 前に付く語（post-・under- など）の後の数字は数のまま
   assert.deepEqual(numbersIn("post-2022, under-18s, mid-2025"), ["2022", "18", "2025"]);
+  assert.deepEqual(numbersIn("by end-2026, from start-2027"), ["2026", "2027"]);
+  // 区分の語の後の数字も数（"Category-5" と "Category 5" は同じ 5）
+  assert.deepEqual(numbersIn("a Category-5 storm, a Category 5 storm"), ["5"]);
+  assert.deepEqual(numbersIn("Level-3 alert, level 3"), ["3"]);
   assert.deepEqual(numbersIn("killed12 people"), ["12"]);
 });
 
@@ -271,7 +275,10 @@ test("checkFacts: 見出しの数は事実の文で読み上げた数だけ", ()
 });
 
 test("checkFacts: 見出しは限定語（around・more than など）の後に数字が来てもよい", () => {
-  for (const hook of ["AROUND 505 TREATED AFTER TURKEY QUAKE", "More than 505 treated in Turkey", "at least 3 dead in Turkey quake", "Up to 505 treated in Turkey", "SOME 505 TREATED"]) {
+  for (const hook of [
+    "AROUND 505 TREATED AFTER TURKEY QUAKE", "More than 505 treated in Turkey", "at least 3 dead in Turkey quake", "Up to 505 treated in Turkey", "SOME 505 TREATED",
+    "APPROXIMATELY 505 TREATED IN TURKEY", "Roughly 505 treated in Turkey", "AN ESTIMATED 505 TREATED", "As many as 3 dead in Turkey",
+  ]) {
     const sb = clone();
     sb.hook = hook;
     assert.deepEqual(run(sb).errors, [], hook);
@@ -284,6 +291,28 @@ test("checkFacts: 見出しは限定語（around・more than など）の後に�
   const unverified = clone();
   unverified.hook = "NEARLY 29 HURT IN TURKEY";
   expectError(unverified, "hook", /数 29 が事実の文で確かめた数に無い/);
+});
+
+test("checkFacts: 見出しは通貨記号（$・US$・€ など）の直後に数字が来てもよい", () => {
+  const AID = "https://apnews.com/article/turkey-quake-aid-def456";
+  const quote = "The government released $6.3 billion in emergency aid for Balikesir, the finance ministry said.";
+  const docs: FetchedDoc[] = [...DOCS, { url: AID, via: "http", text: quote }];
+  const make = (hook: string) => {
+    const sb = clone();
+    sb.hook = hook;
+    const l = line(sb, "l4");
+    l.say = "The government released $6.3 billion in emergency aid for Balikesir.";
+    l.visual = { kind: "map_zoom", places: ["Balikesir"] };
+    l.source = { outlet: "AP", url: AID, quote };
+    return sb;
+  };
+  for (const hook of ["$6.3 BILLION IN TURKEY QUAKE AID", "US$6.3BN FOR TURKEY QUAKE ZONE", "ABOUT €6.3 BILLION IN QUAKE AID", "£6.3bn in quake aid", "A$6.3 billion", "C$6.3 billion", "¥6.3 billion"]) {
+    assert.deepEqual(run(make(hook), docs).errors, [], hook);
+  }
+  for (const hook of ["USD 6.3 BILLION IN QUAKE AID", "Aid: $6.3 billion", "$ 6.3 BILLION IN AID"]) {
+    expectError(make(hook), "hook", /数字から始まっていない.*US\$/, docs);
+  }
+  expectError(make("$6.3 TRILLION IN QUAKE AID"), "hook", /6\.3 trillion が事実の文で確かめた数に無い/, docs);
 });
 
 test("checkFacts: framing が新しい数を持ち込まない・出典を持たない", () => {
@@ -341,6 +370,13 @@ test("checkFacts: 型番の数字は数にしない・型番は引用文のと�
   const framing = make("Norway sent Ukraine another batch of F-16 fighter jets.");
   line(framing, "l5").say = "So far, 3 have died and 505 needed care as PAC-3 units arrive.";
   expectError(framing, "l5", /型番・名前 pac-3 が事実の文で確かめた数に無い/, docs, opts);
+
+  // "end-2026" は年の数で型番ではない。"by the end of 2026" と言い換えてよい
+  const END = "https://kyivindependent.com/f16-deliveries";
+  const endDocs: FetchedDoc[] = [...docs, { url: END, via: "http", text: "Norway said the remaining F-16 jets are expected by end-2026, officials said." }];
+  const end = make("Norway expects the remaining F-16 jets by the end of 2026.");
+  line(end, "l4").source = { outlet: "Kyiv Independent", url: END, quote: "Norway said the remaining F-16 jets are expected by end-2026" };
+  assert.deepEqual(run(end, endDocs, opts).errors, []);
 });
 
 test("checkFacts: 40% を 40 個として言わない", () => {
@@ -357,13 +393,14 @@ test("checkFacts: 40% を 40 個として言わない", () => {
   };
   expectError(make("Power is back in 40 Kyiv districts, officials say.", { kind: "map_zoom", places: ["Kyiv"] }), "l4", /数 40 が引用文に無い（引用文の数: 40%）/, docs, opts);
   assert.deepEqual(run(make("Power is back for 40 percent of Kyiv, officials say.", { kind: "counter", value: 40, label: "% of Kyiv restored" }), docs, opts).errors, []);
-  expectError(make("Power is back for 40 percent of Kyiv, officials say.", { kind: "counter", value: 40, label: "districts" }), "l4", /counter の値 40 が引用文に無い/, docs, opts);
+  // value は数の型で % を書けないので、直し方（label を % で始める）を示す
+  expectError(make("Power is back for 40 percent of Kyiv, officials say.", { kind: "counter", value: 40, label: "districts" }), "l4", /counter の値 40 が引用文に無い（引用文の数: 40%）。40% ならある。割合なら label を % で始める/, docs, opts);
 
   const bars = make("Power is back for 40 percent of Kyiv, officials say.", { kind: "map_zoom", places: ["Kyiv"] });
   line(bars, "l5").visual = { kind: "bars", items: [{ label: "% of Kyiv", value: 40 }, { label: "Died", value: 3 }] };
   assert.deepEqual(run(bars, docs, opts).errors, []);
   line(bars, "l5").visual = { kind: "bars", items: [{ label: "Kyiv", value: 40 }, { label: "Died", value: 3 }] };
-  expectError(bars, "l5", /bars の値 40 が事実の文で確かめた数に無い/, docs, opts);
+  expectError(bars, "l5", /bars の値 40 が事実の文で確かめた数に無い.*40% ならある。割合なら label を % で始める/, docs, opts);
 });
 
 test("checkFacts: 引用カードの文は引用文の一部", () => {
@@ -433,6 +470,50 @@ test("checkFacts: 引用カードは引用符の内側の言葉か、媒体名�
   line(prose, "l4").say = "Some 2.5 million people live in the province, officials said.";
   line(prose, "l4").visual = { kind: "quote_card", who: "Ali Yerlikaya", text: "Some 2.5 million people live in the province" };
   expectError(prose, "l4", /引用符（"）の内側に無い.*「AP」/);
+
+  // 発言を引用符ぬきで写した引用文も、本文で引用符の内側なら本人の札にできる
+  const bare = clone();
+  line(bare, "l4").source!.quote = "Search and rescue work is continuing at 16 buildings.";
+  assert.deepEqual(run(bare).errors, []);
+  const mid = "These Russian strikes have created a difficult situation with electricity supplies across our regions";
+  assert.deepEqual(run(make(mid, "Volodymyr Zelensky", "a difficult situation with electricity supplies", say), docs, opts).errors, []);
+});
+
+test("checkFacts: 引用カードの引用符は本文で見る（閉じの引用符が離れた発言・地の文）", () => {
+  const UP = "https://www.pravda.com.ua/eng/news/2026/11/01/7531234/";
+  const text = "Russian forces targeted Ukraine with 168 attack drones during the day on Saturday.\n"
+    + "Source: Ukraine's Air Force on Telegram\n"
+    + "Quote: “During the day, the enemy attacked Ukraine with 168 attack drones.\nAdvertisement:\nAir defence shot down or suppressed 122 of them.”\n"
+    + "Details: The drones were launched from Kursk and Bryansk.";
+  const docs: FetchedDoc[] = [...DOCS, { url: UP, via: "http", text }];
+  const opts = { ...OPTS, allowedHosts: [...OPTS.allowedHosts, "pravda.com.ua"] };
+  const make = (quote: string, cardText: string, say: string) => {
+    const sb = clone();
+    const l = line(sb, "l4");
+    l.say = say;
+    l.visual = { kind: "quote_card", who: "Ukraine's Air Force", text: cardText };
+    l.source = { outlet: "Ukrainska Pravda", url: UP, quote };
+    return sb;
+  };
+  // 開きの引用符を写していない・閉じの引用符が広告の行の後にある発言は通る
+  assert.deepEqual(run(make("During the day, the enemy attacked Ukraine with 168 attack drones.", "the enemy attacked Ukraine with 168 attack drones", "Ukraine's Air Force says 168 attack drones were launched."), docs, opts).errors, []);
+  assert.deepEqual(run(make("Air defence shot down or suppressed 122 of them.", "Air defence shot down or suppressed 122 of them", "Air defence shot down or suppressed 122 of the drones."), docs, opts).errors, []);
+  // 開きの引用符より前・閉じの引用符より後の地の文は、媒体名でなければ通さない。直し方を示す
+  const before = make("Russian forces targeted Ukraine with 168 attack drones during the day on Saturday.", "Russian forces targeted Ukraine with 168 attack drones", "Russian forces targeted Ukraine with 168 attack drones on Saturday.");
+  expectError(before, "l4", /本文で引用符（"）の内側に無い。.*source\.quote を本文の開きの引用符から写す。.*who を出典の媒体名「Ukrainska Pravda」にする/, docs, opts);
+  assert.ok(!run(before, docs, opts).errors.some(e => /本人の言葉ではない/.test(e)));
+  expectError(make("Details: The drones were launched from Kursk and Bryansk.", "The drones were launched from Kursk and Bryansk", "The drones were launched from Kursk and Bryansk, the Air Force says."), "l4", /内側に無い/, docs, opts);
+
+  // 本文の取り出しで開きの引用符の後に空白が入っても（“ Air）、引用文だけで見て内側なら通す
+  const KI = "https://kyivindependent.com/klitschko-shelters";
+  const spaced = "Mayor Vitali Klitschko said on Telegram: “ Air defence is working, stay in shelters,” he added.";
+  const kdocs: FetchedDoc[] = [...DOCS, { url: KI, via: "http", text: spaced }];
+  const k = clone();
+  const kl = line(k, "l4");
+  kl.say = "Kyiv's mayor told residents to stay in shelters.";
+  kl.visual = { kind: "quote_card", who: "Vitali Klitschko", text: "Air defence is working, stay in shelters" };
+  kl.source = { outlet: "Kyiv Independent", url: KI, quote: "Air defence is working, stay in shelters,” he added." };
+  assert.deepEqual(run(k, kdocs, { ...OPTS, allowedHosts: [...OPTS.allowedHosts, "kyivindependent.com"] }).errors, []);
 });
 
 test("checkFacts: 地図と経路の地名はどれかの引用文に語として出てくる", () => {
@@ -490,6 +571,24 @@ test("checkFacts: counter と bars の値は確かめた数", () => {
   const sb = clone();
   line(sb, "l3").visual = { kind: "counter", value: 29, label: "treated" };
   expectError(sb, "l3", /counter の値 29/);
+  assert.ok(!run(sb).errors.some(e => /% で始める/.test(e)));
+
+  // bars は fact の行でも確かめた数を使える（3 は l1 で確かめた数で、l3 の引用文には無い）。その行の引用文の数も使える
+  const factBars = clone();
+  line(factBars, "l3").visual = { kind: "bars", items: [{ label: "Died", value: 3 }, { label: "Treated", value: 505 }] };
+  assert.deepEqual(run(factBars).errors, []);
+  line(factBars, "l3").visual = { kind: "bars", items: [{ label: "Treated", value: 505 }, { label: "km to Istanbul", value: 200 }] };
+  assert.deepEqual(run(factBars).errors, []);
+  // 別の行の引用文にだけあり、どの文でも言っていない数は通さない（29 は l1 の引用文にだけある）
+  line(factBars, "l3").visual = { kind: "bars", items: [{ label: "Hurt", value: 29 }, { label: "Treated", value: 505 }] };
+  expectError(factBars, "l3", /bars の値 29 が引用文にも事実の文で確かめた数にも無い/);
+  // counter と引用カードの who は、fact の行ではその行の引用文の数だけ（確かめた数の 3 でも通さない）
+  const factCounter = clone();
+  line(factCounter, "l3").visual = { kind: "counter", value: 3, label: "dead" };
+  expectError(factCounter, "l3", /counter の値 3 が引用文に無い/);
+  const factWho = clone();
+  line(factWho, "l4").visual = { kind: "quote_card", who: "Ali Yerlikaya (3 dead)", text: "Search and rescue work is continuing at 16 buildings" };
+  expectError(factWho, "l4", /who.*数 3 が引用文に無い/);
 
   const scale = clone();
   line(scale, "l3").visual = { kind: "counter", value: 505, label: "thousand treated" };

@@ -104,7 +104,8 @@ export function normalizeText(s: string): string {
  * 倍数・分数・増減の語（twice・doubled→"double"・tripled→"triple"・halved・thirds・"tenfold"/"10-fold"→"10fold"）はそのまま返し、
  * 引用文にも同じ語を求める。
  * 文字に数字が続く型番・名前（"F-16"・"Shahed-136"・"Kh-101"・"S-300"・"G7"）は数にせず、その語のまま返す（"f-16"）。
- * ただし "post-2022"・"under-18s"・"mid-2025" のような前に付く語の後の数字は数のまま。
+ * ただし "post-2022"・"under-18s"・"mid-2025"・"end-2026"・"start-2027" のような前に付く語の後の数字は数のまま。
+ * 区分の語 "Category-5"・"Level-3" も数のまま（"Category 5" と同じ "5"。書き方の違いで落とさない）。
  */
 export function numbersIn(s: string): string[] {
   return scanNumbers(s).plain;
@@ -136,8 +137,8 @@ const CHANGE_WORDS = new Map<string, string>([
   ...["quadruple", "quadrupled", "quadruples", "quadrupling"].map(w => [w, "quadruple"] as [string, string]),
   ...["halve", "halved", "halves", "halving"].map(w => [w, "halved"] as [string, string]),
 ]);
-// 型番（f-16・shahed-136・g7）は1語。前に付く語（post-2022・under-18s）の後の数字は数のまま
-const NUMBER_TOKEN = /(?<![\p{L}\p{N}.])\.\d+(?: ?%)?|\d+(?:,\d{3}(?!\d))*(?:\.\d+)?(?: ?%)?|(?!(?:pre|post|mid|under|over|non|anti|late|early|top|sub|ex|up|near)-\d)\p{L}+-\d+(?:\p{L}+\d+)*|\p{L}{1,3}\d+(?:\p{L}+\d+)*|\p{L}+/gu;
+// 型番（f-16・shahed-136・g7）は1語。前に付く語・区分の語（post-2022・under-18s・end-2026・category-5）の後の数字は数のまま
+const NUMBER_TOKEN = /(?<![\p{L}\p{N}.])\.\d+(?: ?%)?|\d+(?:,\d{3}(?!\d))*(?:\.\d+)?(?: ?%)?|(?!(?:pre|post|mid|under|over|non|anti|late|early|top|sub|ex|up|near|end|start|category|level)-\d)\p{L}+-\d+(?:\p{L}+\d+)*|\p{L}{1,3}\d+(?:\p{L}+\d+)*|\p{L}+/gu;
 
 type Tok = { s: string; num: boolean; code: boolean; gap: string };
 /** plain は numbersIn の答え。scaled は桁の語つきの数（"1.2 million"、"5 hundred"）。raw は数ごとの文中の書き方（"one"・"five hundred"）。 */
@@ -238,11 +239,13 @@ function scanNumbers(s: string): Nums {
  * - fact: source 必須・ホストが allowedHosts・docs に同じ URL の本文がある・quote が本文に語の区切りどおりに含まれる・
  *   say の数（型番・% を含む）がすべて quote にある
  * - framing: source を持たない・数は fact の行で確かめた数だけ
- * - hook: 数字（または around・about・nearly・almost・over・more than・at least・up to・some の後に数字）から始まり、
+ * - hook: 数字から始まり（前に置けるのは HOOK_QUALIFIERS の語と、数字の直前の HOOK_CURRENCIES の通貨記号だけ）、
  *   数は fact の行で確かめた数だけ
- * - visual: counter/bars の値と見出しの数は確かめた数、map_zoom/route の地名はいずれかの fact の quote に出てくる
- * - quote_card は fact の行だけ。text はその行の quote の一部で、quote の中で引用符の内側にある言葉
- *   （本人の発言）か、who がその行の source.outlet と同じ（媒体の地の文を媒体の言葉として見せる）こと
+ * - visual: counter の値と見出しの数・quote_card の who の数は、fact の行ではその行の quote の数、framing では確かめた数。
+ *   bars は fact の行でもその行の quote の数か確かめた数（別の事実の文の数と比べる絵なので）。
+ *   map_zoom/route の地名はいずれかの fact の quote に出てくる
+ * - quote_card は fact の行だけ。text はその行の quote の一部で、出典の本文でその位置が引用符の内側にある言葉
+ *   （本人の発言。quote に引用符を写していなくてもよい）か、who がその行の source.outlet と同じ（媒体の地の文を媒体の言葉として見せる）こと
  * - publishedAt が分かる fact の記事が maxLeadAgeHours より古ければ誤り（どの fact でも）
  * warnings: 最後の文が見出しの最初の数に戻っていない など
  * 数は numbersIn に加えて桁の語（million など）も照合する。「確かめた数」は fact の say の数のうち、その行の quote にあったもの。
@@ -265,6 +268,8 @@ export function checkFacts(sb: Storyboard, docs: FetchedDoc[], opts: CheckOption
   const ids = lines.map((l, i) => (typeof l?.id === "string" && l.id.trim() ? l.id.trim() : `#${i + 1}`));
   const verified: NumSet = { plain: new Set(), scaled: new Set() };
   const trustedQuotes: string[] = [];
+  // 行ごとの、引用文を含む出典の本文（正規化済み）。引用カードの引用符を本文で見るのに使う
+  const pagesOf: string[][] = [];
   const hosts = new Set<string>();
   const seen = new Set<string>();
 
@@ -300,8 +305,9 @@ export function checkFacts(sb: Storyboard, docs: FetchedDoc[], opts: CheckOption
     }
     const key = canonicalUrl(typeof src.url === "string" ? src.url : "");
     const same = docList.filter(d => typeof d?.url === "string" && canonicalUrl(d.url) === key);
+    pagesOf[i] = nq ? same.map(d => normalizeText(d.text ?? "")).filter(t => hasPhrase(t, quote)) : [];
     if (!same.length) fail(`出典 ${String(src.url)} の本文を取得していない`);
-    else if (nq && !same.some(d => hasPhrase(normalizeText(d.text ?? ""), quote))) {
+    else if (nq && !pagesOf[i].length) {
       fail(`引用文が出典の本文に無い「${quote.slice(0, 80)}」。本文の連続した部分を、語の途中で切らずにそのまま写す`);
     }
 
@@ -347,13 +353,15 @@ export function checkFacts(sb: Storyboard, docs: FetchedDoc[], opts: CheckOption
         const own = numbersIn(String(v.value));
         if (!own.length) errors.push(`${id}: counter の値 ${v.value} を数として読めない`);
         for (const n of unverified(`${v.value} ${label}`)) {
-          errors.push(own.includes(n) ? `${id}: counter の値 ${n} が${where}` : `${id}: counter の見出し「${label}」の${what(n)} が${where}`);
+          errors.push(own.includes(n) ? `${id}: counter の値 ${n} が${where}${pctHint(n, ref)}` : `${id}: counter の見出し「${label}」の${what(n)} が${where}`);
         }
         break;
       }
       case "bars": {
         const items: Array<{ label?: unknown; value?: unknown } | null> = Array.isArray(v.items) ? v.items : [];
         if (items.length < LIMITS.minBars || items.length > LIMITS.maxBars) errors.push(`${id}: bars の項目 ${items.length} 個（${LIMITS.minBars}〜${LIMITS.maxBars}）`);
+        const barsRef: NumSet = isFact ? { plain: new Set([...ref.plain, ...verified.plain]), scaled: new Set([...ref.scaled, ...verified.scaled]) } : verified;
+        const barsWhere = isFact ? `引用文にも事実の文で確かめた数にも無い（引用文の数: ${listOf(ref)}／確かめた数: ${listOf(verified)}）` : where;
         for (const it of items) {
           const label = typeof it?.label === "string" ? it.label : "";
           if (!label.trim()) errors.push(`${id}: bars の項目に label が無い`);
@@ -361,8 +369,8 @@ export function checkFacts(sb: Storyboard, docs: FetchedDoc[], opts: CheckOption
           const own = numbersIn(String(it.value));
           if (!own.length) errors.push(`${id}: bars の値 ${it.value} を数として読めない`);
           // counter と同じく値と見出しを続けて読む（"40" と "% of Kyiv" で 40%）
-          for (const n of unverified(`${it.value} ${label}`)) {
-            errors.push(own.includes(n) ? `${id}: bars の値 ${n} が${where}` : `${id}: bars の見出し「${label}」の${what(n)} が${where}`);
+          for (const n of missingIn(scanNumbers(`${it.value} ${label}`), barsRef)) {
+            errors.push(own.includes(n) ? `${id}: bars の値 ${n} が${barsWhere}${pctHint(n, barsRef)}` : `${id}: bars の見出し「${label}」の${what(n)} が${barsWhere}`);
           }
         }
         break;
@@ -383,10 +391,10 @@ export function checkFacts(sb: Storyboard, docs: FetchedDoc[], opts: CheckOption
         const outlet = typeof l.source?.outlet === "string" ? l.source.outlet : "";
         if (!hasPhrase(normalizeText(ownQuote), text)) errors.push(`${id}: 引用カードの文がこの行の引用文の一部でもない「${text.slice(0, 60)}」`);
         else if (normalizeText(text).includes('"')) errors.push(`${id}: 引用カードの text に引用符（"）を入れない。引用符の内側の言葉だけを写す`);
-        else if (who.trim() && normalizeText(who) !== normalizeText(outlet) && !insideQuotes(ownQuote, text)) {
+        else if (who.trim() && normalizeText(who) !== normalizeText(outlet) && !insideQuotes(pagesOf[i] ?? [], ownQuote, text)) {
           // 記者の地の文・間接話法（According to him, …）を、本人の言葉として引用符つきで見せない
-          errors.push(`${id}: 引用カードの文が引用文の中で引用符（"）の内側に無い（本人の言葉ではない）。`
-            + `本人の発言なら引用符の内側の言葉だけを写す。記者の地の文・間接話法なら who を出典の媒体名「${outlet}」にするか、counter・map_zoom に替える`);
+          errors.push(`${id}: 引用カードの文が本文で引用符（"）の内側に無い。text は本文で引用符の内側にある言葉だけにする。`
+            + `本人の発言なら source.quote を本文の開きの引用符から写す。記者の地の文・間接話法なら who を出典の媒体名「${outlet}」にするか、counter・map_zoom に替える`);
         }
         break;
       }
@@ -396,7 +404,9 @@ export function checkFacts(sb: Storyboard, docs: FetchedDoc[], opts: CheckOption
   });
 
   const hook = typeof sb?.hook === "string" ? sb.hook.trim() : "";
-  if (!HOOK_START.test(hook)) errors.push(`hook: 数字から始まっていない「${hook}」（数字の前に置けるのは around・about・nearly・almost・over・more than・at least・up to・some だけ）`);
+  if (!HOOK_START.test(hook)) {
+    errors.push(`hook: 数字から始まっていない「${hook}」（数字の前に置けるのは ${HOOK_QUALIFIERS.join("・")} と、数字の直前の通貨記号 ${HOOK_CURRENCIES.join("・")} だけ）`);
+  }
   const hookLen = [...hook].length;
   if (hookLen > LIMITS.maxHookChars) errors.push(`hook: ${hookLen} 字（上限 ${LIMITS.maxHookChars} 字）`);
   const hookNums = scanNumbers(hook);
@@ -436,7 +446,12 @@ const wordHint = (nums: Nums, n: string) => {
   return /^\d/.test(n) && raw && /^\p{L}/u.test(raw) ? `。語で書いた数「${raw}」を ${n} と読んだ（one・third・a million などの語も数として照らす）` : "";
 };
 
-const HOOK_START = /^(?:(?:around|about|nearly|almost|over|more than|at least|up to|some)\s+)?\d/i;
+/** 割合の数（引用文では 90%）を value 90・label "replaced" のように % なしで見せたときの直し方。value は数の型なので % を書けない。 */
+const pctHint = (n: string, ref: NumSet) => (/^\d[\d.]*$/.test(n) && ref.plain.has(`${n}%`) ? `。${n}% ならある。割合なら label を % で始める（例「% replaced」）` : "");
+
+const HOOK_QUALIFIERS = ["around", "about", "nearly", "almost", "over", "more than", "at least", "up to", "some", "approximately", "roughly", "an estimated", "as many as"];
+const HOOK_CURRENCIES = ["$", "US$", "A$", "C$", "€", "£", "¥"];
+const HOOK_START = new RegExp(`^(?:(?:${HOOK_QUALIFIERS.join("|")})\\s+)?(?:${HOOK_CURRENCIES.map(c => c.replace(/\$/g, "\\$")).join("|")})?\\d`, "i");
 
 const hasAlnum = (s: string | undefined) => !!s && /[\p{L}\p{N}]/u.test(s);
 const wordCount = (s: unknown) => (typeof s === "string" ? s.trim().split(/\s+/).filter(hasAlnum).length : 0);
@@ -462,19 +477,23 @@ function hasPhrase(hay: string, needle: unknown): boolean {
 const opensAt = (s: string, i: number) => (i === 0 || /[\s(\[:-]/.test(s[i - 1])) && i + 1 < s.length && !/\s/.test(s[i + 1]);
 
 /**
- * text が引用文の中で引用符（"）の内側にあるか。直前の引用符が開きなら内側。
- * 前に引用符が無く、後ろの最初の引用符が閉じなら、発言の途中から始まる引用文の内側。
- * 引用符の数の偶奇では見ない（発言の途中から始まる・途中で終わる引用文で、閉じの後ろや開きの前を内側に数えてしまう）。
+ * text が引用符（"）の内側にあるか。引用文が本文に出てくる位置で、本文の引用符を見る
+ * （発言を開きの引用符ぬきで写した引用文・発言の途中の1文だけを写した引用文も内側になる）。
+ * pages は引用文を含む本文（正規化済み）。引用文だけで見て内側なら、それも内側とする（修正前の判定より厳しくしない）。
+ * 直前の引用符が開きなら内側。前に引用符が無く、後ろの最初の引用符が閉じなら、発言の途中から始まる文の内側。
+ * 引用符の数の偶奇では見ない（発言の途中から始まる・途中で終わる文で、閉じの後ろや開きの前を内側に数えてしまう）。
  */
-function insideQuotes(quote: string, text: string): boolean {
+function insideQuotes(pages: string[], quote: string, text: string): boolean {
   const q = normalizeText(quote);
   const len = normalizeText(text).length;
-  return phraseAt(q, text).some(i => {
-    const before = i > 0 ? q.lastIndexOf('"', i - 1) : -1;
-    if (before >= 0) return opensAt(q, before);
-    const after = q.indexOf('"', i + len);
-    return after >= 0 && !opensAt(q, after);
-  });
+  const offsets = phraseAt(q, text);
+  return [...pages, q].some(p => phraseAt(p, q).some(at => offsets.some(o => {
+    const i = at + o;
+    const before = i > 0 ? p.lastIndexOf('"', i - 1) : -1;
+    if (before >= 0) return opensAt(p, before);
+    const after = p.indexOf('"', i + len);
+    return after >= 0 && !opensAt(p, after);
+  })));
 }
 
 function hostOf(url: unknown): string | null {

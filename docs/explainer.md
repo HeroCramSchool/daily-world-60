@@ -10,19 +10,19 @@
 
 ## 出典にする媒体
 
-- `infrastructure/claude/outlets.ts` の15媒体だけ。web search / web fetch の `allowed_domains` と照合の両方に同じ一覧を使う。国営の宣伝媒体は入れない。
+- `infrastructure/claude/outlets.ts` の15媒体だけ（ABC News は abcnews.go.com と転送先の abcnews.com の2ドメインなので、一覧は16ドメイン）。web search / web fetch の `allowed_domains` と照合の両方に同じ一覧を使う。国営の宣伝媒体は入れない。
 - Anthropic のクローラーを断っている媒体は入れない（apnews.com・reuters.com・bbc.com など19媒体。入れると呼び出し全体が 400）。robots.txt で Claude-User / Claude-SearchBot を断っている媒体も入れない（cnn.com・npr.org・nbcnews.com・france24.com・haaretz.com・bloomberg.com。2026-11-01 確認）。
 - web fetch で取れなかった Routine の出典を自前の HTTP で取り直すのは、robots.txt が Claude-User（無ければ `*`）に許しているときだけ。robots.txt を読めなければ取らない。
 - 画面の「SOURCE ·」と説明欄の `Sources:` の媒体名は、書き手ではなくコードが URL から決める（`OUTLET_NAMES`）。
-- 本文から「Read also:」「Related」などの関連記事の行を落としてから、書き手と照合に渡す。
+- 本文から関連記事を落としてから、書き手と照合に渡す。「Read also:」「Related」「More」などの見出しの行、Al Jazeera の「list N of M」、Japan Times の「WHAT’S TRENDING」「Editors' Picks」、1行まるごとリンク1本の行。HTML では関連記事のカード・リンク1本だけの li/div と、本文を選ぶ前の aside・nav も落とす。
 
 ## 照合の決まり（checkFacts）
 
 - 引用文は、取得した本文の中に語の区切りどおりにあること（語の途中で切った引用は誤り）。否定や主張者を落とした断片はコードでは止めず、反証で見る。
-- 読み上げる数はすべて、その行の引用文にあること。`40%`・`40 percent` は 40% として扱い、ただの 40 とは別。F-16・Shahed-136 のような型番は数ではなく名前で、文に書いたら引用文にも同じ型番が要る。序数（third→3）と、倍数・増減の語（twice・doubled・halved など）も引用文と照らす。
-- 見出しは数字か、around・about・nearly・over・more than・at least・up to などの後の数字で始める。見出しと framing の文の数は、事実の文で確かめた数だけ。
+- 読み上げる数はすべて、その行の引用文にあること。カウンターの数と引用カードの who の数も、その行の引用文から。棒の数は、その行の引用文か、ほかの事実の文で読み上げた数。`40%`・`40 percent` は 40% として扱い、ただの 40 とは別。F-16・Shahed-136 のような型番は数ではなく名前で、文に書いたら引用文にも同じ型番が要る（end-2026・Category-5 のような区分の語の後の数字は数として扱う）。序数（third→3）と、倍数・増減の語（twice・doubled・halved など）も引用文と照らす。
+- 見出しは数字で始める。前に置けるのは、引用文が数に付けた修飾語（around・about・nearly・almost・over・more than・at least・up to・some・approximately・roughly・an estimated・as many as）と、数字の直前の通貨記号（$・US$・A$・C$・€・£・¥）だけ。見出しと framing の文の数は、事実の文で確かめた数だけ。
 - 公開日時が分かる事実は、どれも48時間より古ければ誤り。検索の page_age は「最終更新」なので、古いと分かったときにだけ使う。
-- 引用カードは事実の文だけに置ける。札の言葉が引用文の中で引用符の内側にある（本人の発言）か、who が出典の媒体名のとき（媒体の地の文）だけ通る。
+- 引用カードは事実の文だけに置ける。札の言葉が出典の本文で引用符の内側にある（本人の発言。引用文に開きの引用符を写していなくてもよい）か、who が出典の媒体名のとき（媒体の地の文）だけ通る。
 - 時刻・日付・範囲の端の数・通貨と符号は、数字だけで照らしている（反証の側で確かめる）。
 
 ## 地図
@@ -69,12 +69,12 @@
 | `check_failed` | 照合の誤りが直しても消えなかった | 今の形式 | 解説形式の腕に数える |
 | `refuted` | 反証で誤りが見つかった | 今の形式 | 解説形式の腕に数える |
 | `refusal` | Claude が書くのを断った | 今の形式 | 解説形式の腕に数える |
-| `incomplete` | その本の呼び出しが1回でも返った後に止まった（全体の締め切り・段の時間切れ・本の予算切れ・max_tokens・反証の JSON を読めない・途中の API の誤り・コードの誤り） | 今の形式 | 解説形式の腕に数える |
+| `incomplete` | 試みた後に止まった。その本の呼び出しが1回でも返った後の失敗（全体の締め切り・本の予算切れ・max_tokens・反証の JSON を読めない・API の誤り）、最初の呼び出しの段の時間切れ、本ごとのコードの誤り | 今の形式 | 解説形式の腕に数える |
 | `disabled` | 試みなかった（キーが無い など） | 今の形式 | 比較から外す |
 | `cap` | 最初の呼び出しの前に、本の予算を1回の実行の上限に収められなかった（投稿順に押さえる） | 今の形式 | 比較から外す |
-| `api_error` | 最初の呼び出しが返る前の API の障害・時間切れ・全体の締め切り | 今の形式 | 比較から外す |
+| `api_error` | 最初の呼び出しが返る前の API の障害（接続の誤り・400・401・403・429・5xx・529）・全体の締め切り。設定の誤り（400 など）にも気づけるよう、Actions のログに誤りの印（::error::）を付ける | 今の形式 | 比較から外す |
 
-外すのは、中身を見る前に決まる `disabled`・`cap`・`api_error` だけ。途中で止まった本（`incomplete`）は解説形式の腕に数える。決まりは `finalizeArmRecord`（`domain/storyboard/ExplainerArm.ts`）にある。Step A2 が status を書く前に落ちた本も外す。手動の `explainer`=on/off で作った本も外す。
+外すのは、中身を見る前に決まる `disabled`・`cap`・`api_error` だけ。途中で止まった本（`incomplete`）は解説形式の腕に数える。最初の呼び出しの段の時間切れは、調べる量（本の中身）で決まりうるので数える。最初の呼び出しの 400 は媒体の一覧などの設定の誤りでほぼ全本に起きるので外す。決まりは `finalizeArmRecord`（`domain/storyboard/ExplainerArm.ts`）にある。Step A2 が status を書く前に落ちた本も外す。手動の `explainer`=on/off で作った本も外す。
 
 ## 設定（オーナーがやること）
 
@@ -90,7 +90,7 @@
 | `EXPLAINER_STORY_CAP_USD` | 1.2 | 解説形式の本1本の予算。使い切ったら `incomplete` |
 | `EXPLAINER_DEADLINE_SEC` | 720 | Step A2 全体の締め切り（秒） |
 
-上限は実行ごとに数える（Actions は毎回まっさらで、`claude-usage.json` もその実行の分だけ）。1回の呼び出しが見込みを超えた分だけ上限を超えうる。同じ日に手動で何度も回すと合計は上限を超えうるので、月の歯止めは Console の上限で掛ける。本ごとの見込み額（調べる 0.5・書く 0.15・反証 0.15）と 1.2 ドルは実測ではない。初回の実行の `claude-usage.json` で決め直す。
+上限は実行ごとに数える（Actions は毎回まっさらで、`claude-usage.json` もその実行の分だけ）。本は同時に走るので、本ごとに呼び出し1回が見込みを超えた分（最大で本の数ぶん）だけ上限を超えうる。失敗した呼び出しは見込み額で記録するので、実額はこれより多いことがある（Console の利用額と突き合わせる）。同じ日に手動で何度も回すと合計は上限を超えうるので、月の歯止めは Console の上限で掛ける。本ごとの見込み額（調べる 0.5・書く 0.15・反証 0.15）と 1.2 ドルは実測ではない。初回の実行の `claude-usage.json` で決め直す。
 
 ## 11/5 より前に見る
 

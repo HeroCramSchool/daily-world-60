@@ -19,6 +19,7 @@ import { OUTLETS, isAllowedUrl, outletName } from "./outlets.js";
  * 照合か反証で落ちたら1回だけ直させる。直しても落ちたら status で返し、呼ぶ側は今の形式で描く。
  * その本の呼び出しが1回でも返った後に止まったら（締め切り・予算切れ・API の誤りなど）incomplete。
  * 返る前なら api_error / cap（中身を見る前に決まるので、呼ぶ側は比較から外してよい）。
+ * ただし段の時間切れと 400・422 は、調べる量や依頼の形がその本の中身で決まりうるので、最初の呼び出しでも incomplete。
  */
 
 export const MODEL = "claude-opus-5-5";
@@ -58,7 +59,7 @@ export type NewsDeskOptions = {
   prompts?: Partial<Record<"research" | "writer" | "refute", string>>;
   /** 全体の締め切り。切れたら呼び出しを止める（その本の呼び出しが返った後なら incomplete、前なら api_error）。 */
   signal?: AbortSignal;
-  /** 段ごとの1回の呼び出しの時間（ミリ秒）。試験で短くする。 */
+  /** 段ごとの1回の呼び出しの時間（ミリ秒）。切れたら最初の呼び出しでも incomplete。試験で短くする。 */
   stepTimeoutMs?: Partial<Record<Step, number>>;
 };
 
@@ -77,7 +78,7 @@ export const STORYBOARD_SCHEMA = {
   additionalProperties: false,
   required: ["hook", "whyPicked", "lines"],
   properties: {
-    hook: { type: "string", description: "On-screen headline, at most 40 characters, starts with the key number (or its qualifier, then the number)." },
+    hook: { type: "string", description: "On-screen headline, at most 40 characters, starts with the key number (only its qualifier, then a currency sign such as $, may come before the digits)." },
     whyPicked: { type: "string" },
     lines: {
       type: "array",
@@ -222,8 +223,10 @@ export class NewsDesk implements NewsDeskPort {
       this.meter.recordEstimate(hold, MODEL);
       if (e instanceof Anthropic.AnthropicError) {
         const status = e instanceof Anthropic.APIError && e.status ? ` ${e.status}` : "";
-        const why = this.signal?.aborted ? "全体の締め切りで止めた: " : stepTimer.aborted ? `1回の時間 ${this.timeoutMs[step] / 1000} 秒を過ぎた: ` : "";
-        throw new Stop("api_error", `${step}: ${why}${e.name}${status}: ${e.message}`);
+        const stepTimedOut = stepTimer.aborted && !this.signal?.aborted;
+        const why = this.signal?.aborted ? "全体の締め切りで止めた: " : stepTimedOut ? `1回の時間 ${this.timeoutMs[step] / 1000} 秒を過ぎた: ` : "";
+        // 最初の呼び出しの 400/422 は依頼の形（媒体の一覧など設定）の誤りでほぼ全本に起きるので、腕に数えず api_error で外す
+        throw new Stop(stepTimedOut ? "incomplete" : "api_error", `${step}: ${why}${e.name}${status}: ${e.message}`);
       }
       throw e;
     }
@@ -394,13 +397,19 @@ function contextOf(src: SourceRef, docs: FetchedDoc[]): string {
 }
 
 // 本文に差し込まれた別記事へのリンクの行（Ukrinform の「Read also: <見出し>」など）。web_fetch の Markdown の飾りも許す
-const RELATED_LINK = /^[\s>*_#|•·\-–—[]*(?:read (?:also|more)|also read|see also|related(?: articles?| stories| news| coverage| content| reading)?|most (?:read|popular|viewed)|recommended(?: for you| stories| reading)?|more (?:on this|stories|from [^:]{1,40})|you (?:may|might) also like|trending(?: now)?)(?:[\s*_]*\]\(|[\s*_\]]*(?:[:：|»›]|$))/i;
+const RELATED_LINK = /^[\s>*_#|•·\-–—[]*(?:read (?:also|more)|also read|see also|related(?: articles?| stories| news| coverage| content| reading)?|most (?:read|popular|viewed)|recommended(?: for you| stories| reading)?|more (?:on this|stories|from [^:]{1,40})|more(?=[\s*_\]]*$)|you (?:may|might) also like|trending(?: now)?|what['’]?s trending|editor(?:s['’]?|['’]s) picks)(?:[\s*_]*\]\(|[\s*_\]]*(?:[:：|»›]|$))/i;
+
+// Al Jazeera の読み上げ用の印（list of 3 items・list 1 of 3 <見出し>・end of list）
+const LIST_MARK = /^[\s>*_#|•·\-–—[]*(?:list (?:of )?\d+(?: of \d+| items)\b|end of list[\s*_\]]*$)/i;
+// 1行まるごと Markdown のリンク1本（web_fetch の本文の関連記事の並び）
+const LINK_LINE = /^[\s>*_#|•·\-–—]*(?:\d+[.)]\s+)?\[[^\]]+\]\([^)\s]+\)[\s*_]*$/;
 
 const SENTENCE_END = /[.!?…"”]$/;
 
 /**
  * 関連記事のリンクの行を落とす。その見出しは別の記事（別の日のこともある）なので、引用の元にさせない。
  * 「Related」だけの行のように見出しが次の行に来るときは、続く見出しらしい行（文の終わりの記号が無い行）も落とす。
+ * 並びの印（list 1 of 3）の行と、1行まるごとリンク1本の行は、文の終わりの記号があっても落とす。
  */
 export function stripRelatedLinks(text: string): string {
   const out: string[] = [];
@@ -411,6 +420,7 @@ export function stripRelatedLinks(text: string): string {
       inList = !line.slice(m[0].length).replace(/[\s*_\]:：|»›]/g, "");
       continue;
     }
+    if (LIST_MARK.test(line) || LINK_LINE.test(line)) continue;
     const t = line.trim();
     if (inList && t && t.length <= 200 && !SENTENCE_END.test(t)) continue;
     if (t) inList = false;
@@ -558,12 +568,20 @@ const decode = (s: string) => s
   .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
   .replace(/&([a-z]+);/gi, (m, e) => ENTITIES[e.toLowerCase()] ?? m);
 
-const textOfHtml = (html: string) => decode(html
+// <article> を選ぶ前に落とす（CBS は関連記事の aside の中に <article> があり、本文の <article> がそこで切れていた）
+const dropNoise = (html: string) => html
   .replace(/<!--[\s\S]*?-->/g, " ")
-  .replace(/<(script|style|noscript|svg|template|iframe|aside|nav)\b[\s\S]*?<\/\1>/gi, " ")
+  .replace(/<(script|style|noscript|svg|template|iframe|aside|nav)\b[\s\S]*?<\/\1>/gi, " ");
+
+// ブロックを包むリンク（CBC の関連記事のカード）と、リンク1本だけの li・div（Al Jazeera・Japan Times の見出しの並び）は別記事なので本文にしない。
+// タグを空白に替えると発言の開きの引用符の後ろに空白ができ、閉じと読まれるので詰める
+const textOfHtml = (html: string) => decode(html
+  .replace(/<a\b[^>]*>(?:(?!<\/a>)[\s\S])*?<(?:p|div|h[1-6])\b[\s\S]*?<\/a>/gi, " ")
+  .replace(/<li\b[^>]*>\s*(?:<span\b[^>]*>[^<]*<\/span>\s*)*<a\b[^>]*>[^<]*<\/a>\s*<\/li>/gi, " ")
+  .replace(/<div\b[^>]*>\s*<a\b[^>]*>[^<]*<\/a>\s*<\/div>/gi, " ")
   .replace(/<\/?(p|div|br|li|ul|ol|h[1-6]|tr|section|article|header|footer|figure|figcaption|blockquote)\b[^>]*>/gi, "\n")
   .replace(/<[^>]+>/g, " "))
-  .split("\n").map(s => s.replace(/[ \t ]+/g, " ").trim()).filter(Boolean).join("\n");
+  .split("\n").map(s => s.replace(/[ \t ]+/g, " ").trim().replace(/“ /g, "“").replace(/ ”/g, "”")).filter(Boolean).join("\n");
 
 const PUBLISHED_META = ["article:published_time", "og:article:published_time", "datepublished", "pubdate", "publishdate"];
 
@@ -578,16 +596,17 @@ function metaContent(html: string, names: readonly string[]): string | undefined
 
 /**
  * HTML を本文の文字列にする。<article> があれば、文字にして一番長いもの（200字以上）だけを使う
- * （先頭の <article> は「最新の記事」の札のことがある）。aside・nav は落とす。
+ * （先頭の <article> は「最新の記事」の札のことがある）。aside・nav と、関連記事のカード・リンク1本だけの li・div は落とす。
  * 公開日時は meta article:published_time → JSON-LD datePublished → 選んだ <article> の <time datetime> の順に読む。
  */
 export function htmlToText(html: string): HttpPage {
   const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1];
-  const best = [...html.matchAll(/<article[\s>][\s\S]*?<\/article>/gi)]
+  const body = dropNoise(html);
+  const best = [...body.matchAll(/<article[\s>][\s\S]*?<\/article>/gi)]
     .map(m => ({ html: m[0], text: textOfHtml(m[0]) }))
     .reduce<{ html: string; text: string } | undefined>((a, c) => (!a || c.text.length > a.text.length ? c : a), undefined);
   const article = best && best.text.length >= 200 ? best : undefined;
-  const text = article ? article.text : textOfHtml(html);
+  const text = article ? article.text : textOfHtml(body);
   const published = [
     metaContent(html, PUBLISHED_META),
     /"datePublished"\s*:\s*"([^"]+)"/.exec(html)?.[1],

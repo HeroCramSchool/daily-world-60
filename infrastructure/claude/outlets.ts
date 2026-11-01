@@ -8,9 +8,11 @@
  * 400 にはならないが robots.txt で Claude-User・Claude-SearchBot を Disallow: / にしている媒体も入れない
  * （2026-11-01 の robots.txt。bloomberg.com・cnn.com・france24.com・haaretz.com・nbcnews.com・npr.org）。
  * web_fetch では取れず、出典がそこだと自前の HTTP で robots を迂回することになるため。
+ * abcnews.go.com の記事は abcnews.com へ 301 で転送されるので両方入れる（2026-11-01。abcnews.com の robots.txt が断るのは anthropic-ai だけで、
+ * Claude-User・Claude-SearchBot は * の節で記事を許している。abcnews.go.com も同じ）。
  */
 export const OUTLETS: readonly string[] = [
-  "aljazeera.com", "washingtonpost.com", "cbsnews.com", "abcnews.go.com", "euronews.com", "kyivindependent.com",
+  "aljazeera.com", "washingtonpost.com", "cbsnews.com", "abcnews.go.com", "abcnews.com", "euronews.com", "kyivindependent.com",
   "pravda.com.ua", "ukrinform.net", "timesofisrael.com", "jpost.com", "axios.com", "scmp.com",
   "japantimes.co.jp", "abc.net.au", "cbc.ca",
 ];
@@ -21,6 +23,7 @@ export const OUTLET_NAMES: Readonly<Record<string, string>> = {
   "washingtonpost.com": "The Washington Post",
   "cbsnews.com": "CBS News",
   "abcnews.go.com": "ABC News",
+  "abcnews.com": "ABC News",
   "euronews.com": "Euronews",
   "kyivindependent.com": "Kyiv Independent",
   "pravda.com.ua": "Ukrainska Pravda",

@@ -268,6 +268,44 @@ test("stripRelatedLinks: 別記事へのリンクの行（Read also: など・Ma
   assert.deepEqual(extractDocs([fetchText("b", KYIV, "Read also: only a link", null)]), [], "リンクしか無いページは本文が無いのと同じ");
 });
 
+test("stripRelatedLinks: 媒体ごとの関連記事の並び（AJ の list N of M・JT の WHAT’S TRENDING / Editors' Picks・CBS の More・Markdown のリンク1本の行）", () => {
+  const before = "Malicious actors from North Korea were observed laundering the stolen assets, the FBI said.";
+  const after = "The US agency blamed the operation on a group called TraderTraitor.";
+  const aj = [
+    before,
+    "Recommended Stories",
+    "list of 3 items",
+    "list 1 of 3 Netanyahu’s pitch: Can Israel use crypto to evade economic sanctions?",
+    "list 2 of 3 Tracking the money: The biggest donors in the 2026 US midterm elections",
+    "list 3 of 3 Russia jails IT worker for 13 years for donating money to Ukraine.",
+    "end of list",
+    after,
+  ].join("\n");
+  assert.equal(stripRelatedLinks(aj), [before, after].join("\n"), "見出しが ? や . で終わっても並びの印の行は落とす");
+  assert.equal(stripRelatedLinks(aj.replace("Recommended Stories\n", "")), [before, after].join("\n"), "見出しの行が無くても落とす");
+
+  const jt = ["WHAT’S TRENDING", "Editors' Picks", "Netanyahu bloc finishes ahead in Israel vote, but well short of majority", "Renowned Japanese pianist found guilty of driving at 144 kph", after].join("\n");
+  assert.equal(stripRelatedLinks(jt), after);
+  assert.equal(stripRelatedLinks(["**Editor’s picks**", "Japan has mastered the red carpet", after].join("\n")), after);
+
+  const cbs = [before, "North Korea", "More", "Treasury sanctions North Koreans, Russians over IT worker scheme", after].join("\n");
+  assert.equal(stripRelatedLinks(cbs), [before, "North Korea", after].join("\n"), "More は1行まるごとのときだけ見出し");
+  const more = ["More than 300 drones were launched, the air force said.", "More drones are expected tonight", "More: Kyiv braces for blackouts"].join("\n");
+  assert.equal(stripRelatedLinks(more), more, "More で始まる本文の行は落とさない");
+
+  const md = [
+    before,
+    "[Trump pardons Canadian Binance CEO who failed to stop illegal activity on crypto platform](https://www.cbc.ca/news/business/binance-founder-changpeng-zhao-pardoned-trump-9.6950284)",
+    "- [Binance says $6.3B US hacked in what could be largest cryptocurrency theft ever.](https://www.cbc.ca/news/business/binance-north-korea-9.7402446)",
+    "**[Netanyahu’s pitch: Can Israel use crypto?](https://www.aljazeera.com/news/2026/10/25/x)**",
+    "2. [Russia jails IT worker for 13 years](https://www.aljazeera.com/news/2026/10/27/y)",
+    "Binance said it has set aside around $6.34 billion, according to [Reuters](https://www.reuters.com/x).",
+    after,
+  ].join("\n");
+  assert.equal(stripRelatedLinks(md), [before, "Binance said it has set aside around $6.34 billion, according to [Reuters](https://www.reuters.com/x).", after].join("\n"),
+    "1行まるごとリンク1本の行は文の終わりの記号があっても落とし、文の中のリンクは残す");
+});
+
 test("extractPageAges: page_age（最終更新）を年のある書き方と相対の書き方から ISO にする", () => {
   const ages = extractPageAges(researchPaused().content, NOW);
   assert.equal(ages.size, 2);
@@ -359,18 +397,46 @@ test("拒否: stop_reason refusal は refusal", async () => {
   assert.equal(meter.calls().length, 1);
 });
 
-test("最初の呼び出しが API の誤りなら api_error（中身を見る前なので比較から外す）。費用は見込み額を estimated で残す", async () => {
-  const rate = Anthropic.APIError.generate(429, { type: "error", error: { type: "rate_limit_error", message: "Rate limited" } }, "Rate limited", new Headers());
-  for (const err of [new Anthropic.APIConnectionError({ message: "socket hang up" }), rate]) {
+const apiError = (status: number, type: string) => Anthropic.APIError.generate(status, { type: "error", error: { type, message: type } }, type, new Headers());
+
+test("最初の呼び出しが API の障害（接続・401・403・429・5xx・529）なら api_error（中身と無関係なので比較から外す）。費用は見込み額を estimated で残す", async () => {
+  const errs = [
+    new Anthropic.APIConnectionError({ message: "socket hang up" }), new Anthropic.APIConnectionTimeoutError(),
+    apiError(401, "authentication_error"), apiError(403, "permission_error"), apiError(429, "rate_limit_error"),
+    apiError(500, "api_error"), apiError(503, "api_error"), apiError(529, "overloaded_error"),
+  ];
+  for (const err of errs) {
     const { d, meter } = desk([err], { cap: RESERVE.research * 2 });
     const r = await d.write(STORY);
-    assert.equal(r.status, "api_error");
+    assert.equal(r.status, "api_error", r.errors[0]);
     assert.ok(INFRA_FAILURES.includes(r.status));
     assert.match(r.errors[0], /^research: /);
     assert.deepEqual(meter.calls().map(c => [c.step, c.costUsd, c.estimated]), [["research", RESERVE.research, true]], "失敗した呼び出しも $0 にしない");
     assert.equal(r.costUsd, RESERVE.research);
     assert.equal(meter.completedCalls(STORY.index), 0);
     assert.ok(meter.reserve("research", STORY.index), "押さえた見込み額は estimated に移り、押さえ中には残らない");
+  }
+});
+
+test("最初の呼び出しの段の時間切れは incomplete（調べる量は本の中身で決まりうるので腕に数える）", async () => {
+  const slow = desk([hang], { stepTimeoutMs: { research: 30 } });
+  const r1 = await slow.d.write(STORY);
+  assert.equal(r1.status, "incomplete");
+  assert.equal(INFRA_FAILURES.includes(r1.status), false);
+  assert.match(r1.errors[0], /^research: 1回の時間 0\.03 秒を過ぎた: /);
+  assert.equal(slow.meter.completedCalls(STORY.index), 0);
+  assert.deepEqual(slow.meter.calls().map(c => c.estimated), [true]);
+});
+
+test("最初の呼び出しの 400・422 は api_error（媒体の一覧などの設定の誤りで全本に起きるので比較から外す）", async () => {
+  for (const err of [apiError(400, "invalid_request_error"), apiError(422, "invalid_request_error")]) {
+    assert.ok(err instanceof Anthropic.BadRequestError || err instanceof Anthropic.UnprocessableEntityError);
+    const { d, meter } = desk([err]);
+    const r = await d.write(STORY);
+    assert.equal(r.status, "api_error", r.errors[0]);
+    assert.ok(INFRA_FAILURES.includes(r.status));
+    assert.match(r.errors[0], new RegExp(`^research: .*${err.status}`));
+    assert.equal(meter.completedCalls(STORY.index), 0);
   }
 });
 
@@ -666,7 +732,7 @@ test("本物の SDK を通しても要求の形と応答の組み立てが合う
   assert.deepEqual(meter.calls().map(c => c.usage.server_tool_use?.web_search_requests), [1, 0, undefined, undefined]);
 });
 
-test("本物の SDK: message_start の後で止まったストリームも段ごとの時間で止まり、見込み額を estimated で残す", async () => {
+test("本物の SDK: message_start の後で止まったストリームも段ごとの時間で止まり（最初の呼び出しでも incomplete）、見込み額を estimated で残す", async () => {
   const stalling = async (_input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const start = { type: "message_start", message: { ...researchDone(), content: [], stop_reason: null, usage: { input_tokens: 50_000, output_tokens: 0 } } };
     const body = new ReadableStream({
@@ -683,7 +749,7 @@ test("本物の SDK: message_start の後で止まったストリームも段ご
   const t0 = Date.now();
   const r = await d.write(STORY);
   assert.ok(Date.now() - t0 < 3000, `止まるまで ${Date.now() - t0}ms`);
-  assert.equal(r.status, "api_error");
+  assert.equal(r.status, "incomplete");
   assert.match(r.errors[0], /^research: 1回の時間 0\.15 秒を過ぎた: /);
   assert.deepEqual(meter.calls().map(c => [c.step, c.costUsd, c.estimated]), [["research", RESERVE.research, true]]);
 });
@@ -759,6 +825,8 @@ test("outlets: 媒体名は表から URL で引く（全部の媒体に名前が
   assert.deepEqual(Object.keys(OUTLET_NAMES).sort(), [...OUTLETS].sort());
   assert.equal(outletName("https://www.ukrinform.net/rubric-ato/1-x.html"), "Ukrinform");
   assert.equal(outletName("https://english.aljazeera.com/x"), "Al Jazeera");
+  assert.equal(outletName("https://abcnews.com/International/wireStory/x-137729925"), "ABC News", "abcnews.go.com の転送先");
+  assert.equal(outletName("https://abcnews.go.com/International/wireStory/x-137729925"), "ABC News");
   assert.equal(outletName("https://www.example.org/x"), "example.org");
   assert.equal(outletName("not a url"), "");
 });
@@ -788,6 +856,52 @@ test("htmlToText: 先頭の短い <article>（別記事の札）でなく一番�
   const noLong = htmlToText(`<html><body><article><p>Card</p></article><div>${"Body sentence. ".repeat(30)}</div><aside>Related stories</aside></body></html>`);
   assert.match(noLong.text, /^Card\nBody sentence\./, "200 字に届く <article> が無ければページ全体");
   assert.doesNotMatch(noLong.text, /Related stories/);
+});
+
+test("htmlToText: 関連記事のカード・リンク1本だけの li と div を落とし、aside の中の <article> で本文が切れない（AJ・CBC・JT・CBS の形）", () => {
+  const para = (s: string) => `<p>${s}</p>`;
+  const filler = "Officials said the investigation into the theft was continuing on Sunday.";
+  const aj = `<article>${para("Malicious actors from North Korea were observed laundering the stolen assets, the FBI said.")}
+    <section class="more-on"><h2 class="more-on__heading">Recommended Stories<!-- --> </h2><span class="screen-reader-text">list of 3 items</span><ul class="more-on__list">
+    <li class="more-on__article"><span class="screen-reader-text">list 1 of 3</span><a class="more-on__link" href="/news/2026/10/25/x">Netanyahu’s pitch: Can Israel use crypto to evade economic sanctions?</a></li>
+    <li class="more-on__article"><span class="screen-reader-text">list 3 of 3</span><a class="more-on__link" href="/news/2026/10/27/y">Russia jails IT worker for 13 years for donating money to Ukraine</a></li>
+    </ul><span class="screen-reader-text">end of list</span></section>${para("The US agency blamed the operation on a group called TraderTraitor.")}${para(filler).repeat(4)}</article>`;
+  const ajText = stripRelatedLinks(htmlToText(aj).text);
+  assert.doesNotMatch(ajText, /Netanyahu|Russia jails|list \d|end of list/);
+  assert.match(ajText, /the FBI said\.\nThe US agency blamed/);
+
+  const cbc = `<article>${para("After the hack, the exchange stopped allowing customers to withdraw their funds.")}
+    <ul class="similarLinksContainer-JxEul" role="list"><li class="similarLinkItem-TyY7E" role="listitem"><a class="cardWrapper-u5T0r" data-feature-instance="similar-link" href="/news/business/binance-founder-changpeng-zhao-pardoned-trump-9.6950284"><div class="card-SmBL5"><p class="title-cSJax">Trump pardons Canadian Binance CEO who failed to stop illegal activity on crypto platform</p></div></a></li></ul>
+    ${para("Binance said it has set aside around $6.34 billion of company funds to cover the losses.")}${para(filler).repeat(4)}</article>`;
+  const cbcText = stripRelatedLinks(htmlToText(cbc).text);
+  assert.doesNotMatch(cbcText, /Trump pardons/);
+  assert.match(cbcText, /withdraw their funds\.\nBinance said it has set aside around \$6\.34 billion/);
+
+  const jt = `<html><body><ul class="menu"><li><a href="/news/japan/">Politics</a></li><li><a href="/sports/">More sports</a></li></ul>
+    <article><a class="fancybox" href="/img.jpg"><div class="layout-ratio"><picture><img src="/img.jpg"></picture></div></a></article>
+    <div class="article-body">${para("Taipei – The China Coast Guard is harassing shipping with its latest patrol off Taiwan’s east coast, Taiwan said.")}${para(filler).repeat(4)}</div>
+    <ul class="nav nav-pills"><li class="nav-item active"><a class="nav-link" title="Latest">WHAT&#8217;S TRENDING</a></li><li class="nav-item"><a class="nav-link">Editors&#039; Picks</a></li></ul>
+    <div class="jt-trending"><div class="article"><div class="article-details"><div class="article-title"><a href="/news/2026/10/30/x/" title="t">Renowned Japanese pianist found guilty of driving at 144 kph</a></div></div></div></div>
+    </body></html>`;
+  const jtText = stripRelatedLinks(htmlToText(jt).text);
+  assert.doesNotMatch(jtText, /Politics|More sports|TRENDING|Editors|pianist/);
+  assert.match(jtText, /^Taipei – The China Coast Guard/);
+
+  const cbs = `<html><body><article class="content-article">${para(`Trump <a href="/news/x/">pardoned Zhao</a> in 2025. Zhao said user funds were safe.`)}
+    <ul><li>Withdrawals stopped on <a href="/news/y/">Thursday</a> night, the exchange said.</li></ul>
+    <aside class="component list recirculation"><h3 class="component__title">North Korea <a href="/feature/north-korea-tensions/">More</a></h3>
+    <ul><li class="card-recirc item"><a href="/news/treasury-sanctions/" class="item__anchor"><article><h4>Treasury sanctions North Koreans, Russians over IT worker scheme</h4></article></a></li></ul></aside>
+    ${para("Binance said on social media it had found no evidence of any wallet private key leak.")}${para(filler).repeat(4)}</article></body></html>`;
+  const cbsText = stripRelatedLinks(htmlToText(cbs).text);
+  assert.doesNotMatch(cbsText, /Treasury sanctions|North Korea\n|^More$/m);
+  assert.match(cbsText, /^Trump pardoned Zhao in 2025\. Zhao said user funds were safe\.\nWithdrawals stopped on Thursday night, the exchange said\.\nBinance said on social media/,
+    "aside の後ろの本文まで取り、文の中のリンクと文のある li は残す");
+});
+
+test("htmlToText: タグで空いた開きの引用符の直後・閉じの直前の空白を詰める（記者の地の文を発言と読ませない）", () => {
+  const html = `<article><p>Russian forces launched 120 drones at Kyiv overnight, the mayor said, adding: “<a href="https://t.me/x">Air defence</a> is working.” He also wrote: “Stay in <b>shelters</b>”, and “ <i>keep calm</i> ”.</p>${"<p>Filler sentence about the response of emergency services in the city.</p>".repeat(4)}</article>`;
+  const line = htmlToText(html).text.split("\n")[0];
+  assert.equal(line, "Russian forces launched 120 drones at Kyiv overnight, the mayor said, adding: “Air defence is working.” He also wrote: “Stay in shelters”, and “keep calm”.");
 });
 
 test("htmlToText: 公開日時は meta → JSON-LD → <time> の順に読む", () => {
@@ -855,6 +969,13 @@ test("fetchPageText: robots.txt が Claude-User に許したページだけ取�
   });
   assert.equal(await fetchPageText(ARTICLE, redirect.f), null, "転送先も robots で確かめる");
   assert.deepEqual(redirect.seen, [ROBOTS, ARTICLE, ROBOTS]);
+
+  const ABC_GO = "https://abcnews.go.com/International/wireStory/france-heads-weekend-protests-137729925";
+  const ABC = "https://abcnews.com/International/wireStory/france-heads-weekend-protests-137729925";
+  const abcRobots = { body: "User-agent: anthropic-ai\nDisallow: /\n\nUser-agent: *\nDisallow: /search?searchtext=*\n", type: "text/plain" };
+  const abc = fakeFetch({ "https://abcnews.go.com/robots.txt": abcRobots, "https://abcnews.com/robots.txt": abcRobots, [ABC_GO]: { status: 301, location: ABC }, [ABC]: { body: html } });
+  assert.match((await fetchPageText(ABC_GO, abc.f))!.text, /^Air defenses shot down 105 drones/, "abcnews.go.com から abcnews.com への転送を追う");
+  assert.deepEqual(abc.seen, ["https://abcnews.go.com/robots.txt", ABC_GO, "https://abcnews.com/robots.txt", ABC]);
 
   const away = fakeFetch({ [ROBOTS]: { body: "", type: "text/plain" }, [ARTICLE]: { status: 302, location: "https://www.reuters.com/x" } });
   assert.equal(await fetchPageText(ARTICLE, away.f), null, "許可した媒体の外へ転送されたら取らない");
@@ -924,7 +1045,7 @@ test("write-explainers: ok の本だけ台本を書き、前の回の台本は�
   await fs.rm(dir, { recursive: true });
 });
 
-test("write-explainers: コードの誤りの本は crashed に入れる。呼び出しが返る前なら api_error、後なら incomplete", async () => {
+test("write-explainers: コードの誤りの本は crashed に入れ、呼び出しが返る前でも後でも incomplete（Routine のデータで起きうるので腕に数える）", async () => {
   const dir = await tmpScript(SCRIPT_STORIES);
   const res = await writeExplainers({
     date: "2026-11-01", dir, experiments: [], override: "on", apiKey: "k", capUsd: 4,
@@ -934,11 +1055,11 @@ test("write-explainers: コードの誤りの本は crashed に入れる。呼�
     }),
     log: () => {},
   });
-  assert.equal(res.status["1"].status, "api_error");
+  assert.equal(res.status["1"].status, "incomplete");
   assert.equal(res.status["2"].status, "incomplete");
   assert.equal(res.status["2"].costUsd, 0.004);
   assert.deepEqual(res.crashed, ["1 ua", "2 ir"]);
-  assert.equal((await readJson(path.join(dir, STATUS_FILE)))["1"].status, "api_error");
+  assert.equal((await readJson(path.join(dir, STATUS_FILE)))["1"].status, "incomplete");
   await fs.rm(dir, { recursive: true });
 });
 

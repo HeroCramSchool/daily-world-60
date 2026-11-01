@@ -137,10 +137,11 @@ export async function writeExplainers(opts: RunOptions): Promise<RunResult> {
   for (const [i, s] of stories.entries()) {
     const code = s.country.code.toLowerCase();
     const st = settled[i];
+    // コードの誤りは呼ぶ前でも Routine のデータ（その本の中身）で起きうるので、呼び出しの数を見ずに腕に数える
     const r: DeskResult = st.status === "fulfilled"
       ? st.value
       : {
-        status: meter.completedCalls(s.index) > 0 ? "incomplete" : "api_error",
+        status: "incomplete",
         docs: [],
         errors: [`コードの誤りで止まった: ${st.reason instanceof Error ? st.reason.stack ?? st.reason.message : String(st.reason)}`],
         costUsd: meter.storyCost(s.index),
@@ -157,7 +158,8 @@ export async function writeExplainers(opts: RunOptions): Promise<RunResult> {
       ...(r.costUsd ? { costUsd: round6(r.costUsd) } : {}),
     };
     const why = r.errors[0] ? ` — ${r.errors[0].split("\n")[0].slice(0, 160)}` : "";
-    log(`[explainers] ${s.index} ${code}: ${r.status} ($${r.costUsd.toFixed(3)}, docs ${r.docs.length})${why}`);
+    // api_error は比較から外れるので、設定の誤り (400 など) に気づけるよう Actions の誤りの印を付ける
+    log(`${r.status === "api_error" ? "::error::" : ""}[explainers] ${s.index} ${code}: ${r.status} ($${r.costUsd.toFixed(3)}, docs ${r.docs.length})${why}`);
   }
 
   const calls = meter.calls();
