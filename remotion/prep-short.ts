@@ -1,12 +1,20 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
-import { laneFromStory, mapSceneParts } from "../scripts/lib/mapscene.js";
+import { laneFromStory, mapSceneParts, type MapLane } from "../scripts/lib/mapscene.js";
 import { recordBgmUsed } from "../scripts/lib/bgm-credit.js";
 import { pickBgm, isConflictStory } from "../scripts/lib/bgm-select.js";
-import { armRecordFor, hookLayoutFor, type ArmRecord } from "../domain/experiment/Assignment.js";
+import { geocode, type GeoPoint } from "../scripts/lib/geocode.js";
+import { countryLonLat } from "../scripts/lib/worldmap.js";
+import { armRecordFor, hookLayoutFor } from "../domain/experiment/Assignment.js";
 import { isLive } from "../domain/experiment/Experiment.js";
 import { loadRegistryOrEmpty } from "../infrastructure/pdca/RegistryFile.js";
+import { alignBeats, type Storyboard, type StoryLine, type Visual } from "../domain/storyboard/Storyboard.js";
+import {
+  styleFor, finalizeArmRecord, storyboardFile, STATUS_FILE,
+  type ExplainerStatusFile, type Style, type StyleDecision, type StyledArmRecord,
+} from "../domain/storyboard/ExplainerArm.js";
+import type { ExplainerVideo, XBeat, XPoint, XVisual } from "./src/lib/explainerTypes.js";
 
 /**
  * 日次ショート (9:16) の props を作る。
@@ -44,6 +52,9 @@ const BGM_CONFLICT_PATH = process.env.BGM_CONFLICT_PATH ?? "";
 // armRecordFor() の結果を $OUT_DIR/experiment-arms.json に残し、publish-all.ts はそれを台帳に写す（描画と記録をずらさない）。
 const HOOK_OVERRIDE = process.env.HOOK_LAYOUT?.trim() || undefined;
 const LIVE_EXPERIMENTS = loadRegistryOrEmpty().experiments.filter(isLive);
+// 解説形式か今の形式か。手動の EXPLAINER=on|off > 施策台帳の explainer 施策の腕 > 採用済みなら explainer > legacy。
+// 解説形式に割り付けた本でも、write-explainers が台本 (storyboard-<i>-<code>.json) を残さなかった本は今の形式で描く。
+const EXPLAINER_OVERRIDE = process.env.EXPLAINER?.trim() || undefined;
 
 const ACCENTS = ["#F5E63B", "#FFB347", "#5EEAD4"];
 const accentFor = (i: number) => ACCENTS[(i - 1) % ACCENTS.length] ?? ACCENTS[0];
@@ -57,6 +68,7 @@ interface Story {
   sourceName: string;
   sourceUrl?: string;
   commentQuestion?: string;
+  mapMarkers?: Array<{ lon?: number; lat?: number; label?: string; kind?: string }>;
 }
 interface ScriptJson { date: string; stories: Story[] }
 
@@ -75,11 +87,33 @@ async function main() {
   const stories = only ? script.stories.filter(s => s.country.code.toLowerCase() === only) : script.stories;
 
   console.log(`[prep-short] hook layout: ${stories.map(st => `${st.index}=${hookLayoutFor(LIVE_EXPERIMENTS, date, st.index, HOOK_OVERRIDE)}`).join(" ")} (override: ${HOOK_OVERRIDE ?? "-"})`);
+  const decisions = new Map<number, StyleDecision>(stories.map(st => [st.index, styleFor(LIVE_EXPERIMENTS, date, st.index, EXPLAINER_OVERRIDE)]));
+  const rendered = new Map<number, Style>();
   const out: unknown[] = [];
-  for (const story of stories) out.push(await buildStory(dir, pub, story, date));
+  for (const story of stories) {
+    const sb = await readStoryboard(dir, story, decisions.get(story.index)!);
+    if (sb) {
+      try {
+        out.push(await buildExplainer(dir, pub, story, sb, date));
+        rendered.set(story.index, "explainer");
+        continue;
+      } catch (e) {
+        console.warn(`[prep-short] ${story.country.code.toLowerCase()}: explainer failed (${e instanceof Error ? e.message : e}) — falling back to legacy`);
+      }
+    }
+    out.push(await buildStory(dir, pub, story, date));
+  }
 
-  // 描画したレイアウトと施策の腕を出力ディレクトリに残す。publish-all はこれを台帳に写す (後日投稿でもずれない)
-  const arms: Record<string, ArmRecord> = Object.fromEntries(stories.map(st => [String(st.index), armRecordFor(LIVE_EXPERIMENTS, date, st.index, HOOK_OVERRIDE)]));
+  // 描画したレイアウト・形式と施策の腕を出力ディレクトリに残す。publish-all はこれを台帳に写す (後日投稿でもずれない)
+  const status = await readStatusFile(dir);
+  const statusOf = (i: number) => status?.[String(i)]?.status;
+  const styleOf = (i: number) => rendered.get(i) ?? "legacy";
+  console.log(`[prep-short] style: ${stories.map(st => {
+    const want = decisions.get(st.index)!.style;
+    return `${st.index}=${styleOf(st.index)}${styleOf(st.index) === want ? "" : `(assigned ${want}: ${statusOf(st.index) ?? "no status"})`}`;
+  }).join(" ")} (by: ${[...new Set([...decisions.values()].map(d => d.by))].join(",") || "-"}, override: ${EXPLAINER_OVERRIDE ?? "-"})`);
+  const arms: Record<string, StyledArmRecord> = Object.fromEntries(stories.map(st => [String(st.index),
+    finalizeArmRecord(armRecordFor(LIVE_EXPERIMENTS, date, st.index, HOOK_OVERRIDE), decisions.get(st.index)!, statusOf(st.index), styleOf(st.index))]));
   await fs.writeFile(path.join(dir, "experiment-arms.json"), JSON.stringify(arms, null, 2));
 
   const props = { date, fps: FPS, videos: out };
@@ -288,6 +322,211 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
     date,
     hookLayout: armRecordFor(LIVE_EXPERIMENTS, date, story.index, HOOK_OVERRIDE).variant,
   };
+}
+
+/** その本の解説形式の台本。割り付けが explainer で、台本のファイルが読めるときだけ返す。 */
+async function readStoryboard(dir: string, story: Story, decision: StyleDecision): Promise<Storyboard | null> {
+  const file = storyboardFile(story.index, story.country.code);
+  const p = path.join(dir, file);
+  if (!(await exists(p))) return null;
+  // 割り付けと違う形式で描くと、台帳の腕と描いたものがずれる
+  if (decision.style !== "explainer") {
+    console.warn(`[prep-short] ${file}: assigned legacy (${decision.by}) — storyboard ignored`);
+    return null;
+  }
+  try {
+    const sb = JSON.parse(await fs.readFile(p, "utf-8")) as Storyboard;
+    if (sb?.version === 1 && Array.isArray(sb.lines) && sb.lines.length >= 1 && sb.storyIndex === story.index) return sb;
+    console.warn(`[prep-short] ${file}: not a storyboard for story ${story.index} — legacy`);
+  } catch (e) {
+    console.warn(`[prep-short] ${file}: unreadable (${e instanceof Error ? e.message : e}) — legacy`);
+  }
+  return null;
+}
+
+async function readStatusFile(dir: string): Promise<ExplainerStatusFile | undefined> {
+  const text = await fs.readFile(path.join(dir, STATUS_FILE), "utf-8").catch(() => null);
+  if (text === null) return undefined;
+  try {
+    const v = JSON.parse(text);
+    if (v && typeof v === "object" && !Array.isArray(v)) return v as ExplainerStatusFile;
+  } catch {
+    // 下で警告する
+  }
+  console.warn(`[prep-short] ${STATUS_FILE}: unreadable — treated as missing`);
+  return undefined;
+}
+
+type Place = { lon: number; lat: number; label: string };
+type MapCtx = { dir: string; pub: string; code: string; accent: string; country: string; locate: (place: string) => Promise<GeoPoint | null> };
+
+/**
+ * 解説形式の1本。台本の文をそのまま読み上げ、文ごとに1つの絵 (地図・数・棒・ルート・引用) を当てる。
+ * 地図は地名を座標にして背景だけ PNG に焼き、点は画面座標で渡す (今の形式の地図シーンと同じ分担)。
+ * 描けない台本は例外にする (呼び出し側が今の形式に戻す)。描画の段で落ちると3本とも出ないため。
+ */
+async function buildExplainer(dir: string, pub: string, story: Story, sb: Storyboard, date: string): Promise<ExplainerVideo> {
+  const code = story.country.code.toLowerCase();
+  const accent = accentFor(story.index);
+  const tag = `${code}-${story.index}`;
+  const lines: StoryLine[] = sb.lines;
+  if (lines.some(l => !l || typeof l.say !== "string" || !l.say.trim())) throw new Error("a line has no say");
+  if (typeof sb.hook !== "string" || !sb.hook.trim()) throw new Error("storyboard has no hook");
+  const facts = lines.filter(l => l.kind === "fact" && typeof l.source?.outlet === "string" && l.source.outlet.trim() && typeof l.source.url === "string");
+  if (!facts.length) throw new Error("storyboard has no sourced fact line");
+
+  const country = story.country.name ?? story.country.code;
+  const cacheFile = path.join(dir, "geocode-cache.json");
+  const memo = new Map<string, Promise<GeoPoint | null>>();
+  const locate = (place: string) => {
+    const k = place.trim().toLowerCase();
+    if (!memo.has(k)) memo.set(k, geocode(place, story.country.code, { markers: story.mapMarkers, cacheFile }));
+    return memo.get(k)!;
+  };
+  const ctx: MapCtx = { dir, pub, code, accent, country, locate };
+  // 絵を先に作る (描けない台本で音声合成を待たない)
+  const visuals: XVisual[] = [];
+  for (let k = 0; k < lines.length; k++) visuals.push(await placeVisual(lines[k].visual, `${tag}-${k + 1}`, ctx));
+
+  const narration = lines.map(l => l.say).join(" ").replace(/\s+/g, " ").trim();
+  const audio = `xvoice-${tag}.mp3`;
+  const mp3 = path.join(pub, audio);
+  const words = await speak(dir, mp3, narration, `x-${tag}`);
+  if (!words.length) throw new Error("no word timings from TTS");
+  const duration = await ffprobeDuration(mp3);
+
+  const aligned = alignBeats(lines, words);
+  // framing の文は直前の fact の出典を出す。最初の fact より前の framing は最初の fact の出典
+  let outlet = facts[0].source!.outlet;
+  const beats: XBeat[] = [];
+  for (let k = 0; k < lines.length; k++) {
+    const l = lines[k], b = aligned[k];
+    if (l.kind === "fact" && l.source?.outlet?.trim()) outlet = l.source.outlet;
+    beats.push({
+      id: b.lineId,
+      start: b.start,
+      end: b.end,
+      words: words.slice(b.from, b.to).map(w => ({ w: w.w, t: w.t, d: w.d })),
+      visual: visuals[k],
+      sourceName: outlet,
+    });
+  }
+
+  const flagSrc = path.join(dir, "_assets", `${code}.png`);
+  let flag: string | null = null;
+  if (await exists(flagSrc)) {
+    await fs.copyFile(flagSrc, path.join(pub, `${code}.png`));
+    flag = `short/${code}.png`;
+  }
+
+  const picked = await pickBgm(date, code, story.index, isConflictStory(story));
+  const bgm = picked ? { ...picked, volume: Number(BGM_VOLUME) } : null;
+  if (bgm) await recordBgmUsed(dir, code, bgm.file);
+
+  const maps = beats.filter(b => b.visual.kind === "map_zoom" || b.visual.kind === "route").length;
+  console.log(`[prep-short] ${code}: explainer ${beats.length} beats (${maps} map) ${duration.toFixed(1)}s`);
+  return {
+    style: "explainer",
+    code, index: story.index, accent,
+    country: { name: country.toUpperCase(), flag },
+    hook: sb.hook.toUpperCase(),
+    audio: `short/${audio}`,
+    bgm,
+    duration: duration + 0.6,
+    beats,
+    source: { name: facts[0].source!.outlet, url: shortUrl(facts[0].source!.url) },
+    date,
+  };
+}
+
+async function placeVisual(v: Visual, file: string, ctx: MapCtx): Promise<XVisual> {
+  const bad = (what: string) => new Error(`${file}: ${what}`);
+  switch (v?.kind) {
+    case "counter":
+      if (typeof v.value !== "number" || !Number.isFinite(v.value) || typeof v.label !== "string") throw bad("counter needs a number and a label");
+      return { kind: "counter", value: v.value, label: v.label };
+    case "bars":
+      if (!Array.isArray(v.items) || !v.items.length || v.items.some(it => typeof it?.label !== "string" || typeof it.value !== "number" || !Number.isFinite(it.value))) throw bad("bars need labelled numbers");
+      return { kind: "bars", items: v.items.map(it => ({ label: it.label, value: it.value })) };
+    case "quote_card":
+      if (typeof v.who !== "string" || typeof v.text !== "string" || !v.text.trim()) throw bad("quote_card needs who and text");
+      return { kind: "quote_card", who: v.who, text: v.text };
+    case "map_zoom": {
+      const pts = await locatePlaces(Array.isArray(v.places) ? v.places : [], ctx);
+      return { kind: "map_zoom", ...await mapImage(pts.length ? pts : await countryPlace(ctx), file, ctx) };
+    }
+    case "route": {
+      const pts = await locatePlaces([v.from, v.to], ctx);
+      if (pts.length === 2) {
+        const m = await mapImage(pts, file, ctx);
+        return { kind: "route", bg: m.bg, from: m.points[0], to: m.points[1] };
+      }
+      // 片方でも座標が無ければ矢印は引けない。分かった地点 (無ければ国) の地図にする
+      return { kind: "map_zoom", ...await mapImage(pts.length ? pts : await countryPlace(ctx), file, ctx) };
+    }
+    default:
+      throw bad(`unknown visual ${String((v as { kind?: unknown } | undefined)?.kind)}`);
+  }
+}
+
+async function locatePlaces(places: unknown[], ctx: MapCtx): Promise<Place[]> {
+  const out: Place[] = [];
+  for (const p of places) {
+    if (typeof p !== "string" || !p.trim()) continue;
+    const g = await ctx.locate(p);
+    if (g) out.push({ lon: g.lon, lat: g.lat, label: p.trim() });
+    else console.warn(`[prep-short] ${ctx.code}: no coordinates for "${p}"`);
+  }
+  return out;
+}
+
+/** 地名がどれも座標にならなかったときの、国の中心に国名の点1つ。 */
+async function countryPlace(ctx: MapCtx): Promise<Place[]> {
+  const c = countryLonLat(ctx.code);
+  const g = c ? { lon: c[0], lat: c[1] } : await ctx.locate(ctx.country);
+  if (!g) throw new Error(`no coordinates for the places nor for ${ctx.country}`);
+  return [{ lon: g.lon, lat: g.lat, label: ctx.country }];
+}
+
+async function mapImage(pts: Place[], file: string, ctx: MapCtx): Promise<{ bg: string; points: XPoint[] }> {
+  const lane: MapLane = {
+    focus: [pts.reduce((a, p) => a + p.lon, 0) / pts.length, pts.reduce((a, p) => a + p.lat, 0) / pts.length],
+    markers: pts.map(p => ({ lon: p.lon, lat: p.lat, label: p.label, kind: "city" as const })),
+  };
+  const parts = mapSceneParts(lane, ctx.accent);
+  const png = `xmap-${file}.png`;
+  const svgPath = path.join(ctx.dir, `_rs-xmap-${file}.svg`);
+  await fs.writeFile(svgPath, parts.baseSvg, "utf-8");
+  try {
+    await run("rsvg-convert", ["-w", "1080", "-h", "1920", svgPath, "-o", path.join(ctx.pub, png)]);
+  } finally {
+    await fs.unlink(svgPath).catch(() => {});
+  }
+  return { bg: `short/${png}`, points: parts.markers.map(m => ({ x: m.x, y: m.y, label: m.label ?? "" })) };
+}
+
+/** buildStory と同じ音声エンジンの選び方 (Kokoro → 失敗時 edge-tts)。単語の時刻を返す。 */
+async function speak(dir: string, mp3: string, text: string, tag: string): Promise<Word[]> {
+  const wordsVtt = path.join(dir, `_rs-${tag}.words.vtt`);
+  const textFile = path.join(dir, `_rs-${tag}.txt`);
+  await fs.writeFile(textFile, text, "utf-8");
+  const edge = () => run("python3", [path.join(ROOT, "scripts", "tts-words.py"), VOICE, RATE, textFile, mp3, wordsVtt]);
+  try {
+    if (ENGINE === "kokoro") {
+      await run("python3", [path.join(ROOT, "scripts", "tts-kokoro.py"), KOKORO_VOICE, RATE, textFile, mp3, wordsVtt]);
+    } else {
+      await edge();
+    }
+  } catch (e) {
+    if (ENGINE !== "kokoro") throw e;
+    console.warn(`[prep-short] ${tag}: kokoro failed (${e instanceof Error ? e.message : e}) — falling back to edge-tts`);
+    await edge();
+  } finally {
+    await fs.unlink(textFile).catch(() => {});
+  }
+  const words = expandWords(await parseWords(wordsVtt));
+  await fs.unlink(wordsVtt).catch(() => {});
+  return words;
 }
 
 /** 冠詞・前置詞・接続詞。チャンクの末尾に来ると次の語と切り離されて読みにくい。 */

@@ -8,3 +8,6 @@ public/bgm.mp3
 props-short.json
 props.json
 props-map.json
+
+# 見本の素材 (fixtures/make-explainer-fixture.ts が作る)
+public/fixtures/

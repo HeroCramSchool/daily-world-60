@@ -9,21 +9,52 @@ import { bgmCredit, readBgmUsed } from "./lib/bgm-credit.js";
 import { LEDGER_DAYS, loadLedger, saveLedger, type LedgerEntry } from "./lib/ledger.js";
 import { armRecordFor, type ArmRecord } from "../domain/experiment/Assignment.js";
 import { isLive } from "../domain/experiment/Experiment.js";
+import { finalizeArmRecord, storyboardFile, styleFor, type Style } from "../domain/storyboard/ExplainerArm.js";
+import type { Storyboard } from "../domain/storyboard/Storyboard.js";
 import { loadRegistryOrEmpty } from "../infrastructure/pdca/RegistryFile.js";
 
 // 施策台帳 (experiments/registry.json)。投稿した動画に、入っている施策と腕を台帳へ残す (PDCA の D)。
 // 描画時に prep-short が $OUT_DIR/experiment-arms.json に書いた記録があればそれを正とする (後日投稿でも描画と一致させる)。
 const LIVE_EXPERIMENTS = loadRegistryOrEmpty().experiments.filter(isLive);
-function ledgerArms(rendered: Record<string, ArmRecord> | undefined, date: string, index: number): Pick<LedgerEntry, "exp" | "arm" | "variant"> {
+type RenderedArm = ArmRecord & { style?: Style };
+function ledgerArms(rendered: Record<string, RenderedArm> | undefined, date: string, index: number): Pick<LedgerEntry, "exp" | "arm" | "variant" | "style"> {
   try {
-    return rendered?.[String(index)] ?? armRecordFor(LIVE_EXPERIMENTS, date, index, process.env.HOOK_LAYOUT?.trim() || undefined);
+    const rec = rendered?.[String(index)];
+    if (rec) return { ...rec, style: rec.style === "explainer" ? "explainer" : "legacy" };
+    // 描画の記録が無い本 (ffmpeg 経路など) は今の形式で描いている。解説形式に割り付けた本と手動で形式を決めた本は、新旧の比較から外す
+    const fresh = armRecordFor(LIVE_EXPERIMENTS, date, index, process.env.HOOK_LAYOUT?.trim() || undefined);
+    return finalizeArmRecord(fresh, styleFor(LIVE_EXPERIMENTS, date, index, process.env.EXPLAINER), undefined, "legacy");
   } catch (e) {
     // 投稿の後で例外を出すと台帳が保存されず重複投稿につながるので、施策なしで記録して続ける
     console.warn(`[publish] 施策の腕を出せない (${e instanceof Error ? e.message : e}) — 施策なしで記録する`);
-    return { variant: process.env.HOOK_LAYOUT?.trim() === "top" ? "top" : "legacy" };
+    return { variant: process.env.HOOK_LAYOUT?.trim() === "top" ? "top" : "legacy", style: "legacy" };
   }
 }
-async function readRenderedArms(dir: string): Promise<Record<string, ArmRecord> | undefined> {
+type SourceLink = { outlet: string; url: string };
+/** 解説形式の本の出典 (storyboard の事実の文の媒体と URL)。媒体ごとに最初の URL を1つ・最大3つ。storyboard が無ければ空。 */
+async function readStoryboardSources(dir: string, index: number, code: string): Promise<SourceLink[]> {
+  let sb: Storyboard;
+  try {
+    sb = JSON.parse(await fs.readFile(path.join(dir, storyboardFile(index, code)), "utf-8"));
+  } catch {
+    return [];
+  }
+  const out: SourceLink[] = [];
+  for (const l of Array.isArray(sb?.lines) ? sb.lines : []) {
+    const s = l?.kind === "fact" ? l.source : undefined;
+    const url = typeof s?.url === "string" ? s.url.trim() : "";
+    // YouTube の説明欄は < と > を受け付けない
+    if (!/^https?:\/\/\S+$/i.test(url) || /[<>]/.test(url)) continue;
+    let host = "";
+    try { host = new URL(url).hostname.replace(/^www\./, ""); } catch { continue; }
+    const outlet = (typeof s?.outlet === "string" ? s.outlet : "").replace(/[<>]/g, "").replace(/\s+/g, " ").trim() || host;
+    if (out.some(o => o.outlet.toLowerCase() === outlet.toLowerCase())) continue;
+    out.push({ outlet, url });
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+async function readRenderedArms(dir: string): Promise<Record<string, RenderedArm> | undefined> {
   try {
     return JSON.parse(await fs.readFile(path.join(dir, "experiment-arms.json"), "utf-8"));
   } catch {
@@ -184,7 +215,9 @@ async function main() {
     const hookTitle = story.hookText?.trim();
     const titleHead = hookTitle && hookTitle.length <= 90 ? hookTitle : story.headline;
     const ytTitle = `${titleHead} #Shorts #WorldNews`;
-    const ytDesc = buildYoutubeDescription(story, scriptEn.date, await readBgmUsed(dir, code));
+    // prep-short が storyboard を使わず今の形式で描いた本には、解説の出典を載せない
+    const sources = renderedArms?.[String(story.index)]?.style === "legacy" ? [] : await readStoryboardSources(dir, story.index, story.country.code);
+    const ytDesc = buildYoutubeDescription(story, scriptEn.date, await readBgmUsed(dir, code), sources);
     const ytTags = [
       "World News", "Daily News", "60 Seconds", "Short News",
       countryName, story.country.code, story.sourceName,
@@ -317,7 +350,7 @@ async function main() {
   }
 }
 
-function buildYoutubeDescription(story: Story, date: string, bgmFile: string | null): string {
+function buildYoutubeDescription(story: Story, date: string, bgmFile: string | null, sources: SourceLink[] = []): string {
   const lines = [
     `${story.headline}`,
     // コメント質問は折りたたみプレビューに見える上部に置く (コメント=強いエンゲージメントsignal・2026-06-27)
@@ -328,6 +361,7 @@ function buildYoutubeDescription(story: Story, date: string, bgmFile: string | n
     `Source: ${story.sourceName}`,
     `${story.sourceUrl}`,
     "",
+    ...(sources.length ? ["Sources:", ...sources.map(s => `${s.outlet}: ${s.url}`), ""] : []),
   ];
   if (story.keyword) {
     lines.push(
@@ -346,14 +380,19 @@ function buildYoutubeDescription(story: Story, date: string, bgmFile: string | n
     "Educational summary for general information only · Fair use (US §107 / JP 著作権法32条)",
     "Original reporting belongs to the publisher linked above. Please verify details with the original source.",
     // 実態に合わせる (2026-09-25): 画像は 2026-06-28 以降 AI 生成イラスト、ナレーションは合成音声。
-    "Not affiliated with any government or publisher. Narration: AI voice. Images: AI-generated illustrations (not photographs); maps are schematic.",
+    // 解説形式 (Sources あり) は AI 画像を使わず、出典の数と地名から描いた図だけ。
+    `Not affiliated with any government or publisher. Narration: AI voice. ${sources.length
+      ? "Graphics: maps and charts drawn from the reports listed above; maps are schematic."
+      : "Images: AI-generated illustrations (not photographs); maps are schematic."}`,
     "",
     // CC BY 4.0 の義務。入れないと Content ID クレームの原因になる (lib/bgm-credit.ts 参照)。
     ...(bgmFile ? [...bgmCredit(bgmFile), ""] : []),
     // ハッシュタグは詰め込まない (3-5が安全圏。6+は弱シグナル/無視され得る・2026-06-27)。
     `#Shorts #WorldNews #News #${story.country.code}`,
   );
-  return lines.join("\n");
+  const desc = lines.join("\n");
+  // 説明欄は 5000 バイトまで (publishYoutube が超えた分を切ると末尾の BGM クレジットが消える)。超えるなら出典を1つずつ減らす
+  return sources.length && Buffer.byteLength(desc, "utf8") > 5000 ? buildYoutubeDescription(story, date, bgmFile, sources.slice(0, -1)) : desc;
 }
 
 function buildSocialCaption(story: Story): string {

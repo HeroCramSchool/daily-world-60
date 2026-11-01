@@ -5,17 +5,20 @@ import { Backplate, Scrim, TopStripe, SourceFooter, Headline, CountryLine, W } f
 import { Caption, BigText } from "./Caption";
 import { EyeCatch, EYECATCH_SEC } from "./EyeCatch";
 import { MapScene } from "./MapScene";
+import { Explainer, explainerFrames } from "../explainer/Explainer";
 import type { ShortProps, ShortVideo, SChunk } from "../lib/shortTypes";
+import type { ExplainerVideo } from "../lib/explainerTypes";
 
 const f = (sec: number, fps: number) => Math.max(1, Math.round(sec * fps));
 
-export function pickVideo(p: ShortProps): ShortVideo | null {
+export function pickVideo(p: ShortProps): ShortVideo | ExplainerVideo | null {
   const i = p.pick ?? 0;
   return p.videos?.[i] ?? p.videos?.[0] ?? null;
 }
 
 export const totalShortFrames = (p: ShortProps, fps: number) => {
   const v = pickVideo(p);
+  if (v?.style === "explainer") return explainerFrames(v, fps);
   return v ? f(v.duration + EYECATCH_SEC, fps) : fps;
 };
 
@@ -28,6 +31,7 @@ export const Short: React.FC<ShortProps> = (props) => {
   const { fps } = useVideoConfig();
   const v = pickVideo(props);
   if (!v) return <AbsoluteFill style={{ background: "#0A0A0A" }} />;
+  if (v.style === "explainer") return <Explainer v={v} />;
 
   const hookFrames = f(v.hookEnd, fps);
   const eyeFrames = f(EYECATCH_SEC, fps);

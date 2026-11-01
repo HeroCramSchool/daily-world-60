@@ -83,6 +83,15 @@ on:
         description: "1フレーム目のレイアウト A/B (空=日付の偶奇で自動: 偶数日=top / 奇数日=legacy)"
         required: false
         default: ""
+      explainer:
+        description: "本編の形式 (auto=施策台帳で解説形式と今の形式を半々 / on=全部を解説形式 / off=全部を今の形式)。on/off で作った本は新旧の比較から外れる。ffmpeg 経路は常に off"
+        required: false
+        default: "auto"
+        type: choice
+        options:
+          - "auto"
+          - "on"
+          - "off"
 
 permissions:
   contents: write
@@ -95,7 +104,8 @@ concurrency:
 jobs:
   pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Step A2 (解説形式の台本) が最大 12 分ほど使うので 30 → 45 (2026-11-01)
+    timeout-minutes: 45
 
     env:
       DRIVE_FOLDER_NAME: "Daily World 60"
@@ -245,6 +255,7 @@ jobs:
           IN_DATE: ${{ github.event.inputs.date }}
           IN_BATCH: ${{ github.event.inputs.batch }}
           IN_HOOK: ${{ github.event.inputs.hook_layout }}
+          IN_EXPLAINER: ${{ github.event.inputs.explainer }}
         run: |
           if [ -n "$SCHED" ]; then
             # 2 cron → batch と日付オフセット。batch2 は前日 Routine 分 (Routine は 18:00 UTC 生成)。
@@ -271,6 +282,14 @@ jobs:
           if [ "${RENDERER:-remotion}" != "remotion" ]; then HL=legacy; fi
           echo "HOOK_LAYOUT=$HL" >> $GITHUB_ENV
           echo "HOOK_LAYOUT: '${HL}' (input: '${IN_HOOK:-}'; 空なら施策台帳で決める)"
+          # 本編の形式: 手動入力 (on/off) があればそれを使う (その本は新旧の比較から外れる)。
+          # schedule と auto は空のまま渡し、write-explainers.ts / prep-short.ts が施策台帳 (news-explainer-2026-11) から決める。
+          EX=$(echo "${IN_EXPLAINER:-}" | tr 'A-Z' 'a-z')
+          if [ "$EX" != "on" ] && [ "$EX" != "off" ]; then EX=""; fi
+          # ffmpeg 経路は解説形式を描けないので off に揃える
+          if [ "${RENDERER:-remotion}" != "remotion" ]; then EX=off; fi
+          echo "EXPLAINER=$EX" >> $GITHUB_ENV
+          echo "EXPLAINER: '${EX}' (input: '${IN_EXPLAINER:-}'; 空なら施策台帳で決める)"
           if [ -n "$BATCH" ]; then WORK="${DATE}-b${BATCH}"; else WORK="$DATE"; fi
           echo "realdate=$DATE" >> $GITHUB_OUTPUT
           echo "work=$WORK"     >> $GITHUB_OUTPUT
@@ -283,6 +302,19 @@ jobs:
       - name: Step A — Fetch scripts from Drive
         if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
         run: npx tsx scripts/fetch-scripts-from-drive.ts ${{ steps.date.outputs.realdate }}
+
+      # 解説形式 (news-explainer-2026-11・docs/explainer.md)。解説形式に決まった本だけ Claude API で台本を作り、
+      # 出典の本文との照合と反証に通った本だけ $OUT_DIR/storyboard-<index>-<code>.json を書く。
+      # 落ちても・キーが無くても・費用の上限に当たっても、その本を今の形式で作るだけなので投稿は止めない。
+      - name: Step A2 — 解説形式の台本 (Claude API・失敗したら今の形式)
+        if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
+        continue-on-error: true
+        # write-explainers 自身が 12 分 (EXPLAINER_DEADLINE_SEC) で呼び出しを止めて状態ファイルを書く。これはその外側の安全網
+        timeout-minutes: 15
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          EXPLAINER_DAILY_CAP_USD: ${{ vars.EXPLAINER_DAILY_CAP_USD || '2' }}
+        run: npx tsx scripts/write-explainers.ts ${{ steps.date.outputs.realdate }}
 
       - name: Step B — Per-story narrations (voice + vtt)
         if: env.RUN_MODE != 'publish' && env.RUN_MODE != 'delete'
@@ -415,6 +447,9 @@ jobs:
             output/${{ steps.date.outputs.work }}/publish-results.json
             output/${{ steps.date.outputs.work }}/script-en.json
             output/${{ steps.date.outputs.work }}/script-jp.json
+            output/${{ steps.date.outputs.work }}/storyboard-*.json
+            output/${{ steps.date.outputs.work }}/explainer-status.json
+            output/${{ steps.date.outputs.work }}/claude-usage.json
           retention-days: 30
 
       - name: Commit results

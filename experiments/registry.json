@@ -103,7 +103,7 @@
     {
       "id": "posts-per-day-2026-10",
       "title": "本編の1日の本数（A=3本 / B=編集順位の上位2本 / C=1本）",
-      "status": "running",
+      "status": "rejected",
       "design": "observational",
       "lane": "news",
       "unit": "day",
@@ -136,7 +136,51 @@
         "minN": 10,
         "manual": true
       },
-      "source": "2026-09-25 の改善計画（オーナー承認済み）"
+      "source": "2026-09-25 の改善計画（オーナー承認済み）",
+      "decision": {
+        "result": "rejected",
+        "action": "1日3本のまま",
+        "by": "オーナー",
+        "on": "2026-11-01",
+        "learning": "どの順位も日の合計の3割前後（1位28%・2位42%・3位30%）。2本にすると合計の約3割を失う見込み"
+      }
+    },
+    {
+      "id": "news-explainer-2026-11",
+      "title": "本編を確かめた事実だけの30秒解説に作り直す",
+      "status": "running",
+      "design": "randomized",
+      "lane": "news",
+      "unit": "video",
+      "arms": [
+        "explainer",
+        "legacy"
+      ],
+      "control": "legacy",
+      "armSource": {
+        "by": "hash"
+      },
+      "plan5": {
+        "konkyo": "10/18 の提案書で「<数> DRONES/MISSILES … OVERNIGHT」の本編6本が中央値686.5回・ほかの本編140本が63回（後から見つけた傾向・6本だけ）、10/31 の施策レポートで本編45本の中央値56",
+        "kasetsu": "冒頭0秒で数字と場所が見え、確かめた事実だけで組んだ30秒の解説は、今の形式より最後まで見られ再生が伸びる",
+        "kitai": "再生の幾何平均比が1.0以上（悪くならなければ全部替える）",
+        "hakarikata": "同じ日の3本を1本ずつハッシュで割り付け、投稿7日後の再生で比べる。キー未設定・費用上限・API障害で試みなかった本は比較から外し、照合や反証で今の形式に戻った本は新形式の腕に数える",
+        "yameru": "新形式が10本たまって中央値が今の形式の半分を下回ったら止める"
+      },
+      "window": {
+        "start": "2026-11-05",
+        "end": "2026-11-18",
+        "decideOn": "2026-11-26"
+      },
+      "decide": {
+        "minN": 10,
+        "adoptIf": "ratio>=1.0 && medRatio>=1.0",
+        "rejectIf": "ratio<0.7",
+        "stopIf": "nT>=10 && medRatio<0.5"
+      },
+      "expectedPerArm": 21,
+      "source": "docs/plans/news-explainer-plan-2026-11-01.html",
+      "notes": "形式の決め方・台帳の記録・止め方は docs/explainer.md。手動の explainer=on/off で作った本は比較から外す"
     },
     {
       "id": "overnight-map-2026-11",

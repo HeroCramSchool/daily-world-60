@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import sharp from "sharp";
 import { startPodAndWaitComfy, stopPod } from "./lib/runpod.js";
 import { loadWorkflow, fillWorkflow, uploadImage, submitPrompt, waitForVideo, downloadOutput } from "./lib/comfy.js";
+import { storyboardFile } from "../domain/storyboard/ExplainerArm.js";
 
 /**
  * 各ストーリーの背景画像を Wikimedia Commons から取得して
@@ -668,6 +669,21 @@ async function main() {
   for (const story of script.stories) {
     const code = story.country.code.toLowerCase();
     const countryName = story.country.name ?? COUNTRY_NAMES[story.country.code.toUpperCase()] ?? story.country.code;
+
+    // 解説形式の本 (write-explainers が storyboard を書いた本) はデータから描く図だけで作るので、写真も AI 画像も取らない。
+    // 投稿用画像 (generate-social-images) と prep-short が今の形式に戻したときのために、単色の下地と国旗だけ置く。
+    if (await exists(path.join(dir, storyboardFile(story.index, story.country.code)))) {
+      console.log(`[broll] ${code}: storyboard あり (解説形式) — 画像の取得と生成を飛ばす (単色の下地と国旗だけ)`);
+      await solidFallback(path.join(assets, `bg-${code}-s${story.index}-1.jpg`), countryName);
+      for (let n = 2; n <= BG_COUNT; n++) {
+        await fs.copyFile(path.join(assets, `bg-${code}-s${story.index}-1.jpg`), path.join(assets, `bg-${code}-s${story.index}-${n}.jpg`)).catch(() => {});
+      }
+      await fetchFlag(story.country.code, path.join(assets, `${code}.png`)).catch(e => {
+        console.warn(`[broll] flag fetch failed (${code}): ${e instanceof Error ? e.message : e}`);
+      });
+      creditLines.push(`## Story ${story.index} — ${countryName}: ${story.headline}`, `- bg-${code}-s${story.index}-1..${BG_COUNT}.jpg — solid-color placeholder (explainer: data graphics only)`, "");
+      continue;
+    }
 
     const queries = (Array.isArray(story.imageQueries) && story.imageQueries.length)
       ? [...story.imageQueries, countryName]

@@ -56,6 +56,7 @@ stats.yml の毎日の回で `npm run pdca -- weekly` が、その週（月曜�
 - 描画時に prep-short が `$OUT_DIR/experiment-arms.json` に、動画ごとのレイアウトと施策・腕を書く。publish-all はこれを台帳に写す（無ければ同じ関数で計算する）。
 - 手動でレイアウトを指定した動画（ffmpeg 経路の legacy を含む）は、hook の施策の対象から外す。
 - 台帳が検査に通らない施策を含んでいても、投稿は止めずにその施策を外して続ける。
+- 本編の形式の A/B（news-explainer-2026-11）は、台帳に実際に描いた形式 `style`（explainer / legacy）も残す。比較から外す本の決まりと止め方は `docs/explainer.md`。
 
 ## 手元で試す
 

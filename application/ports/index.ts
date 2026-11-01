@@ -4,3 +4,4 @@ export * from "./BRollFetcherPort.js";
 export * from "./VideoRendererPort.js";
 export * from "./ThumbnailGeneratorPort.js";
 export * from "./PublisherPort.js";
+export * from "./NewsDeskPort.js";

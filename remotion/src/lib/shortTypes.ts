@@ -1,3 +1,5 @@
+import type { ExplainerVideo } from "./explainerTypes";
+
 export type SWord = { w: string; t: number; d: number };
 export type SMapMarker = {
   x: number; y: number; strike: boolean;
@@ -15,6 +17,7 @@ export type SChunk = {
 };
 export type STail = { text: string; start: number; end: number };
 export type ShortVideo = {
+  style?: "legacy";
   code: string;
   index: number;
   accent: string;
@@ -35,4 +38,4 @@ export type ShortVideo = {
   date: string;
   hookLayout?: "top" | "legacy";
 };
-export type ShortProps = { date: string; fps: number; videos: ShortVideo[]; pick?: number };
+export type ShortProps = { date: string; fps: number; videos: Array<ShortVideo | ExplainerVideo>; pick?: number };
