@@ -19,6 +19,8 @@ export type VideoFact = {
   arm?: Record<string, string>;
   /** 投稿7日後の再生数。7日たっていない動画と、スナップショットが欠けた動画は undefined。 */
   at7d?: number;
+  /** 投稿48時間後の再生数（止める条件用）。48時間たっていない動画と、スナップショットが欠けた動画は undefined。 */
+  at48h?: number;
   /** 公開から7日（168時間）たったか。 */
   matured: boolean;
 };
@@ -72,7 +74,7 @@ export function rowsAndUnlinked(e: Experiment, videos: VideoFact[]): { rows: Row
       arm = raw === undefined || raw === null ? undefined : String(raw);
     }
     if (!arm || !(e.arms ?? []).includes(arm)) continue;
-    out.push({ videoId: v.videoId, date, arm, at7d: v.at7d, matured: v.matured });
+    out.push({ videoId: v.videoId, date, arm, at7d: v.at7d, at48h: v.at48h, matured: v.matured });
   }
   return { rows: out, unlinked };
 }
@@ -97,8 +99,10 @@ export function confounds(e: Experiment, others: Experiment[], videos: VideoFact
     ...ctx.gitChanges(start, end).map(s => `変更: ${s}`),
     ...zeroPostDays(videos, start, end, ctx.today, ctx.postedNewsDays).map(d => `事故: ${d} 本編0本`),
     ...ctx.failedRuns(start, end).map(s => `事故: ${s}`),
-    ...others.filter(o => o.id !== e.id && o.status === "running" && o.window
-      && o.window.start <= end && start <= o.window.end).map(o => `同時に実行中: ${o.id}`),
+    // 決定済みの施策も、期間が重なれば交絡の候補として残す（決めた日に running から外れても期間中は動いていた）
+    ...others.filter(o => o.id !== e.id && o.status !== "idea" && o.status !== "draft" && o.window
+      && o.window.start <= end && start <= o.window.end)
+      .map(o => o.status === "running" ? `同時に実行中: ${o.id}` : `期間が重なる施策: ${o.id}（${o.status}）`),
   ];
 }
 
@@ -138,9 +142,10 @@ export function readoutLines(r: Readout, sigma: number): string[] {
   const lines = [
     `- 状態: **${STATE_JA[v.state] ?? v.state}** — ${v.reason}`,
     v.ratio !== undefined
-      ? `- 比（${v.treatment}/${v.control}）: ${f2(v.ratio)} [95%区間 ${f2(v.lo)}〜${f2(v.hi)}] · ${arms}`
+      ? `- 比（${v.treatment}/${v.control}${r.exp.unit === "video" ? "・両方の腕がそろった日ごとの比の平均" : ""}）: ${f2(v.ratio)} [95%区間 ${f2(v.lo)}〜${f2(v.hi)}] · ${arms}`
       : `- ${arms || "対象の動画はまだ無い"}`,
   ];
+  if (v.arms48) lines.push(`- 投稿48時間後（止める条件用）: ${v.arms48.map(a => `${a.arm} ${a.n}本（中央値 ${f0(a.median)}）`).join(" / ")}`);
   if (v.shares) lines.push(`- 日の合計に占める割合: ${Object.entries(v.shares).map(([k, s]) => `${k} ${pct(s)}`).join(" / ")}`);
   if (r.mde !== undefined) lines.push(`- この本数で見分けられる最小の差: ${r.mde.toFixed(1)}倍（σ=${sigma}・${r.exp.unit === "video" ? "本数" : "日数"}で計算）`);
   if (r.pending) lines.push(`- まだ7日たっていない動画: ${r.pending}本`);
@@ -167,7 +172,7 @@ export function renderReport(reg: Registry, readouts: Readout[], today: string):
   return [
     `# DW60 施策レポート（自動・${today}）`,
     "",
-    "判定は投稿7日後の再生数（views@7d）の幾何平均の比で行う。95%区間は日ごとに引き直したブートストラップ。基準は台帳に結果を見る前に書いたもの。",
+    "判定は投稿7日後の再生数（views@7d）の幾何平均の比で行う。同じ日の中で腕が分かれる施策（unit=video）は、両方の腕がそろった日ごとの比を平均する。95%区間は日ごとに引き直したブートストラップ。基準は台帳に結果を見る前に書いたもの。",
     "",
     ...section("判定待ち（オーナーが決める）", readouts.filter(r => r.phase === "decide"), true),
     ...(readouts.some(r => r.phase === "decide") ? [`次にやること: ${NEXT_STEP}`, ""] : []),

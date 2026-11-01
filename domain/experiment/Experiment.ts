@@ -2,7 +2,7 @@
  * 施策台帳 (experiments/registry.json) の型と検査。外部依存なし。
  * PDCA の P: 施策は始める前に台帳へ登録し、5点と判定の決まりを結果を見る前に書く。
  */
-import { parseRule } from "./Rule.js";
+import { parseRule, EARLY_VARS } from "./Rule.js";
 
 export type Status = "idea" | "draft" | "running" | "ready" | "adopted" | "rejected" | "stopped";
 export type Design = "randomized" | "comparison" | "observational";
@@ -83,7 +83,7 @@ export function validateRegistry(reg: Registry): Check {
   if (reg.version !== 1) errors.push(`version は 1 にする (今: ${reg.version})`);
   if (!(reg.sigma > 0)) errors.push("sigma が正の数でない");
   for (const k of ["adoptIf", "rejectIf"] as const) {
-    try { parseRule(reg.defaultDecide?.[k] ?? ""); } catch (e) { errors.push(`defaultDecide.${k}: ${(e as Error).message}`); }
+    try { earlyVarCheck(reg.defaultDecide?.[k] ?? ""); } catch (e) { errors.push(`defaultDecide.${k}: ${(e as Error).message}`); }
   }
   const seen = new Set<string>();
   for (const e of reg.experiments ?? []) {
@@ -119,7 +119,7 @@ export function validateRegistry(reg: Registry): Check {
     else if (!d.manual) {
       if (!d.adoptIf && !reg.defaultDecide?.adoptIf) errors.push(p("decide.adoptIf が無い"));
       for (const k of ["adoptIf", "rejectIf", "stopIf"] as const) {
-        if (d[k]) try { parseRule(d[k]!); } catch (err) { errors.push(p(`decide.${k}: ${(err as Error).message}`)); }
+        if (d[k]) try { k === "stopIf" ? parseRule(d[k]!) : earlyVarCheck(d[k]!); } catch (err) { errors.push(p(`decide.${k}: ${(err as Error).message}`)); }
       }
     } else if (e.design !== "observational") warnings.push(p("manual 判定は observational 以外では避ける"));
 
@@ -138,6 +138,12 @@ export function validateRegistry(reg: Registry): Check {
     if (conflicts(live[i], live[j])) errors.push(`${live[i].id} と ${live[j].id}: 同じ枠（${live[i].lane}）を同じ期間に乱数で割り付けている`);
   }
   return { errors, warnings };
+}
+
+/** 採用・不採用の式は7日後の数字だけで書く（48時間後の数字は stopIf だけ）。 */
+function earlyVarCheck(src: string): void {
+  const early = parseRule(src).flat().map(c => c.v).filter(v => EARLY_VARS.includes(v));
+  if (early.length) throw new Error(`${[...new Set(early)].join(", ")} は stopIf だけで使う（採用・不採用は投稿7日後の再生で決める）`);
 }
 
 const addDaysStr = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);

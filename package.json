@@ -15,23 +15,33 @@
     "publish": "tsx interfaces/cli/publish-all.ts",
     "pipeline": "tsx interfaces/cli/run-pipeline.ts",
     "typecheck": "tsc --noEmit",
-    "typecheck:pipeline": "tsc --noEmit --skipLibCheck --strict --target ES2022 --module ESNext --moduleResolution Bundler scripts/fetch-scripts-from-drive.ts scripts/tts-per-story.ts scripts/fetch-broll.ts scripts/build-news-video.ts scripts/generate-social-images.ts scripts/generate-x-thread.ts scripts/upload-results-to-drive.ts scripts/fetch-approved-video.ts scripts/publish-all.ts scripts/publish-map.ts scripts/delete-videos.ts scripts/collect-stats.ts scripts/analyze-winners.ts scripts/runpod-stop.ts scripts/lib/*.ts interfaces/cli/pdca.ts remotion/prep-short.ts domain/experiment/experiment.test.ts",
+    "typecheck:pipeline": "tsc --noEmit --skipLibCheck --strict --target ES2022 --module ESNext --moduleResolution Bundler scripts/fetch-scripts-from-drive.ts scripts/tts-per-story.ts scripts/fetch-broll.ts scripts/build-news-video.ts scripts/generate-social-images.ts scripts/generate-x-thread.ts scripts/upload-results-to-drive.ts scripts/fetch-approved-video.ts scripts/publish-all.ts scripts/publish-map.ts scripts/delete-videos.ts scripts/collect-stats.ts scripts/analyze-winners.ts scripts/runpod-stop.ts scripts/lib/*.ts interfaces/cli/pdca.ts remotion/prep-short.ts domain/experiment/experiment.test.ts scripts/write-explainers.ts",
     "pdca": "tsx interfaces/cli/pdca.ts",
     "pdca:check": "tsx interfaces/cli/pdca.ts check",
-    "test:pdca": "tsx --test domain/experiment/experiment.test.ts"
+    "test:pdca": "tsx --test domain/experiment/experiment.test.ts",
+    "test:storyboard": "tsx --test domain/storyboard/storyboard.test.ts",
+    "test:explainer": "tsx --test remotion/src/explainer/explainer.test.tsx scripts/lib/geocode.test.ts scripts/lib/realmap.test.ts",
+    "test:maps": "tsx --test scripts/build-map-library.test.ts",
+    "test:newsdesk": "tsx --test infrastructure/claude/newsdesk.test.ts",
+    "explainers": "tsx scripts/write-explainers.ts",
+    "maps:library": "tsx scripts/build-map-library.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.30.0",
+    "@anthropic-ai/sdk": "^1.3.0",
+    "d3-geo": "^3.1.1",
     "dotenv": "^16.4.5",
     "fast-xml-parser": "^4.4.1",
     "googleapis": "^144.0.0",
     "playwright": "^1.48.0",
     "playwright-extra": "^4.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "topojson-client": "^3.1.0"
   },
   "devDependencies": {
+    "@types/d3-geo": "^3.1.1",
     "@types/node": "^22.5.0",
+    "@types/topojson-client": "^3.1.5",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   },

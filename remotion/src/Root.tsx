@@ -6,6 +6,8 @@ import rawProps from "../props.json";
 import rawShort from "../props-short.json";
 import rawMap from "../props-map.json";
 import { MapShort } from "./map/MapShort";
+import { ExplainerPreview, explainerFrames, type ExplainerProps } from "./explainer/Explainer";
+import rawExplainer from "../fixtures/explainer-sample.json";
 import type { LongformProps } from "./lib/types";
 import type { ShortProps } from "./lib/shortTypes";
 import type { MapShortProps } from "./map/mapTypes";
@@ -14,6 +16,8 @@ const FPS = 30;
 const defaultProps = rawProps as LongformProps;
 const shortProps = rawShort as unknown as ShortProps;
 const mapProps = rawMap as MapShortProps;
+// 見本は props-short.json と別の固定ファイル (日次の prep が props-short.json を書き換えても壊れない)
+const explainerProps = rawExplainer as unknown as ExplainerProps;
 
 export const RemotionRoot: React.FC = () => (
   <>
@@ -58,6 +62,20 @@ export const RemotionRoot: React.FC = () => (
       defaultProps={mapProps}
       calculateMetadata={({ props }) => ({
         durationInFrames: Math.round((props.durationSec || 7) * (props.fps || FPS)),
+        fps: props.fps || FPS,
+      })}
+    />
+
+    <Composition
+      id="ExplainerPreview"
+      component={ExplainerPreview}
+      width={1080}
+      height={1920}
+      fps={explainerProps.fps || FPS}
+      durationInFrames={explainerFrames(explainerProps.video, explainerProps.fps || FPS)}
+      defaultProps={explainerProps}
+      calculateMetadata={({ props }) => ({
+        durationInFrames: explainerFrames(props.video, props.fps || FPS),
         fps: props.fps || FPS,
       })}
     />

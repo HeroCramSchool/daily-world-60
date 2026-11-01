@@ -25,3 +25,10 @@ All background music is licensed and attributed in every video's YouTube descrip
 ## Section b-roll (long-form)
 - Background images per section are fetched at render time from **Wikimedia Commons** (JPEG photos,
   CC/PD), matched to each section's `imageQuery`. Same source as the daily pipeline's b-roll.
+
+## realmap/ — 解説形式の地図 (国境・海岸線・川・湖・海の名)
+- Natural Earth v5.1.2（パブリックドメイン。帰属表示の義務なし） — https://www.naturalearthdata.com/about/terms-of-use/
+- 国境は米国視点版 `ne_10m_admin_0_countries_usa`（クリミア・ドネツクはウクライナ、コソボは独立国。オーナーが 2026-11-01 に選択）。
+  標準版はクリミアをロシア領に描くので使わない。
+- 川 `ne_50m_rivers_lake_centerlines`（scalerank 6 以下）・湖 `ne_50m_lakes`（4 以下）・海の名 `ne_50m_geography_marine_polys`（4 以下・内側の点）。
+- mapshaper 0.6.102 で軽くした（国境は頂点の 12% を残す）。作り方: docs/explainer.md の「地図」。
