@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, Easing } from "remotion";
-import { MapBg, Pin, Label, placeLabels, pushFor, pushed, clamp01, STRIKE, W, H } from "./Stage";
+import { MapBg, MapLabels, pinLabelRects, Pin, Label, placeLabels, pushFor, pushed, clamp01, STRIKE, W, H } from "./Stage";
 import type { XVisual } from "../lib/explainerTypes";
 
 const APPEAR_F = 10;
@@ -24,6 +24,7 @@ export const MapZoom: React.FC<{
   return (
     <AbsoluteFill>
       <MapBg bg={visual.bg} push={push} />
+      <MapLabels labels={visual.labels} push={push} fin={fin} avoid={pinLabelRects(pts, spots, fin)} />
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", left: 0, top: 0 }}>
         {pts.map((p, i) => {
           const start = 3 + i * STAGGER_F;

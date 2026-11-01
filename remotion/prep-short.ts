@@ -1,7 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
-import { laneFromStory, mapSceneParts, type MapLane } from "../scripts/lib/mapscene.js";
+import { laneFromStory, mapSceneParts } from "../scripts/lib/mapscene.js";
+import { realMapScene } from "../scripts/lib/realmap.js";
 import { recordBgmUsed } from "../scripts/lib/bgm-credit.js";
 import { pickBgm, isConflictStory } from "../scripts/lib/bgm-select.js";
 import { geocode, type GeoPoint } from "../scripts/lib/geocode.js";
@@ -14,7 +15,7 @@ import {
   styleFor, finalizeArmRecord, storyboardFile, STATUS_FILE,
   type ExplainerStatusFile, type Style, type StyleDecision, type StyledArmRecord,
 } from "../domain/storyboard/ExplainerArm.js";
-import type { ExplainerVideo, XBeat, XPoint, XVisual } from "./src/lib/explainerTypes.js";
+import type { ExplainerVideo, XBeat, XMapLabel, XPoint, XVisual } from "./src/lib/explainerTypes.js";
 
 /**
  * 日次ショート (9:16) の props を作る。
@@ -459,7 +460,7 @@ async function placeVisual(v: Visual, file: string, ctx: MapCtx): Promise<XVisua
       const pts = await locatePlaces([v.from, v.to], ctx);
       if (pts.length === 2) {
         const m = await mapImage(pts, file, ctx);
-        return { kind: "route", bg: m.bg, from: m.points[0], to: m.points[1] };
+        return { kind: "route", bg: m.bg, from: m.points[0], to: m.points[1], labels: m.labels };
       }
       // 片方でも座標が無ければ矢印は引けない。分かった地点 (無ければ国) の地図にする
       return { kind: "map_zoom", ...await mapImage(pts.length ? pts : await countryPlace(ctx), file, ctx) };
@@ -488,21 +489,17 @@ async function countryPlace(ctx: MapCtx): Promise<Place[]> {
   return [{ lon: g.lon, lat: g.lat, label: ctx.country }];
 }
 
-async function mapImage(pts: Place[], file: string, ctx: MapCtx): Promise<{ bg: string; points: XPoint[] }> {
-  const lane: MapLane = {
-    focus: [pts.reduce((a, p) => a + p.lon, 0) / pts.length, pts.reduce((a, p) => a + p.lat, 0) / pts.length],
-    markers: pts.map(p => ({ lon: p.lon, lat: p.lat, label: p.label, kind: "city" as const })),
-  };
-  const parts = mapSceneParts(lane, ctx.accent);
+async function mapImage(pts: Place[], file: string, ctx: MapCtx): Promise<{ bg: string; points: XPoint[]; labels: XMapLabel[] }> {
+  const scene = realMapScene(pts, ctx.code);
   const png = `xmap-${file}.png`;
   const svgPath = path.join(ctx.dir, `_rs-xmap-${file}.svg`);
-  await fs.writeFile(svgPath, parts.baseSvg, "utf-8");
+  await fs.writeFile(svgPath, scene.svg, "utf-8");
   try {
     await run("rsvg-convert", ["-w", "1080", "-h", "1920", svgPath, "-o", path.join(ctx.pub, png)]);
   } finally {
     await fs.unlink(svgPath).catch(() => {});
   }
-  return { bg: `short/${png}`, points: parts.markers.map(m => ({ x: m.x, y: m.y, label: m.label ?? "" })) };
+  return { bg: `short/${png}`, points: scene.points, labels: scene.labels };
 }
 
 /** buildStory と同じ音声エンジンの選び方 (Kokoro → 失敗時 edge-tts)。単語の時刻を返す。 */

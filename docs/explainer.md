@@ -8,6 +8,13 @@
 - 通らなかった本は、その日は今の形式で作る。投稿は止めない。
 - 題材は今までどおり Routine が選ぶ。新旧で題材の選び方は同じ。
 
+## 地図
+
+- 解説形式の地図は実際の地図（国境・海岸線・川・湖・国名・海の名）。今の形式の点の地図（`scripts/lib/mapscene.ts`）は比較中は変えない。
+- 描くのは `scripts/lib/realmap.ts`。データは `assets/realmap/`（Natural Earth v5.1.2・パブリックドメイン）。国境は米国視点版（クリミア・ドネツクはウクライナ、コソボは独立国、ゴラン高原はイスラエル）。オーナーが 2026-11-01 に選んだ。標準版はクリミアをロシア領に描くので使わない。
+- 地名の座標は Routine の mapMarkers → Wikipedia の座標の順（`scripts/lib/geocode.ts`）。国の中心から遠すぎる答えは捨てる。
+- 作り直すとき: Natural Earth の GeoJSON（`ne_10m_admin_0_countries_usa`・`ne_50m_rivers_lake_centerlines`・`ne_50m_lakes`・`ne_50m_geography_marine_polys`）を取り、mapshaper で `-filter-fields ADM0_A3,ISO_A2_EH,NAME_EN -simplify 12% keep-shapes`（国境）、川と湖は scalerank で絞って `-simplify 30%`、海は `-points inner` にして TopoJSON / GeoJSON で書き出す。`scripts/lib/realmap.test.ts` が視点の取り違えを止める。
+
 ## 毎日の流れ（publish.yml）
 
 | 段 | やること |

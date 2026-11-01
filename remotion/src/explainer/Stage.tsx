@@ -2,6 +2,7 @@ import React from "react";
 import { AbsoluteFill, Img, staticFile, interpolate, Easing } from "remotion";
 import { FONT } from "../lib/theme";
 import { EM } from "../lib/fit";
+import type { XMapLabel } from "../lib/explainerTypes";
 
 export const W = 1080;
 export const H = 1920;
@@ -56,6 +57,41 @@ export const MapBg: React.FC<{ bg: string; push: Push }> = ({ bg, push }) => (
   </AbsoluteFill>
 );
 
+const LABEL_FILL: Record<XMapLabel["tone"], string> = { focus: "#C9D6E8", country: "#7D8FA8", sea: "#5C7EA6" };
+
+/**
+ * 地図の国名・海の名。背景と一緒に寄る。点とそのラベル (avoid、寄せ切った後の座標) に重なる名前は出さない。
+ * 判定は寄せ切った後 (fin) の位置で行い、途中で出たり消えたりしないようにする。
+ */
+export const MapLabels: React.FC<{ labels?: XMapLabel[]; push: Push; fin: Push; avoid: Rect[] }> = ({ labels, push, fin, avoid }) => (
+  <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", left: 0, top: 0 }}>
+    {(labels ?? []).filter(l => {
+      const [fx, fy] = pushed(fin, l.x, l.y);
+      const half = (l.text.length * l.size * 0.78 * fin.s) / 2;
+      const box: Rect = { l: fx - half, r: fx + half, t: fy - l.size * fin.s, b: fy + l.size * 0.3 * fin.s };
+      return !avoid.some(a => overlap(a, box));
+    }).map((l, i) => {
+      const [x, y] = pushed(push, l.x, l.y);
+      return (
+        <text key={i} x={x} y={y} textAnchor="middle" fontFamily={FONT} fontWeight={l.tone === "sea" ? 600 : 800}
+          fontStyle={l.tone === "sea" ? "italic" : "normal"} fontSize={l.size * push.s} letterSpacing={l.size * 0.18} fill={LABEL_FILL[l.tone]}>
+          {l.text}
+        </text>
+      );
+    })}
+  </svg>
+);
+
+/** 点とそのラベルが占める矩形 (寄せ切った後の画面座標)。地図の国名はここに重ねない。 */
+export function pinLabelRects(points: Array<{ x: number; y: number }>, spots: LabelSpot[], fin: Push): Rect[] {
+  return points.flatMap((p, i) => {
+    const [x, y] = pushed(fin, p.x, p.y);
+    const s = spots[i];
+    const pin: Rect = { l: x - 40, r: x + 40, t: y - 40, b: y + 40 };
+    return s ? [pin, { l: x + s.dx - 12, r: x + s.dx + s.w + 12, t: y + s.dy - s.size * 0.9, b: y + s.dy + s.size * 0.35 }] : [pin];
+  });
+}
+
 /** 地図の点。見た目は short/MapScene.tsx のマーカーと同じ (リング・塗り・中の紺点)。 */
 export const Pin: React.FC<{ x: number; y: number; t: number; color: string; pulse: number | null }> = ({ x, y, t, color, pulse }) => {
   if (t <= 0) return null;
@@ -77,7 +113,7 @@ const LABEL_GAP = 26;
 const PIN_R = 22;
 
 type Ends = { a: [number, number]; b: [number, number] };
-type Rect = { l: number; r: number; t: number; b: number };
+export type Rect = { l: number; r: number; t: number; b: number };
 const overlap = (p: Rect, q: Rect) => p.l < q.r && q.l < p.r && p.t < q.b && q.t < p.b;
 
 /**

@@ -3,11 +3,14 @@ import type { SWord } from "./shortTypes";
 /** 地図の上の点。x, y は 1080×1920 の画素。 */
 export type XPoint = { x: number; y: number; label: string };
 
+/** 地図の国名・海の名。地図と一緒に寄るので 1080×1920 の画素で持つ。 */
+export type XMapLabel = { x: number; y: number; text: string; size: number; tone: "focus" | "country" | "sea" };
+
 export type XVisual =
-  | { kind: "map_zoom"; bg: string; points: XPoint[] }
+  | { kind: "map_zoom"; bg: string; points: XPoint[]; labels?: XMapLabel[] }
   | { kind: "counter"; value: number; label: string }
   | { kind: "bars"; items: Array<{ label: string; value: number }> }
-  | { kind: "route"; bg: string; from: XPoint; to: XPoint }
+  | { kind: "route"; bg: string; from: XPoint; to: XPoint; labels?: XMapLabel[] }
   | { kind: "quote_card"; who: string; text: string };
 
 /** 台本の1文。start/end は音声の秒、words はその文の単語。 */

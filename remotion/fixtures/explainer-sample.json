@@ -83,20 +83,29 @@
         "visual": {
           "kind": "map_zoom",
           "bg": "fixtures/map-zoom.png",
+          "labels": [
+            {
+              "x": 306,
+              "y": 765,
+              "text": "ICELAND",
+              "size": 28,
+              "tone": "focus"
+            }
+          ],
           "points": [
             {
-              "x": 279.3,
-              "y": 850.49,
+              "x": 341.58,
+              "y": 946.83,
               "label": "Sample Port"
             },
             {
-              "x": 530.1,
-              "y": 749.51,
+              "x": 474.74,
+              "y": 820.33,
               "label": "Town B"
             },
             {
-              "x": 800.7,
-              "y": 777.23,
+              "x": 618.42,
+              "y": 855.78,
               "label": "Sample North Harbor"
             }
           ]
@@ -320,14 +329,23 @@
         "visual": {
           "kind": "route",
           "bg": "fixtures/map-route.png",
+          "labels": [
+            {
+              "x": 456,
+              "y": 857,
+              "text": "ICELAND",
+              "size": 28,
+              "tone": "focus"
+            }
+          ],
           "from": {
-            "x": 279.3,
-            "y": 836.63,
+            "x": 340.48,
+            "y": 929.66,
             "label": "Sample Port"
           },
           "to": {
-            "x": 800.7,
-            "y": 763.37,
+            "x": 619.52,
+            "y": 837.89,
             "label": "Town C"
           }
         },

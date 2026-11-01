@@ -2,12 +2,12 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { mapSceneParts, type MapLane } from "../../scripts/lib/mapscene.js";
+import { realMapScene, type MapPlace } from "../../scripts/lib/realmap.js";
 import type { ExplainerVideo, XBeat, XVisual } from "../src/lib/explainerTypes.js";
 
 // ExplainerPreview の見本。文はすべて架空 (SAMPLE) で公開しない。
 // public/fixtures/ (gitignore) に無音の音声と地図 PNG を書き、点の座標を PNG とそろえるため
-// fixtures/explainer-sample.json も書き直す。mapSceneParts は決定的なので何度回しても同じ JSON になる。
+// fixtures/explainer-sample.json も書き直す。realMapScene は決定的なので何度回しても同じ JSON になる。
 // 実行: npx tsx remotion/fixtures/make-explainer-fixture.ts
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -25,13 +25,13 @@ const run = (cmd: string, args: string[]) =>
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
-async function mapPng(lane: MapLane, name: string) {
-  const parts = mapSceneParts(lane, ACCENT);
+async function mapPng(places: MapPlace[], name: string) {
+  const scene = realMapScene(places, "IS");
   const svg = path.join(PUB, `_${name}.svg`);
-  await fs.writeFile(svg, parts.baseSvg, "utf-8");
+  await fs.writeFile(svg, scene.svg, "utf-8");
   await run("rsvg-convert", ["-w", "1080", "-h", "1920", svg, "-o", path.join(PUB, `${name}.png`)]);
   await fs.unlink(svg);
-  return { bg: `fixtures/${name}.png`, xy: parts.markers.map(m => ({ x: r2(m.x), y: r2(m.y) })) };
+  return { bg: `fixtures/${name}.png`, xy: scene.points.map(m => ({ x: r2(m.x), y: r2(m.y) })), labels: scene.labels };
 }
 
 async function main() {
@@ -40,25 +40,19 @@ async function main() {
   const port = { lon: -21.9, lat: 64.15 };
   const townB = { lon: -18.1, lat: 65.68 };
   const harbor = { lon: -14.0, lat: 65.26 };
-  const zoom = await mapPng({
-    focus: [-18.5, 64.9],
-    markers: [
-      { ...port, label: "Sample Port", kind: "city" },
-      { ...townB, label: "Town B", kind: "city" },
-      { ...harbor, label: "Sample North Harbor", kind: "city" },
-    ],
-  }, "map-zoom");
-  const route = await mapPng({
-    focus: [-18.0, 64.7],
-    markers: [{ ...port, kind: "city" }, { ...harbor, kind: "city" }],
-  }, "map-route");
+  const zoom = await mapPng([
+    { ...port, label: "Sample Port" },
+    { ...townB, label: "Town B" },
+    { ...harbor, label: "Sample North Harbor" },
+  ], "map-zoom");
+  const route = await mapPng([{ ...port, label: "Sample Port" }, { ...harbor, label: "Town C" }], "map-route");
 
   const lines: Array<{ say: string; sourceName: string; visual: XVisual }> = [
     {
       say: "SAMPLE: 1,250 test drones hit Town B and Sample North Harbor overnight.",
       sourceName: "SAMPLE WIRE",
       visual: {
-        kind: "map_zoom", bg: zoom.bg,
+        kind: "map_zoom", bg: zoom.bg, labels: zoom.labels,
         points: [
           { ...zoom.xy[0], label: "Sample Port" },
           { ...zoom.xy[1], label: "Town B" },
@@ -86,7 +80,7 @@ async function main() {
     {
       say: "The sample route ran from Sample Port to Town C, far inland.",
       sourceName: "SAMPLE TIMES",
-      visual: { kind: "route", bg: route.bg, from: { ...route.xy[0], label: "Sample Port" }, to: { ...route.xy[1], label: "Town C" } },
+      visual: { kind: "route", bg: route.bg, labels: route.labels, from: { ...route.xy[0], label: "Sample Port" }, to: { ...route.xy[1], label: "Town C" } },
     },
     {
       say: "A sample official called it placeholder text for a layout test.",

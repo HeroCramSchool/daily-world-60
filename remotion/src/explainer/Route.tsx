@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, Easing } from "remotion";
-import { MapBg, Pin, Label, placeLabels, pushFor, pushed, clamp01, NAVY, STRIKE, W, H } from "./Stage";
+import { MapBg, MapLabels, pinLabelRects, type Rect, Pin, Label, placeLabels, pushFor, pushed, clamp01, NAVY, STRIKE, W, H } from "./Stage";
 import type { XVisual } from "../lib/explainerTypes";
 
 const DRAW_F = 24;
@@ -29,6 +29,11 @@ export const Route: React.FC<{
   const fromIn = interpolate(intro, [0, 8], [0, 1], { easing: Easing.out(Easing.back(1.8)), ...clamp01 });
   const toIn = interpolate(intro, [4 + DRAW_F - 4, 4 + DRAW_F + 6], [0, 1], { easing: Easing.out(Easing.back(1.8)), ...clamp01 });
 
+  // 矢印が通る帯 (寄せ切った後)。地図の国名はここに重ねない
+  const [fx0, fy0] = pushed(fin, visual.from.x, visual.from.y);
+  const [fx2, fy2] = pushed(fin, visual.to.x, visual.to.y);
+  const avoid: Rect[] = [...pinLabelRects(ends, spots, fin), ...curveRects(fx0, fy0, fx2, fy2)];
+
   let arrow: React.ReactNode = null;
   if (len > 60) {
     let nx = -(y2 - y0) / len, ny = (x2 - x0) / len;
@@ -54,6 +59,7 @@ export const Route: React.FC<{
   return (
     <AbsoluteFill>
       <MapBg bg={visual.bg} push={push} />
+      <MapLabels labels={visual.labels} push={push} fin={fin} avoid={avoid} />
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", left: 0, top: 0 }}>
         {arrow}
         <Pin x={x0} y={y0} t={fromIn} color={accent} pulse={null} />
@@ -64,3 +70,19 @@ export const Route: React.FC<{
     </AbsoluteFill>
   );
 };
+
+/** 矢印と同じ二次曲線 (上へ膨らむ) の上に、太さ 60px ほどの矩形を並べる。 */
+function curveRects(x0: number, y0: number, x2: number, y2: number): Rect[] {
+  const len = Math.hypot(x2 - x0, y2 - y0);
+  if (len <= 60) return [];
+  let nx = -(y2 - y0) / len, ny = (x2 - x0) / len;
+  if (ny > 0) { nx = -nx; ny = -ny; }
+  const bend = Math.min(220, len * 0.3);
+  const cx = (x0 + x2) / 2 + nx * bend, cy = (y0 + y2) / 2 + ny * bend;
+  return Array.from({ length: 13 }, (_, i) => {
+    const t = i / 12;
+    const x = (1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t ** 2 * x2;
+    const y = (1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t ** 2 * y2;
+    return { l: x - 30, r: x + 30, t: y - 30, b: y + 30 };
+  });
+}
