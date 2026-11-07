@@ -19,4 +19,17 @@ export type MapShortProps = {
   brand: string;
   /** registry.json の補足 (publish-map.ts が説明文に載せる)。描画では使わない */
   descriptionNote?: string;
+  /** ナレーション。無ければ無音の地図 */
+  narration?: MapNarration;
+};
+
+export type MapNarrationWord = { w: string; t: number; d: number };
+
+export type MapNarration = {
+  /** public/ からの相対パス */
+  audio: string;
+  /** 音声を始める秒 */
+  offsetSec: number;
+  /** 文ごとの時刻 (音声の秒)。keys はその文で読む凡例の鍵、highlight はその文で名前を読む国の数値 id */
+  lines: Array<{ text: string; start: number; end: number; words: MapNarrationWord[]; keys: string[]; highlight: string | null }>;
 };

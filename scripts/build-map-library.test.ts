@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildCandidate, CATALOG, numbersInLabel, parseSpec, type Ctx, type Loaded } from "./build-map-library.js";
+import { buildCandidate, CATALOG, narrowDataset, numbersInLabel, parseSpec, type Ctx, type Loaded } from "./build-map-library.js";
 
 const ctx = (over: Partial<Ctx> = {}): Ctx => ({
   date: "2026-11-01", thisYear: 2026, drawable: new Set(), usedIds: new Set(), usedTopics: [],
@@ -150,4 +150,30 @@ test("notes: 行った検査だけを書き、REST 由来は REST 以外の出�
   const num = accepted(build(numeric(pct), { bins: pctBins }));
   assert.match(num.entry.notes, /legend numbers are their bin's edges and the first\/last labels point the right way/);
   assert.match(num.entry.notes, /NOT yet human-verified: spot-check 3 countries against the source before/);
+});
+
+test("仕様の minYear と exclude: 古い値と外した国は No data になり、理由が notes に残る", () => {
+  const years = pct.map((_, i) => (i < 6 ? 2018 : 2025));
+  const ds = numeric(pct, { years, year: 2025 });
+  for (const m of [ds.values, ds.years] as Array<Map<string, unknown>>) { m.set("UKR", m.get(key(10))); m.delete(key(10)); }
+  const spec = parseSpec({ ...words, bins: pctBins, groups: [], minYear: 2022, exclude: [{ id: "UKR", why: "wartime estimate" }] }, ds.id);
+  const n = narrowDataset(ds, spec);
+  assert.equal(n.values.size, 200 - 6 - 1);
+  assert.equal(n.values.has(key(0)), false);
+  assert.equal(n.values.has("UKR"), false);
+  assert.deepEqual(n.belowMinYear?.map(x => x.id), [0, 1, 2, 3, 4, 5].map(key));
+  assert.equal(n.source.year, 2025);
+  assert.equal(ds.values.size, 200, "元のデータは変えない");
+  const r = accepted(build(ds, { bins: pctBins, minYear: 2022, exclude: [{ id: "UKR", why: "wartime estimate" }] }));
+  assert.equal(Object.keys(r.entry.data).length, 193);
+  assert.match(r.entry.notes, /older than the spec's minYear.*C000:2018/);
+  assert.match(r.entry.notes, /Left out by the spec.*UKR \(wartime estimate\)/);
+});
+
+test("仕様の minYear で 150 か国を割ったら落とす。exclude の形が違えば読めない", () => {
+  const ds = numeric(pct.slice(0, 160), { years: pct.slice(0, 160).map((_, i) => (i < 20 ? 2016 : 2025)) });
+  assert.match(rejected(build(ds, { bins: pctBins, minYear: 2020 })), /only 140 countries left after minYear\/exclude/);
+  assert.throws(() => parseSpec({ ...words, bins: pctBins, groups: [], exclude: [{ id: "ukr", why: "x" }] }, "p"), /ISO3/);
+  assert.throws(() => parseSpec({ ...words, bins: pctBins, groups: [], exclude: [{ id: "UKR" }] }, "p"), /why/);
+  assert.throws(() => parseSpec({ ...words, bins: pctBins, groups: [], minYear: 2020.5 }, "p"), /integer/);
 });

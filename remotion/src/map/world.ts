@@ -2,16 +2,18 @@ import { geoNaturalEarth1, geoPath } from "d3-geo";
 import { feature, mesh } from "topojson-client";
 import type { Topology, GeometryCollection, GeometryObject } from "topojson-specification";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
-import topology from "../../public/maps/countries-110m.json";
+import topology from "../../public/maps/countries-ne-usa.json";
 
 /**
- * world-atlas countries-110m (Natural Earth, CC0) を 1 回だけ投影して path 文字列にする。
- * 南極 (id "010") は除外。geoNaturalEarth1 を幅 MAP_W に合わせ、縦は MAP_CY を中心に置く。
- * id が無い 3 件 (N. Cyprus / Somaliland / Kosovo) は常に unknown 色で描かれる。
+ * Natural Earth v5.1.2 の米国視点の国境（パブリックドメイン）を世界図の細かさに軽くしたものを 1 回だけ投影して path 文字列にする。
+ * world-atlas の標準版はクリミアをロシアに含めるので使わない（2026-11-01 オーナー判断。解説形式の地図と同じ視点）。
+ * id は ISO 3166 の数字コード。南極は作るときに除いた。番号の無い -99 (Kosovo など) は常に unknown 色で描かれる。
+ * 作り方は docs/map-short.md の「下地の地図」。
  */
 export const MAP_W = 1056;
 export const MAP_CY = 930;
 const ANTARCTICA = "010";
+const NO_CODE = "-99";
 
 interface CountryProps { name?: string }
 const idOf = (g: GeometryObject) => String((g as { id?: string | number }).id);
@@ -44,7 +46,7 @@ function build(): WorldPaths {
   projection.translate([tx + dx, ty + dy]);
 
   const countries: CountryPath[] = keep.map((f: Feature<Geometry, CountryProps>) => ({
-    id: f.id === undefined || f.id === null ? null : String(f.id),
+    id: f.id === undefined || f.id === null || String(f.id) === NO_CODE ? null : String(f.id),
     name: f.properties?.name ?? "",
     d: path(f) ?? "",
   }));

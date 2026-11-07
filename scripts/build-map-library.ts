@@ -213,6 +213,10 @@ export interface Loaded {
   dropped: string[];
   /** 2015 年より前の値しか無く、使わなかったもの */
   stale: Array<{ id: string; year: number }>;
+  /** 仕様の minYear より古いので使わなかったもの */
+  belowMinYear?: Array<{ id: string; year: number }>;
+  /** 仕様の exclude で外したもの（理由つき） */
+  excluded?: Array<{ id: string; why: string }>;
 }
 
 export interface Ctx {
@@ -405,6 +409,10 @@ interface MapSpec {
   descriptionNote: string;
   bins: Array<{ max: number | null; label: string }>;
   groups: Array<{ values: string[]; label: string; muted: boolean }>;
+  /** 人が書く仕様だけ: これより古い年の値は No data にする（戦争などで平時の古い値が今の色に見える国を防ぐ） */
+  minYear?: number;
+  /** 人が書く仕様だけ: 値があっても No data にする国（ISO3）と理由。理由は notes に残す */
+  exclude?: Array<{ id: string; why: string }>;
 }
 
 const SPEC_SCHEMA = {
@@ -474,6 +482,42 @@ export function parseSpec(raw: unknown, dataset: string): MapSpec {
       if (!Array.isArray(gg.values) || typeof gg.label !== "string") throw new Error(`groups[${i}] needs values[] and label`);
       return { values: gg.values.map(String), label: gg.label.trim(), muted: gg.muted === true };
     }),
+    ...(o.minYear === undefined ? {} : { minYear: intField(o.minYear, "minYear") }),
+    ...(o.exclude === undefined ? {} : { exclude: excludeField(o.exclude) }),
+  };
+}
+
+function intField(v: unknown, k: string): number {
+  if (typeof v !== "number" || !Number.isInteger(v)) throw new Error(`${k} must be an integer`);
+  return v;
+}
+
+function excludeField(v: unknown): Array<{ id: string; why: string }> {
+  if (!Array.isArray(v)) throw new Error("exclude must be an array");
+  return v.map((x, i) => {
+    const xx = x as { id?: unknown; why?: unknown };
+    if (typeof xx.id !== "string" || !/^[A-Z]{3}$/.test(xx.id) || typeof xx.why !== "string" || !xx.why.trim()) throw new Error(`exclude[${i}] needs an ISO3 id and a why`);
+    return { id: xx.id, why: xx.why.trim() };
+  });
+}
+
+/** 仕様の minYear と exclude を当てた後のデータ。どちらも無ければそのまま返す。 */
+export function narrowDataset(ds: Loaded, spec: Pick<MapSpec, "minYear" | "exclude">): Loaded {
+  if (spec.minYear === undefined && !spec.exclude?.length) return ds;
+  const values = new Map(ds.values);
+  const years = new Map(ds.years);
+  const belowMinYear: Array<{ id: string; year: number }> = [];
+  if (spec.minYear !== undefined) {
+    for (const [id, y] of ds.years) if (y < spec.minYear) { values.delete(id); years.delete(id); belowMinYear.push({ id, year: y }); }
+  }
+  const excluded: Array<{ id: string; why: string }> = [];
+  for (const x of spec.exclude ?? []) if (values.delete(x.id)) { years.delete(x.id); excluded.push(x); }
+  const modal = modeOf([...years.values()]) ?? ds.source.year;
+  return {
+    ...ds, values, years,
+    source: { ...ds.source, year: modal },
+    belowMinYear: belowMinYear.sort((a, b) => a.id.localeCompare(b.id)),
+    excluded,
   };
 }
 
@@ -546,10 +590,12 @@ interface Review {
   warnings: string[];
 }
 
-export function buildCandidate(ds: Loaded, spec: MapSpec, ctx: Ctx, provenance: string): { entry: MapEntry; review: Review } | Rejected {
+export function buildCandidate(loaded: Loaded, spec: MapSpec, ctx: Ctx, provenance: string): { entry: MapEntry; review: Review } | Rejected {
+  const ds = narrowDataset(loaded, spec);
   const id = spec.id ?? ds.id;
   const fail = (reason: string, stage: Rejected["stage"] = "checks"): Rejected => ({ id, stage, reason });
   if (spec.skip) return fail(spec.skipReason || "(no reason given)", "skipped-by-model");
+  if (ds !== loaded && ds.values.size < MIN_COUNTRIES) return fail(`only ${ds.values.size} countries left after minYear/exclude (< ${MIN_COUNTRIES})`);
 
   const problems: string[] = [];
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) problems.push(`id "${id}" is not kebab-case`);
@@ -705,6 +751,8 @@ function buildNotes(ds: Loaded, legend: MapLegend[], counts: Record<string, numb
       : `No economy was dropped for being older than ${MIN_YEAR}.`);
     parts.push(`World Bank aggregates dropped${ds.dropped.length ? `; no ccn3 in countries.json so not drawable: ${ds.dropped.join(", ")}` : ""}.`);
   }
+  if (ds.belowMinYear?.length) parts.push(`Not used (older than the spec's minYear, shown as No data): ${ds.belowMinYear.map(s => `${s.id}:${s.year}`).join(", ")}.`);
+  if (ds.excluded?.length) parts.push(`Left out by the spec (shown as No data): ${ds.excluded.map(x => `${x.id} (${x.why})`).join("; ")}.`);
   if (ds.kind === "numeric") {
     const sorted = [...ds.values.entries()].map(([k, v]) => [k, sig(Number(v), 4)] as const).sort((a, b) => b[1] - a[1]);
     const show = (xs: ReadonlyArray<readonly [string, number]>) => xs.map(([k, v]) => `${k} ${v}`).join(", ");
