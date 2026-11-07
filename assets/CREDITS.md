@@ -32,3 +32,6 @@ All background music is licensed and attributed in every video's YouTube descrip
   標準版はクリミアをロシア領に描くので使わない。
 - 川 `ne_50m_rivers_lake_centerlines`（scalerank 6 以下）・湖 `ne_50m_lakes`（4 以下）・海の名 `ne_50m_geography_marine_polys`（4 以下・内側の点）。
 - mapshaper 0.6.102 で軽くした（国境は頂点の 12% を残す）。作り方: docs/explainer.md の「地図」。
+
+## remotion/public/maps/countries-ne-usa.json — 地図ショートの下地
+- Natural Earth v5.1.2 `ne_10m_admin_0_countries_usa`（パブリックドメイン）を mapshaper で頂点の 3% に軽くしたもの。作り方は docs/map-short.md の「下地の地図」。

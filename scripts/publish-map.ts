@@ -189,7 +189,7 @@ function buildDescription(map: MapDef, date: string, drawable: Set<string>): str
     ...(map.cta ? ["", `💬 ${map.cta}`] : []),
     "",
     `Source: ${map.source.name} (${map.source.year}) ${map.source.url}`,
-    "Map is schematic (Natural Earth 110m); borders and territories simplified.",
+    "Map is schematic (Natural Earth, U.S. point-of-view borders); borders and territories simplified.",
     "",
     // 以下は publish-all.ts buildYoutubeDescription と同じ channel 行 (ナレーション/AI 画像の開示行は無音の地図には当てはまらないので省く)
     `${date} · Daily World 60`,
