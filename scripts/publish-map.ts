@@ -3,19 +3,21 @@ import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 import { publishYoutube } from "./publishers/youtube.js";
 import { loadLedger, saveLedger, type LedgerEntry } from "./lib/ledger.js";
+import { bgmCredit } from "./lib/bgm-credit.js";
+import { mixBgm, pickMapBgm } from "./lib/map-bgm.js";
 
 /**
- * Map Short (月・水・金): 「各国の○○」塗り分け地図 1 枚・5〜9 秒・無音を 1 本投稿する。
+ * Map Short (月・水・金): 「各国の○○」塗り分け地図 1 枚を 1 本投稿する。ナレーション (registry の narration) と BGM つき。
  * 契約: docs/map-short.md
  *
  *   npx tsx scripts/publish-map.ts <mapId|auto>
  *
  * 入力:  content/maps/registry.json (地図定義) + content/maps/posted.json (投稿済み台帳)
- * 工程:  prep-map.ts → remotion render MapShort → YouTube → posted.json 追記 → Drive 台帳 (best effort)
- * 出力:  remotion/out/map-<id>.mp4, output/maps/<date>-<id>.json
+ * 工程:  prep-map.ts → remotion render MapShort → BGM を重ねる (ffmpeg) → YouTube → posted.json 追記 → Drive 台帳 (best effort)
+ * 出力:  remotion/out/map-<id>.mp4 (+ 実際に入った音を記す map-<id>.audio.json), output/maps/<date>-<id>.json
  *
  * env:  DRY_RUN=1     投稿せずペイロードを表示して終了 (何も書かない)
- *       SKIP_RENDER=1 prep/render を飛ばす (remotion 側未完成時の疎通確認用)
+ *       SKIP_RENDER=1 prep/render を飛ばす (remotion 側未完成時の疎通確認用)。説明欄の音の行は map-<id>.audio.json に従う
  *       MAPS_DIR      registry.json / posted.json の場所 (既定 content/maps)
  *       FORCE_REPUBLISH=true 明示 id が投稿済みでも再投稿する
  */
@@ -35,13 +37,15 @@ interface MapDef {
   /** 説明文の 2 行目に載せる補足 (集計の前提など) */
   descriptionNote?: string;
   durationSec?: number;
-  /** ナレーションの文 (prep-map.ts が読み上げる)。読み上げに成功した回だけ、説明欄に合成音声の開示行を足し、台帳の variant を map-narrated にする */
+  /** ナレーションの文 (prep-map.ts が読み上げる)。読み上げに成功した回だけ、説明欄に合成音声の開示行を足し、台帳の variant に narrated を付ける */
   narration?: string[];
 }
 interface Registry { maps: MapDef[] }
 interface Country { cca3: string; ccn3?: string }
 interface PostedEntry { id: string; date: string; videoId: string; url: string }
 interface Posted { posted: PostedEntry[] }
+/** 動画に実際に入った音。bgm は assets/bgm(-conflict) のファイル名 */
+interface MapAudio { narrated: boolean; bgm: string | null }
 
 const HERE = path.resolve(new URL(".", import.meta.url).pathname);
 const ROOT = path.resolve(HERE, "..");
@@ -84,20 +88,42 @@ async function main() {
   const drawable = await loadDrawableCca3();
 
   const videoPath = path.join(REMOTION_DIR, "out", `map-${map.id}.mp4`);
-  // 実際にナレーションが入ったか (prep-map は読み上げに失敗すると無音の地図に戻す)。説明欄と台帳はこれに合わせる
-  let narrated = false;
+  const audioPath = path.join(REMOTION_DIR, "out", `map-${map.id}.audio.json`);
+  // 実際に入った音 (prep-map は読み上げに失敗すると無音の地図に戻し、BGM は ffmpeg が無ければ入らない)。説明欄と台帳はこれに合わせる
+  let audio: MapAudio = { narrated: false, bgm: null };
   if (SKIP_RENDER) {
     console.log(`[map] SKIP_RENDER=1 — skipping prep/render (expects ${videoPath})`);
+    audio = await fs.readFile(audioPath, "utf-8").then(t => JSON.parse(t) as MapAudio).catch(() => {
+      console.warn(`::warning::[map] ${audioPath} not found — describing the video as having no narration and no BGM`);
+      return audio;
+    });
   } else {
     // prep: registry + countries → remotion/props-map.json。render は publish.yml Step Cr / render-shorts.mjs と同じ呼び方
     run("npx", ["tsx", "remotion/prep-map.ts", map.id], ROOT);
-    const props = JSON.parse(await fs.readFile(path.join(REMOTION_DIR, "props-map.json"), "utf-8")) as { narration?: unknown };
-    narrated = !!props.narration;
-    run("npx", ["remotion", "render", "MapShort", `out/map-${map.id}.mp4`, "--codec=h264", ...(narrated ? [] : ["--muted"]), "--log=error"], REMOTION_DIR);
+    const props = JSON.parse(await fs.readFile(path.join(REMOTION_DIR, "props-map.json"), "utf-8")) as { narration?: unknown; durationSec: number };
+    audio.narrated = !!props.narration;
+    const raw = path.join(REMOTION_DIR, "out", `_map-${map.id}.mp4`);
+    run("npx", ["remotion", "render", "MapShort", path.relative(REMOTION_DIR, raw), "--codec=h264", ...(audio.narrated ? [] : ["--muted"]), "--log=error"], REMOTION_DIR);
+    // BGM が入らなくても地図は出す (投稿を止めない)。その日は帰属表示も付けない
+    const bgm = await pickMapBgm(date, map, maps);
+    if (bgm) {
+      try {
+        await mixBgm(raw, videoPath, bgm, props.durationSec, audio.narrated);
+        audio.bgm = path.basename(bgm.file);
+        console.log(`[map] BGM: ${audio.bgm} from ${bgm.offset}s (volume ${bgm.volume}${bgm.conflict ? ", conflict pool" : ""})`);
+      } catch (e) {
+        console.warn(`::warning::[map] BGM mix failed — posting without BGM (${e instanceof Error ? e.message : e})`);
+      }
+    } else {
+      console.warn("::warning::[map] no BGM track found — posting without BGM");
+    }
+    if (audio.bgm) await fs.unlink(raw);
+    else await fs.rename(raw, videoPath);
+    await fs.writeFile(audioPath, JSON.stringify(audio, null, 2) + "\n", "utf-8");
   }
 
   const title = buildTitle(map.shortTitle);
-  const description = buildDescription(map, date, drawable, narrated);
+  const description = buildDescription(map, date, drawable, audio);
   const tags = buildTags(map);
   const payload = { videoPath, title, description, tags };
 
@@ -122,7 +148,7 @@ async function main() {
   const ledgerEntry: LedgerEntry = {
     headline: map.shortTitle, code: "WORLD", date,
     videoId: yt.videoId, url: yt.url,
-    index: 0, rank: 0, variant: narrated ? "map-narrated" : "map", format: "map",
+    index: 0, rank: 0, variant: mapVariant(audio), format: "map",
   };
   let ledgerStatus = "ok";
   try {
@@ -179,7 +205,12 @@ function buildTitle(shortTitle: string): string {
   return `${trimmed}${TITLE_SUFFIX}`;
 }
 
-function buildDescription(map: MapDef, date: string, drawable: Set<string>, narrated: boolean): string {
+/** 台帳の variant: map / map-narrated / map-bgm / map-narrated-bgm (無音の10本と比べるため、入った音をそのまま書く) */
+function mapVariant(audio: MapAudio): string {
+  return ["map", ...(audio.narrated ? ["narrated"] : []), ...(audio.bgm ? ["bgm"] : [])].join("-");
+}
+
+function buildDescription(map: MapDef, date: string, drawable: Set<string>, audio: MapAudio): string {
   // 凡例ごとの件数 (data は cca3 → legend key)。ccn3 の無い cca3 は描かれないので数えない
   const counts = new Map<string, number>();
   for (const [cca3, k] of Object.entries(map.data)) {
@@ -196,7 +227,9 @@ function buildDescription(map: MapDef, date: string, drawable: Set<string>, narr
     "",
     `Source: ${map.source.name} (${map.source.year}) ${map.source.url}`,
     "Map is schematic (Natural Earth, U.S. point-of-view borders); borders and territories simplified.",
-    ...(narrated ? ["Narration: AI voice. Counts in the narration are the legend counts above."] : []),
+    ...(audio.narrated ? ["Narration: AI voice. Counts in the narration are the legend counts above."] : []),
+    // CC BY 4.0 の帰属。incompetech の曲は Content ID 登録済みで、概要欄の文字で書かないと申し立てが来る (bgm-credit.ts)
+    ...(audio.bgm ? ["", ...bgmCredit(audio.bgm)] : []),
     "",
     // 以下は publish-all.ts buildYoutubeDescription と同じ channel 行 (AI 画像の開示行は地図には当てはまらないので省く)
     `${date} · Daily World 60`,
@@ -205,7 +238,7 @@ function buildDescription(map: MapDef, date: string, drawable: Set<string>, narr
     "📩 Send this to a friend who's learning English.",
     "",
     "Educational data map for general information only. Please verify details with the original source linked above.",
-    "Not affiliated with any government or publisher. No narration; map rendered from the cited dataset.",
+    `Not affiliated with any government or publisher. ${audio.narrated ? "Map" : "No narration; map"} rendered from the cited dataset.`,
     "",
     `#Shorts #Map #Geography #${map.id.replace(/-/g, "")}`,
   ];

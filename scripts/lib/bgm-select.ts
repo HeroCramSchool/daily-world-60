@@ -59,16 +59,18 @@ export type BgmPick = { file: string; offset: number; conflict: boolean };
  * conflict=true は重い曲のプール (assets/bgm-conflict) から選ぶ。
  * どちらのプールも空なら assets/news-bed.mp3 に落ちる。
  * 同じ日付・同じ動画なら常に同じ結果 (再レンダリングで音が変わらない)。
+ * slot を渡すと曲はハッシュでなく pool[slot % 曲数] (地図ショートは登録順に回す。週3本だとハッシュでは偏る)。
  */
 export async function pickBgm(
-  date: string, code: string, storyIndex: number, conflict = false,
+  date: string, code: string, storyIndex: number, conflict = false, slot?: number,
 ): Promise<BgmPick | null> {
   let file = process.env.BGM_PATH ?? "";
   if (!file) {
     const dir = path.join(ROOT, "assets", conflict ? "bgm-conflict" : "bgm");
     const pool = await poolFiles(dir);
+    const i = slot ?? hashStr(`${date}-${code}-${storyIndex}`);
     file = pool.length
-      ? path.join(dir, pool[hashStr(`${date}-${code}-${storyIndex}`) % pool.length])
+      ? path.join(dir, pool[i % pool.length])
       : path.join(ROOT, "assets", "news-bed.mp3");
   }
   if (!(await fs.access(file).then(() => true).catch(() => false))) return null;

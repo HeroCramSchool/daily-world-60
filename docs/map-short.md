@@ -1,4 +1,4 @@
-# Map Short（「各国の○○」塗り分け地図 1 枚・ナレーションつき約15秒／無しは5〜9秒）
+# Map Short（「各国の○○」塗り分け地図 1 枚・ナレーションと BGM つき約15秒／ナレーション無しは5〜9秒）
 
 海外調査（hero-cram-school/docs/research/youtube-overseas-rising-2026-10-05.md の P1）の持ち込み。
 60 秒本編とは別枠で、月・水・金に 1 本ずつ投稿する。根拠: GeoX 442K（登録 1.1K）ほか 4ch・3 言語で再現、日本では 5〜9 秒型が空いている。
@@ -41,12 +41,17 @@
   "sourceLine": "Source: REST Countries, 2026", "brand": "Daily World 60" }
 ```
 - 1080×1920・30fps。タイトル上段（2 行まで）、地図中央（Natural Earth v5.1.2 の米国視点の国境を軽くした `remotion/public/maps/countries-ne-usa.json`、南極は除外、geoNaturalEarth1 を幅に合わせる）、凡例チップ＋件数、`cta`、最下段に出典行。最初の 1.2 秒でカテゴリ順に塗りが入り、以後は静止（ループ前提）
-- ナレーション: registry の `narration` がある地図は読み上げる（2026-11-07 オーナー指示「ナレーションも入れてください」。それまでの10本は調査根拠どおり無音）。BGM は無し
+- ナレーション: registry の `narration` がある地図は読み上げる（2026-11-07 オーナー指示「ナレーションも入れてください」。それまでの10本は調査根拠どおり無音）
   - 文は言い回しだけを人が書き、件数と国名は差し込みで入れる: `{n:<凡例の key>}` = 画面の凡例チップと同じ件数、`{top}` / `{bottom}` = raw の最大・最小の国（`the United States` のように the を付ける）。手で書いた数が凡例・見出し・CTA・補足に無ければ止める（`scripts/lib/map-narration.ts`）
   - 声は本編と同じ Kokoro（失敗時 edge-tts）。音量は本編と同じ -14 LUFS にそろえる。塗りが入り始める 0.4 秒から読み、読み終わって 1 秒後に頭へループする
   - 画面: 地図と凡例の間に字幕（2 行まで・読んでいる語だけ黄色）。その文で読む凡例のチップを光らせ、`{top}` / `{bottom}` の国を白い線で囲む
   - 読み上げに失敗した日は、無音の地図（約7秒）を出す。説明欄の合成音声の開示行と、台帳の variant（`map-narrated` / `map`）は、実際に入ったかで決まる
   - ナレーションの有無で伸びが変わるかは、無音の10本と variant で比べる（本数が少ないので目安）
+- BGM: 2026-11-08 オーナー指示「BGMもつけてください」。本編と同じ Kevin MacLeod（CC BY 4.0）の曲を、書き出し後に ffmpeg で重ねる（`scripts/lib/map-bgm.ts`、`publish-map.ts` から呼ぶ）
+  - 曲は同じプールの地図の中での登録順で回す（ハッシュだと週3本では偏り、9本中6本が同じ曲になった）。見出しが軍事などの地図は `bgm-conflict`、ほかは `bgm`。曲の中の開始位置は日付で変わる
+  - 声が鳴る間だけ BGM を下げる設定と -14 LUFS は本編と同じ。読み上げは先に -14 LUFS にそろえてあるので、混ぜる前に声を 13 dB 下げて本編（Kokoro の素の音量）と同じ釣り合いにする（BGM は声より 7〜9 dB 下）
+  - 読み上げに失敗した日は BGM だけを入れる（ピークが 0 dB を超える曲があるので最後に約 -3 dB で抑える）。BGM が入らなかった日（ffmpeg が無い等）は BGM 無しで出す
+  - 説明欄の帰属表示（`Music: "<曲名>" by Kevin MacLeod …`）は実際に入れた曲だけを書く。入った音は `remotion/out/map-<id>.audio.json` に残し、台帳の variant は `map` / `map-narrated` / `map-bgm` / `map-narrated-bgm`
 
 ## 投稿メタ
 - title: `${shortTitle} 🌍 #shorts`（100 字以内）

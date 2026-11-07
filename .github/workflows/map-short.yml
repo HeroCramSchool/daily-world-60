@@ -75,7 +75,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install ffmpeg (narration encode / loudness)
+      - name: Install ffmpeg (narration encode / loudness / BGM mix)
         continue-on-error: true
         timeout-minutes: 15
         run: |
