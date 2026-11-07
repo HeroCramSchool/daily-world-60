@@ -1,6 +1,7 @@
 name: Map Short (Mon/Wed/Fri)
 
-# 「各国の○○」塗り分け地図 1 枚 (5〜9 秒・無音) を月・水・金に 1 本投稿する。契約: docs/map-short.md
+# 「各国の○○」塗り分け地図 1 枚を月・水・金に 1 本投稿する。契約: docs/map-short.md
+# registry に narration がある地図は Kokoro で読み上げる (約15秒)。読み上げに失敗した日は無音の地図 (約7秒) で出す。
 # 60 秒本編 (publish.yml, 20:00 UTC) とは別枠。次の未投稿を registry.json の順で選び、
 # 投稿後に content/maps/posted.json を追記してこのブランチへコミットし直す。
 
@@ -30,7 +31,8 @@ concurrency:
 jobs:
   map:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 読み上げ (Kokoro と ffmpeg の取り込み) の分だけ 20 → 40
+    timeout-minutes: 40
 
     env:
       DRIVE_FOLDER_NAME: "Daily World 60"
@@ -66,6 +68,46 @@ jobs:
 
       - name: Install Node deps
         run: npm ci
+
+      # ここから下はナレーション用 (publish.yml と同じ入れ方)。どれかが落ちても地図は無音で出す
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg (narration encode / loudness)
+        continue-on-error: true
+        timeout-minutes: 15
+        run: |
+          ok=""
+          for i in 1 2 3; do
+            sudo timeout 90 apt-get update \
+              && sudo timeout 180 apt-get install -y ffmpeg \
+              && ok=1 && break
+            echo "apt attempt $i failed/timed out — retrying"; sleep 10
+          done
+          [ -n "$ok" ] || { echo "apt failed after 3 attempts"; exit 1; }
+          command -v ffmpeg >/dev/null
+
+      - name: Install edge-tts (fallback voice engine)
+        continue-on-error: true
+        run: pip install edge-tts
+
+      - name: Cache Kokoro / HuggingFace models + pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/pip
+          key: kokoro-hf-v1
+
+      - name: Install Kokoro TTS (free voice engine)
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install "kokoro>=0.9,<1.0" soundfile
+          for i in 1 2 3; do python -m spacy download en_core_web_sm && break || sleep 10; done
 
       - name: Step C0r — Remotion の依存と Chrome
         working-directory: remotion

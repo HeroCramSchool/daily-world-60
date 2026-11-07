@@ -1,4 +1,4 @@
-# Map Short（「各国の○○」塗り分け地図 1 枚・5〜9 秒・無音）
+# Map Short（「各国の○○」塗り分け地図 1 枚・ナレーションつき約15秒／無しは5〜9秒）
 
 海外調査（hero-cram-school/docs/research/youtube-overseas-rising-2026-10-05.md の P1）の持ち込み。
 60 秒本編とは別枠で、月・水・金に 1 本ずつ投稿する。根拠: GeoX 442K（登録 1.1K）ほか 4ch・3 言語で再現、日本では 5〜9 秒型が空いている。
@@ -40,8 +40,13 @@
   "byNumeric": { "392": "left", "840": "right" }, "unknownLabel": "No data",
   "sourceLine": "Source: REST Countries, 2026", "brand": "Daily World 60" }
 ```
-- 1080×1920・30fps・無音。タイトル上段（2 行まで）、地図中央（Natural Earth v5.1.2 の米国視点の国境を軽くした `remotion/public/maps/countries-ne-usa.json`、南極は除外、geoNaturalEarth1 を幅に合わせる）、凡例チップ＋件数、`cta`、最下段に出典行。最初の 1.2 秒でカテゴリ順に塗りが入り、以後は静止（ループ前提）
-- 字幕・ナレーション・BGM は無し（調査根拠どおり無音）
+- 1080×1920・30fps。タイトル上段（2 行まで）、地図中央（Natural Earth v5.1.2 の米国視点の国境を軽くした `remotion/public/maps/countries-ne-usa.json`、南極は除外、geoNaturalEarth1 を幅に合わせる）、凡例チップ＋件数、`cta`、最下段に出典行。最初の 1.2 秒でカテゴリ順に塗りが入り、以後は静止（ループ前提）
+- ナレーション: registry の `narration` がある地図は読み上げる（2026-11-07 オーナー指示「ナレーションも入れてください」。それまでの10本は調査根拠どおり無音）。BGM は無し
+  - 文は言い回しだけを人が書き、件数と国名は差し込みで入れる: `{n:<凡例の key>}` = 画面の凡例チップと同じ件数、`{top}` / `{bottom}` = raw の最大・最小の国（`the United States` のように the を付ける）。手で書いた数が凡例・見出し・CTA・補足に無ければ止める（`scripts/lib/map-narration.ts`）
+  - 声は本編と同じ Kokoro（失敗時 edge-tts）。音量は本編と同じ -14 LUFS にそろえる。塗りが入り始める 0.4 秒から読み、読み終わって 1 秒後に頭へループする
+  - 画面: 地図と凡例の間に字幕（2 行まで・読んでいる語だけ黄色）。その文で読む凡例のチップを光らせ、`{top}` / `{bottom}` の国を白い線で囲む
+  - 読み上げに失敗した日は、無音の地図（約7秒）を出す。説明欄の合成音声の開示行と、台帳の variant（`map-narrated` / `map`）は、実際に入ったかで決まる
+  - ナレーションの有無で伸びが変わるかは、無音の10本と variant で比べる（本数が少ないので目安）
 
 ## 投稿メタ
 - title: `${shortTitle} 🌍 #shorts`（100 字以内）

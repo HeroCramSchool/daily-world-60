@@ -35,6 +35,8 @@ interface MapDef {
   /** 説明文の 2 行目に載せる補足 (集計の前提など) */
   descriptionNote?: string;
   durationSec?: number;
+  /** ナレーションの文 (prep-map.ts が読み上げる)。読み上げに成功した回だけ、説明欄に合成音声の開示行を足し、台帳の variant を map-narrated にする */
+  narration?: string[];
 }
 interface Registry { maps: MapDef[] }
 interface Country { cca3: string; ccn3?: string }
@@ -82,16 +84,20 @@ async function main() {
   const drawable = await loadDrawableCca3();
 
   const videoPath = path.join(REMOTION_DIR, "out", `map-${map.id}.mp4`);
+  // 実際にナレーションが入ったか (prep-map は読み上げに失敗すると無音の地図に戻す)。説明欄と台帳はこれに合わせる
+  let narrated = false;
   if (SKIP_RENDER) {
     console.log(`[map] SKIP_RENDER=1 — skipping prep/render (expects ${videoPath})`);
   } else {
     // prep: registry + countries → remotion/props-map.json。render は publish.yml Step Cr / render-shorts.mjs と同じ呼び方
     run("npx", ["tsx", "remotion/prep-map.ts", map.id], ROOT);
-    run("npx", ["remotion", "render", "MapShort", `out/map-${map.id}.mp4`, "--codec=h264", "--muted", "--log=error"], REMOTION_DIR);
+    const props = JSON.parse(await fs.readFile(path.join(REMOTION_DIR, "props-map.json"), "utf-8")) as { narration?: unknown };
+    narrated = !!props.narration;
+    run("npx", ["remotion", "render", "MapShort", `out/map-${map.id}.mp4`, "--codec=h264", ...(narrated ? [] : ["--muted"]), "--log=error"], REMOTION_DIR);
   }
 
   const title = buildTitle(map.shortTitle);
-  const description = buildDescription(map, date, drawable);
+  const description = buildDescription(map, date, drawable, narrated);
   const tags = buildTags(map);
   const payload = { videoPath, title, description, tags };
 
@@ -116,7 +122,7 @@ async function main() {
   const ledgerEntry: LedgerEntry = {
     headline: map.shortTitle, code: "WORLD", date,
     videoId: yt.videoId, url: yt.url,
-    index: 0, rank: 0, variant: "map", format: "map",
+    index: 0, rank: 0, variant: narrated ? "map-narrated" : "map", format: "map",
   };
   let ledgerStatus = "ok";
   try {
@@ -173,7 +179,7 @@ function buildTitle(shortTitle: string): string {
   return `${trimmed}${TITLE_SUFFIX}`;
 }
 
-function buildDescription(map: MapDef, date: string, drawable: Set<string>): string {
+function buildDescription(map: MapDef, date: string, drawable: Set<string>, narrated: boolean): string {
   // 凡例ごとの件数 (data は cca3 → legend key)。ccn3 の無い cca3 は描かれないので数えない
   const counts = new Map<string, number>();
   for (const [cca3, k] of Object.entries(map.data)) {
@@ -190,8 +196,9 @@ function buildDescription(map: MapDef, date: string, drawable: Set<string>): str
     "",
     `Source: ${map.source.name} (${map.source.year}) ${map.source.url}`,
     "Map is schematic (Natural Earth, U.S. point-of-view borders); borders and territories simplified.",
+    ...(narrated ? ["Narration: AI voice. Counts in the narration are the legend counts above."] : []),
     "",
-    // 以下は publish-all.ts buildYoutubeDescription と同じ channel 行 (ナレーション/AI 画像の開示行は無音の地図には当てはまらないので省く)
+    // 以下は publish-all.ts buildYoutubeDescription と同じ channel 行 (AI 画像の開示行は地図には当てはまらないので省く)
     `${date} · Daily World 60`,
     "Subscribe for daily 60-second world news from around the world.",
     "",

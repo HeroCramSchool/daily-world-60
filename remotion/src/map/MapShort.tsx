@@ -1,13 +1,14 @@
 import React, { useMemo } from "react";
-import { AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, Easing, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { FONT, T } from "../lib/theme";
 import { EM, wrapText } from "../lib/fit";
 import { worldPaths } from "./world";
-import type { MapShortProps } from "./mapTypes";
+import type { MapNarration, MapShortProps } from "./mapTypes";
 
 /**
- * 「各国の○○」塗り分け地図 1 枚 (1080×1920・無音・5〜9 秒)。
+ * 「各国の○○」塗り分け地図 1 枚 (1080×1920・5〜9 秒・narration があれば読み終わるまで)。
  * 0〜1.2 秒でカテゴリ順に塗りが入り、以後は静止 (ループ前提)。
+ * narration があるときは、地図と凡例の間に字幕を出し、その文で読む凡例のチップと国を光らせる。
  * 下 320px は Shorts の UI が被るので、本文は y=1600 より上に収める。
  */
 const W = 1080;
@@ -40,6 +41,23 @@ function legendRows(chips: Array<{ label: string; n: number }>): number {
 }
 
 const TITLE_SIZES = [104, 96, 88, 80, 72, 64, 58];
+
+// 字幕は地図の下端 (y≈1205) と凡例 (LEGEND_TOP) の間に 2 行まで。字幅の見積もりは Inter 900 より狭いので幅に余裕を残す
+const CAPTION_TOP = 1218;
+const CAPTION_SIZES = [40, 36, 32];
+const CAPTION_FIT_W = 860;
+const CAPTION_HOLD_SEC = 0.6;
+
+/** いま読んでいる文。次の文が始まるか、読み終わって少し経つまで出す。 */
+function currentLine(n: MapNarration | undefined, sec: number) {
+  if (!n) return null;
+  const t = sec - n.offsetSec;
+  for (let i = n.lines.length - 1; i >= 0; i--) {
+    const l = n.lines[i];
+    if (t >= l.start) return t < l.end + CAPTION_HOLD_SEC || i < n.lines.length - 1 ? { line: l, t } : null;
+  }
+  return null;
+}
 
 function fitTitle(text: string): { fontSize: number; lines: string[] } {
   for (const fontSize of TITLE_SIZES) {
@@ -96,6 +114,17 @@ export const MapShort: React.FC<MapShortProps> = (props) => {
   const underline = interpolate(frame, [4, 14], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
   const ctaIn = spring({ frame: frame - Math.round(CTA_AT_SEC * fps), fps, config: { damping: 12, stiffness: 170, mass: 0.6 }, durationInFrames: 12 });
   const zoom = interpolate(frame, [0, durationInFrames - 1], [1, ZOOM_END], { ...clamp, easing: Easing.inOut(Easing.quad) });
+  const now = currentLine(props.narration, frame / fps);
+  const activeKeys = new Set(now?.line.keys ?? []);
+  const lit = now?.line.highlight ? world.countries.filter((c) => c.id === now.line.highlight) : [];
+  const caption = useMemo(() => {
+    if (!now) return null;
+    for (const fontSize of CAPTION_SIZES) {
+      const lines = wrapText(now.line.text, CAPTION_FIT_W, fontSize, 2);
+      if (lines) return { fontSize, lines };
+    }
+    return { fontSize: CAPTION_SIZES[CAPTION_SIZES.length - 1], lines: [now.line.text] };
+  }, [now?.line.text]);
 
   return (
     <AbsoluteFill style={{ background: `radial-gradient(120% 70% at 50% 52%, ${T.bgLift} 0%, ${T.bg} 70%)`, fontFamily: FONT }}>
@@ -138,7 +167,27 @@ export const MapShort: React.FC<MapShortProps> = (props) => {
           );
         })}
         <path d={world.borders} fill="none" stroke={BORDER} strokeWidth={1.2} strokeLinejoin="round" />
+        {lit.map((c, i) => <path key={`lit${i}`} d={c.d} fill="none" stroke="#FFFFFF" strokeWidth={3} strokeLinejoin="round" />)}
       </svg>
+
+      {props.narration && (
+        <Sequence from={Math.round(props.narration.offsetSec * fps)} name="narration">
+          <Audio src={staticFile(props.narration.audio)} />
+        </Sequence>
+      )}
+
+      {/* caption: 読んでいる語だけ accent 色 */}
+      {now && caption && (
+        <div
+          style={{
+            position: "absolute", left: 60, top: CAPTION_TOP, width: 960, textAlign: "center",
+            color: T.ink, fontSize: caption.fontSize, fontWeight: 800, lineHeight: `${Math.round(caption.fontSize * 1.18)}px`,
+            textShadow: "0 2px 8px rgba(0,0,0,.6)",
+          }}
+        >
+          {captionWords(caption.lines, now.line.words, now.t)}
+        </div>
+      )}
 
       {/* legend */}
       <div
@@ -150,13 +199,15 @@ export const MapShort: React.FC<MapShortProps> = (props) => {
         {chips
           .map((chip) => {
             const t = categoryT(chip.k);
+            const on = activeKeys.has(chip.key);
             return (
               <div
                 key={chip.key}
                 style={{
                   display: "flex", alignItems: "center", gap: 14, height: CHIP_H, padding: "0 22px 0 16px",
-                  background: T.bgLift, border: `2px solid ${T.rule}`, borderRadius: 14,
-                  opacity: t, transform: `translateY(${(1 - t) * 14}px)`,
+                  background: T.bgLift, border: `2px solid ${on ? T.accent : T.rule}`, borderRadius: 14,
+                  opacity: t, transform: `translateY(${(1 - t) * 14}px) scale(${on ? 1.08 : 1})`,
+                  boxShadow: on ? `0 0 24px ${T.accent}55` : "none",
                 }}
               >
                 <div style={{ width: 34, height: 34, borderRadius: 7, background: chip.color, boxShadow: "inset 0 0 0 2px rgba(255,255,255,.14)" }} />
@@ -191,3 +242,21 @@ export const MapShort: React.FC<MapShortProps> = (props) => {
     </AbsoluteFill>
   );
 };
+
+/** 字幕の行を語に分け、いま読んでいる語に accent 色を付ける。語の対応は先頭から順に取る。 */
+function captionWords(lines: string[], words: Array<{ w: string; t: number; d: number }>, t: number) {
+  const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]/g, "");
+  let wi = 0;
+  return lines.map((line, li) => (
+    <div key={li} style={{ whiteSpace: "nowrap" }}>
+      {line.split(/\s+/).map((tok, ti) => {
+        let hit = false;
+        if (wi < words.length && norm(words[wi].w) && norm(tok).startsWith(norm(words[wi].w).slice(0, 3))) {
+          const w = words[wi++];
+          hit = t >= w.t && t < w.t + w.d + 0.05;
+        }
+        return <span key={ti} style={{ color: hit ? T.accent : T.ink }}>{ti ? " " : ""}{tok}</span>;
+      })}
+    </div>
+  ));
+}
