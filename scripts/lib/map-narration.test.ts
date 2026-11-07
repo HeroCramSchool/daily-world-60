@@ -23,6 +23,7 @@ test("凡例・見出し・CTA に無い数を手で書いたら止める。知�
   assert.throws(() => fillNarration(["Half of all countries spend under 1 billion."], counts, ranked, allowed), /0\.5/);
   assert.throws(() => fillNarration(["{n:100B+} countries."], counts, ranked, allowed), /legend key "100B\+"/);
   assert.throws(() => fillNarration(["The biggest is {top}."], counts, [], allowed), /\{top\} needs raw values/);
+  assert.throws(() => fillNarration(["The biggest is {tpo}."], counts, ranked, allowed), /unknown slot \{tpo\}/);
 });
 
 test("読み上げた語を文に割り当てる", () => {

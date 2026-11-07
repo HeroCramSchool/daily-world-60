@@ -52,6 +52,8 @@ export function fillNarration(
       keys.push(key);
       return String(counts[key]);
     });
+    const leftover = text.match(/\{[^}]*\}?/);
+    if (leftover) throw new Error(`narration "${src}": unknown slot ${leftover[0]} (use {n:<legend key>}, {top} or {bottom})`);
     return { text: text.replace(/\s+/g, " ").trim(), keys, highlight };
   });
 }
