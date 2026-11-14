@@ -166,6 +166,15 @@ test("やり直しの待ちが締め切りを越えるときも、待たずに�
   assert.equal(io.now(), 0);
 });
 
+test("前の依頼が長引いて締め切りを過ぎたら、次は頼まない", async () => {
+  const { io, settle } = virtualTime();
+  const pacer = createPacer({ gapMs: GAP, budgetMs: 50_000 }, io);
+  const starts: number[] = [];
+  await settle(pacer.run(async () => { starts.push(io.now()); await io.sleep(60_000); }));
+  await assert.rejects(settle(pacer.run(async () => { starts.push(io.now()); })), OverBudget);
+  assert.deepEqual(starts, [0]);
+});
+
 test("本ごとの締め切りを渡すと、その本はそこで打ち切り、次の本は続きから頼める", async () => {
   const { io, settle } = virtualTime();
   const pacer = createPacer({ gapMs: GAP, budgetMs: BUDGET }, io);
@@ -253,4 +262,13 @@ test("相手が断り続ける日でも、3本目に冒頭と本文1枚を頼む
   assert.ok(asked[0].length > 0 && asked[1].length > 0 && asked[2].length > 0, JSON.stringify(asked));
   assert.ok(asked[2][0] <= BUDGET - 2 * GAP + 90_000, JSON.stringify(asked));
   assert.ok(Math.max(...asked.flat()) <= BUDGET);
+});
+
+test("既定の時計と待ち (差し替えなし) でも、依頼の開始が間隔ぶん離れる", async () => {
+  const pacer = createPacer({ gapMs: 60, budgetMs: 5_000 });
+  const starts: number[] = [];
+  for (let i = 0; i < 3; i++) await pacer.run(async () => { starts.push(Date.now()); });
+  assert.ok(starts[1] - starts[0] >= 55, `${starts[1] - starts[0]}ms`);
+  assert.ok(starts[2] - starts[1] >= 55, `${starts[2] - starts[1]}ms`);
+  assert.ok(pacer.stats.waitMs >= 100, `${pacer.stats.waitMs}ms`);
 });
