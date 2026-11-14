@@ -533,7 +533,7 @@ async function speak(dir: string, mp3: string, text: string, tag: string): Promi
   const edge = () => run("python3", [path.join(ROOT, "scripts", "tts-words.py"), VOICE, RATE, textFile, mp3, wordsVtt]);
   try {
     if (ENGINE === "kokoro") {
-      await run("python3", [path.join(ROOT, "scripts", "tts-kokoro.py"), KOKORO_VOICE, RATE, textFile, mp3, wordsVtt, ...KOKORO_TRIM]);
+      await run("python3", [path.join(ROOT, "scripts", "tts-kokoro.py"), KOKORO_VOICE, RATE, textFile, mp3, wordsVtt]);
     } else {
       await edge();
     }
