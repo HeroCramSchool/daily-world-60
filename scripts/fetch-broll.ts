@@ -230,12 +230,12 @@ async function pollinate(prompt: string, seed: number, dest: string, timeoutMs: 
   // 402/429 は無料枠の回数制限、5xx は一時障害 → pacer が待って1枚につき3回まで頼み直す。
   await pacer.run(async () => {
     const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(timeoutMs) });
-    if (res.status === 402 || res.status === 429) {
+    if (!res.ok) {
       const retryAfter = res.headers.get("retry-after");
       console.warn(`[broll] pollinations HTTP ${res.status} (retry-after: ${retryAfter ?? "-"})`);
-      throw new RateLimited(res.status, retryAfter);
+      if (res.status === 402 || res.status === 429) throw new RateLimited(res.status, retryAfter);
+      throw new Error(`pollinations HTTP ${res.status}`);
     }
-    if (!res.ok) throw new Error(`pollinations HTTP ${res.status}`);
     const buf = Buffer.from(await res.arrayBuffer());
     if (buf.length < 2000) throw new Error("pollinations: empty/too-small image");
     await sharp(buf).resize(W, H, { fit: "cover", position: "centre" }).jpeg({ quality: 88 }).toFile(dest);
