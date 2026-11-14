@@ -227,7 +227,7 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
   const hookPhoto = pubForHook.filter(f => new RegExp(`^photo-${code}-\\d+\\.jpg$`).test(f)).sort()[0];
   const heroFile = assets.find(f => f === `hero-${code}-s${story.index}.jpg`);
   // AI の絵は番号で文に当てる。欠けた文は直前の絵 (1文目なら冒頭の絵) を続ける
-  const ai = assignBeats(beats, bodyEnd - bodyStart, heroFile ?? null);
+  const ai = assignBeats(beats, spoken.slice(bodyStart, bodyEnd), heroFile ?? null);
   const hookBg = ai.hook ? await copy(ai.hook)
     : hookPhoto ? `short/${hookPhoto}`
     : await copy(stock[0] ?? null);

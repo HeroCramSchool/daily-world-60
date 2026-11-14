@@ -18,7 +18,7 @@ const BEAT_NO_RE = /-b(\d+)\.jpg$/;
  * (b1 と b3 が欠けて b2 だけ残った回に、2文目用の絵が冒頭と全部の文に出た。2026-11-10)。
  * 欠けた番号の文は直前の絵を続け、1文目が欠けたら冒頭の絵を使う。
  */
-export function assignBeats(beatFiles: string[], sentenceCount: number, hero: string | null): BeatAssignment {
+export function assignBeats(beatFiles: string[], sentences: string[], hero: string | null): BeatAssignment {
   const byNo = new Map<number, string>();
   for (const f of beatFiles) {
     const m = BEAT_NO_RE.exec(f);
@@ -28,8 +28,10 @@ export function assignBeats(beatFiles: string[], sentenceCount: number, hero: st
   const hook = hero ?? byNo.get(Math.min(...byNo.keys()))!;
   const body: string[] = [];
   let current = hook;
-  for (let n = 1; n <= sentenceCount; n++) {
-    current = byNo.get(n) ?? current;
+  let n = 0;
+  for (const s of sentences) {
+    // 番号は fetch-broll.ts の splitBeats と同じ数え方。3語未満のかけらは番号を進めず、直前の絵を続ける
+    if (s.trim().split(/\s+/).length >= 3) current = byNo.get(++n) ?? current;
     body.push(current);
   }
   return { hook, body };
