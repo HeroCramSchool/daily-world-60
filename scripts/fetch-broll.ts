@@ -156,14 +156,14 @@ const PARALLAX_ON = process.env.PARALLAX === "on";
 // STYLIZE: 実写ストック(Pexels/Commons)を「AIイラスト風」に加工してAI生成ビート画像とトーン統一。
 // 既定ON (2026-07-20 オーナー要望)。STYLIZE=off で素の実写に戻る。
 const STYLIZE_ON = process.env.STYLIZE !== "off" && process.env.STYLIZE !== "0";
-const MAX_BEAT_IMAGES = Number(process.env.MAX_BEAT_IMAGES ?? "4");
+const MAX_BEAT_IMAGES = Number(process.env.MAX_BEAT_IMAGES || "4");
 // 無料 Pollinations は同時/連続リクエストに 429 を返す。逐次(1)＋リトライ/バックオフが安定。
 const BEAT_CONCURRENCY = Number(process.env.BEAT_CONCURRENCY ?? "1");
 const POLLINATIONS_API = "https://image.pollinations.ai/prompt/";
 // 無料枠は「1つの IP につき45秒に1枚」(2026-09-29〜)。冒頭の絵と本文の絵で同じ待ちを共有し、
 // 絵の段が締め切りを過ぎたら残りは頼まず、あるだけで先へ進む。待ち方は lib/pollinations-pace.ts。
-const POLLINATIONS_GAP_MS = Number(process.env.POLLINATIONS_GAP_MS ?? "46000");
-const IMAGE_BUDGET_MS = Number(process.env.BROLL_IMAGE_BUDGET_SEC ?? "660") * 1000;
+const POLLINATIONS_GAP_MS = Number(process.env.POLLINATIONS_GAP_MS || "46000");
+const IMAGE_BUDGET_MS = Number(process.env.BROLL_IMAGE_BUDGET_SEC || "660") * 1000;
 const pacer = createPacer({ gapMs: POLLINATIONS_GAP_MS, budgetMs: IMAGE_BUDGET_MS });
 let storyBudget = IMAGE_BUDGET_MS;
 const tally = { hero: 0, heroOk: 0, beats: 0, beatsOk: 0 };
