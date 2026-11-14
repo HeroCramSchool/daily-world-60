@@ -90,5 +90,7 @@ props.videos.forEach((v, i) => {
   }
   console.log(`  ${final}: ${dur.toFixed(1)}s (上限 ${MAX_SEC}s)`);
   warnSilence(final, dur);
+  // BGM が頭から鳴るので、声の出だしの遅れと境目の間は出来た動画では無音にならない。今の形式は声のファイルも見る (0.4 = prep-short.ts の終わりの余白)
+  if (v.style !== "explainer") warnSilence(`public/${v.audio}`, v.duration - 0.4);
 });
 console.log("\nall shorts rendered");
