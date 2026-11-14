@@ -69,3 +69,17 @@ test("略語 (U.S.) で問いが割れても、つないで1つの問いにす�
 test("文の切り方は prep-short の sentenceBounds と同じ (英数字の無いかけらは数えない)", () => {
   assert.deepEqual(narrationSentences("  A b.  ...  C d?\nE f! "), ["A b.", "C d?", "E f!"]);
 });
+
+test("問いや本文に subscribe / thanks for watching があっても締めにしない", () => {
+  const t = shortTail(timed(`${HEAD} ${BODY} ${OUTRO} Would you subscribe to a state news app? ${CTA}`));
+  assert.equal(t.outroIdx, 4);
+  assert.deepEqual(t.question, { text: "Would you subscribe to a state news app?", start: 10, end: 13.5, cta: { text: CTA, start: 12 } });
+  const noOutro = shortTail(timed(`${HEAD} Millions subscribe to the app. Thanks for watching, the host said. ${CTA}`));
+  assert.equal(noOutro.outroIdx, -1);
+  assert.equal(noOutro.bodyEnd, 4);
+});
+
+test("定型の問いが締めより前にしか無いときは、小さい1行を付けない", () => {
+  const t = shortTail(timed(`${HEAD} Reporters asked, what do you think about this? ${OUTRO} Will the app be blocked abroad?`));
+  assert.deepEqual(t.question, { text: "Will the app be blocked abroad?", start: 8, end: 9.5 });
+});
