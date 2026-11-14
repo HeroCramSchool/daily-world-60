@@ -5,6 +5,7 @@ import sharp from "sharp";
 import { startPodAndWaitComfy, stopPod } from "./lib/runpod.js";
 import { loadWorkflow, fillWorkflow, uploadImage, submitPrompt, waitForVideo, downloadOutput } from "./lib/comfy.js";
 import { storyboardFile } from "../domain/storyboard/ExplainerArm.js";
+import { createPacer, RateLimited, storyBudgetMs } from "./lib/pollinations-pace.js";
 
 /**
  * 各ストーリーの背景画像を Wikimedia Commons から取得して
@@ -155,10 +156,17 @@ const PARALLAX_ON = process.env.PARALLAX === "on";
 // STYLIZE: 実写ストック(Pexels/Commons)を「AIイラスト風」に加工してAI生成ビート画像とトーン統一。
 // 既定ON (2026-07-20 オーナー要望)。STYLIZE=off で素の実写に戻る。
 const STYLIZE_ON = process.env.STYLIZE !== "off" && process.env.STYLIZE !== "0";
-const MAX_BEAT_IMAGES = Number(process.env.MAX_BEAT_IMAGES ?? "8");
+const MAX_BEAT_IMAGES = Number(process.env.MAX_BEAT_IMAGES || "4");
 // 無料 Pollinations は同時/連続リクエストに 429 を返す。逐次(1)＋リトライ/バックオフが安定。
 const BEAT_CONCURRENCY = Number(process.env.BEAT_CONCURRENCY ?? "1");
 const POLLINATIONS_API = "https://image.pollinations.ai/prompt/";
+// 無料枠は「1つの IP につき45秒に1枚」(2026-09-29〜)。冒頭の絵と本文の絵で同じ待ちを共有し、
+// 絵の段が締め切りを過ぎたら残りは頼まず、あるだけで先へ進む。待ち方は lib/pollinations-pace.ts。
+const POLLINATIONS_GAP_MS = Number(process.env.POLLINATIONS_GAP_MS || "46000");
+const IMAGE_BUDGET_MS = Number(process.env.BROLL_IMAGE_BUDGET_SEC || "660") * 1000;
+const pacer = createPacer({ gapMs: POLLINATIONS_GAP_MS, budgetMs: IMAGE_BUDGET_MS });
+let storyBudget = IMAGE_BUDGET_MS;
+const tally = { hero: 0, heroOk: 0, beats: 0, beatsOk: 0 };
 
 // ハイブリッド画質 (2026-07-23): FAL_KEY があれば **hero 画像だけ** fal.ai の高品質モデル
 // (既定 FLUX.2 pro) で生成し、ビート画像は無料の Pollinations のまま。hero は1フレーム目/
@@ -219,24 +227,19 @@ async function pollinate(prompt: string, seed: number, dest: string, timeoutMs: 
   // 1080x1920 直出し。enhance=true は撤去 (2026-07-20): プロンプトをLLMが書き換え、題材から
   // 逸脱した「きれいなだけの絵」になる実害を確認。プロンプトは自前で具体化する方針に。
   const url = `${POLLINATIONS_API}${encodeURIComponent(prompt.slice(0, 1000))}?width=1080&height=1920&nologo=true&model=flux&seed=${seed}`;
-  // 429/5xx は無料枠のレート制限/一時障害 → バックオフして再試行。
-  const backoffs = [0, 6000, 14000];
-  let lastErr: unknown;
-  for (let attempt = 0; attempt < backoffs.length; attempt++) {
-    if (backoffs[attempt]) await sleep(backoffs[attempt]);
-    try {
-      const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(timeoutMs) });
-      if (res.status === 429 || res.status >= 500) throw new Error(`pollinations HTTP ${res.status}`);
-      if (!res.ok) throw new Error(`pollinations HTTP ${res.status}`);
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length < 2000) throw new Error("pollinations: empty/too-small image");
-      await sharp(buf).resize(W, H, { fit: "cover", position: "centre" }).jpeg({ quality: 88 }).toFile(dest);
-      return;
-    } catch (e) {
-      lastErr = e;
+  // 402/429 は無料枠の回数制限、5xx は一時障害 → pacer が待って1枚につき3回まで頼み直す。
+  await pacer.run(async () => {
+    const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(timeoutMs) });
+    if (!res.ok) {
+      const retryAfter = res.headers.get("retry-after");
+      console.warn(`[broll] pollinations HTTP ${res.status} (retry-after: ${retryAfter ?? "-"})`);
+      if (res.status === 402 || res.status === 429) throw new RateLimited(res.status, retryAfter);
+      throw new Error(`pollinations HTTP ${res.status}`);
     }
-  }
-  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length < 2000) throw new Error("pollinations: empty/too-small image");
+    await sharp(buf).resize(W, H, { fit: "cover", position: "centre" }).jpeg({ quality: 88 }).toFile(dest);
+  }, storyBudget);
 }
 
 // fal の入力コンテンツチェッカーは紛争ニュースの語彙 (bombs/strike/killed 等) を弾く
@@ -603,6 +606,8 @@ async function generateBeats(story: Story, code: string, assets: string): Promis
     }
   });
   console.log(`[broll] ${code}: ${okBeats}/${beats.length} beat images generated`);
+  tally.beats += beats.length;
+  tally.beatsOk += okBeats;
 
   // 2.5Dパララックス化 (rembg 前景分離 + 2層合成 → motion.mp4)。逐次・失敗はスキップ。
   if (PARALLAX_ON && okBeats > 0) {
@@ -702,6 +707,9 @@ async function main() {
   for (const story of script.stories) {
     const code = story.country.code.toLowerCase();
     const countryName = story.country.name ?? COUNTRY_NAMES[story.country.code.toUpperCase()] ?? story.country.code;
+    // 絵は本の順に頼む。待ちが延びた日に最後の本だけ絵が0枚にならないよう、後ろの本のぶんを残して打ち切る
+    storyBudget = storyBudgetMs(IMAGE_BUDGET_MS, POLLINATIONS_GAP_MS, script.stories.indexOf(story), script.stories.length);
+    await fs.rm(path.join(assets, `hero-${code}-s${story.index}.jpg`), { force: true });
 
     // 解説形式の本 (write-explainers が storyboard を書いた本) はデータから描く図だけで作るので、写真も AI hero もモーションも作らない。
     // 下地 (= 投稿用画像 generate-social-images の背景) は単色のまま。ただし prep-short が今の形式に戻したとき
@@ -797,9 +805,14 @@ async function main() {
     // AI hero: キーがあれば bg-1 (コールドオープン/ループ画像) を AI生成で上書き。body(bg-2..6)は Pexels のまま。
     // 失敗/コンテンツ拒否 (戦争・実在人物等で起こりうる) 時は stock の hero を維持 (無害なフォールバック)。
     if (AI_HERO_ON) {
+      tally.hero++;
       try {
         const heroJpg = path.join(assets, `bg-${code}-s${story.index}-1.jpg`);
         const engine = await generateAIHero(story, heroJpg);
+        tally.heroOk++;
+        // prep-short.ts は冒頭の絵を hero-{code}-s{index}.jpg で探す。AI の絵ができたときだけ写す
+        await fs.copyFile(heroJpg, path.join(assets, `hero-${code}-s${story.index}.jpg`))
+          .catch(e => console.warn(`[broll] hero copy failed (${code}): ${e instanceof Error ? e.message : e}`));
         creditLines.push(`- bg-${code}-s${story.index}-1.jpg — AI illustration (${engine})`);
         console.log(`[broll] ${code}: AI hero generated (${engine})`);
         // hero を5秒モーション化 (FAL_KEY 時のみ)。成功時 build がフック/ループで動画を使う。
@@ -833,6 +846,9 @@ async function main() {
     creditLines.push("");
     console.log(`[broll] ${code}: ${savedBg.length} unique bg saved, bg-1..${BG_COUNT} ensured`);
   }
+
+  const refused = (status: number) => pacer.stats.rejected.filter(s => s === status).length;
+  console.log(`[broll] 冒頭 ${tally.heroOk}/${tally.hero}・本文 ${tally.beatsOk}/${tally.beats}・待ち合計${Math.round(pacer.stats.waitMs / 1000)}秒・402 ${refused(402)}回${refused(429) ? `・429 ${refused(429)}回` : ""}`);
 
   if (motionJobs.length) {
     console.log(`[broll] waiting for ${motionJobs.length} hero motion job(s)...`);

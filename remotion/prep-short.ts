@@ -6,6 +6,7 @@ import { realMapScene } from "../scripts/lib/realmap.js";
 import { recordBgmUsed } from "../scripts/lib/bgm-credit.js";
 import { pickBgm, isConflictStory } from "../scripts/lib/bgm-select.js";
 import { narrationSentences, shortTail } from "../scripts/lib/short-tail.js";
+import { assignBeats, pictureStarts, type ChunkPicture } from "../scripts/lib/beat-assign.js";
 import { geocode, type GeoPoint } from "../scripts/lib/geocode.js";
 import { countryLonLat } from "../scripts/lib/worldmap.js";
 import { armRecordFor, hookLayoutFor } from "../domain/experiment/Assignment.js";
@@ -225,8 +226,9 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
   const pubForHook = await fs.readdir(pub).catch(() => [] as string[]);
   const hookPhoto = pubForHook.filter(f => new RegExp(`^photo-${code}-\\d+\\.jpg$`).test(f)).sort()[0];
   const heroFile = assets.find(f => f === `hero-${code}-s${story.index}.jpg`);
-  const hookBg = heroFile ? await copy(heroFile)
-    : beats.length ? `short/${beats[0]}`
+  // AI の絵は番号で文に当てる。欠けた文は直前の絵 (1文目なら冒頭の絵) を続ける
+  const ai = assignBeats(beats, spoken.slice(bodyStart, bodyEnd), heroFile ?? null);
+  const hookBg = ai.hook ? await copy(ai.hook)
     : hookPhoto ? `short/${hookPhoto}`
     : await copy(stock[0] ?? null);
 
@@ -247,6 +249,7 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
 
   // 本文: 3-6 語のチャンクへ割り、写真は MIN_PHOTO_SEC ごとに送る。
   const chunks: Array<Record<string, unknown>> = [];
+  const pictures: ChunkPicture[] = [];
   let photoSince = -Infinity;
   let currentPhoto: string | null = null;
   const usedPhotos = new Set<string>();
@@ -260,10 +263,10 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
     const parts = Math.max(1, Math.min(want, Math.floor(dur / MIN_CHUNK_SEC) || 1));
 
     const bi = i - bodyStart;
-    const beat = beats.length ? beats[Math.min(bi, beats.length - 1)] : null;
+    const beat = ai.body[bi] ?? null;
     const bgFile = beat ?? (stock.length ? stock[(bi % Math.max(1, Math.min(BODY_BG, stock.length - 1))) + 1] ?? stock[0] : null);
     const bg = await copy(bgFile);
-    const motionSrc = beat ? beat.replace(/\.jpg$/, ".motion.mp4") : null;
+    const motionSrc = beat && beat !== heroFile ? beat.replace(/\.jpg$/, ".motion.mp4") : null;
     const motion = motionSrc && assets.includes(motionSrc) ? await copy(motionSrc) : null;
 
     const cuts = chunkCuts(cueWords.map(w => w.w), parts);
@@ -272,16 +275,10 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
       if (!slice.length) continue;
       const t0 = slice[0].t;
       let shot = bg;
-      let changed = k === 0;
       // AI ビート画像があればそれを最優先。Routine の beatVisuals から文ごとに描かれるので、
       // 文と絵が構造的に一致する。Commons の実写は「進行中の事件の写真が存在しない」ため
       // 文と無関係な絵しか当たらなかった (2026-09-07 実測)。
-      if (beats.length) {
-        const bi = i - bodyStart;
-        const next = `short/${beats[Math.min(bi, beats.length - 1)]}`;
-        if (next !== currentPhoto) { currentPhoto = next; changed = true; }
-        shot = currentPhoto;
-      } else if (photos.length) {
+      if (!beat && photos.length) {
         if (t0 - photoSince >= MIN_PHOTO_SEC) {
           photoSince = t0;
           const bi = i - bodyStart;
@@ -291,22 +288,24 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
           if (next && next !== currentPhoto) {
             currentPhoto = next;
             usedPhotos.add(next);
-            changed = true;
           }
         }
         if (!currentPhoto) currentPhoto = photos[0];
         shot = currentPhoto.startsWith("short/") ? currentPhoto : `short/${currentPhoto}`;
       }
+      pictures.push({ bg: shot, sentenceStart: k === 0 });
       chunks.push({
         text: slice.map(w => w.w).join(" "),
         start: t0,
         end: slice[slice.length - 1].t + slice[slice.length - 1].d,
         words: slice.map(w => ({ w: w.w, t: w.t, d: w.d })),
         bg: shot, motion,
-        firstOfCue: changed,
       });
     }
   }
+  // 効果音と絵のフェード (firstOfCue) は、絵が替わるチャンクにだけ付ける。文の頭でも絵が同じなら付けない
+  const starts = pictureStarts(pictures, map !== null);
+  chunks.forEach((c, k) => { c.firstOfCue = starts[k]; });
 
   const picked = await pickBgm(date, code, story.index, isConflictStory(story));
   const bgm = picked ? { ...picked, volume: Number(BGM_VOLUME) } : null;
