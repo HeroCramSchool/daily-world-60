@@ -665,7 +665,7 @@ function shortUrl(url: string, maxLen = 56): string {
 /** 単語列を原稿の文へ整列し、各文の開始インデックスを返す (末尾に総数)。 */
 function sentenceBounds(words: Word[], narration: string): number[] {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const sentences = narration.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/).filter(Boolean);
+  const sentences = narrationSentences(narration);
   const bounds: number[] = [0];
   let wi = 0;
   for (const sentence of sentences) {
