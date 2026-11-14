@@ -6,7 +6,7 @@
 export type BeatAssignment = {
   /** 冒頭の絵。AI の冒頭の絵が無ければ、番号がいちばん若い本文の絵。どちらも無ければ null */
   hook: string | null;
-  /** 本文の文ごとの絵。AI の絵が1枚も無ければ空 (呼び出し側が手持ちの写真に落とす) */
+  /** 本文の文ごとの絵。本文の絵が1枚も無ければ空 (呼び出し側が手持ちの写真に落とす) */
   body: string[];
 };
 export type ChunkPicture = { bg: string | null; sentenceStart: boolean };
@@ -24,8 +24,8 @@ export function assignBeats(beatFiles: string[], sentenceCount: number, hero: st
     const m = BEAT_NO_RE.exec(f);
     if (m) byNo.set(Number(m[1]), f);
   }
-  const hook = hero ?? (byNo.size ? byNo.get(Math.min(...byNo.keys()))! : null);
-  if (hook === null) return { hook, body: [] };
+  if (!byNo.size) return { hook: hero, body: [] };
+  const hook = hero ?? byNo.get(Math.min(...byNo.keys()))!;
   const body: string[] = [];
   let current = hook;
   for (let n = 1; n <= sentenceCount; n++) {

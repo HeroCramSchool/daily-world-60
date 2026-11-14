@@ -27,8 +27,8 @@ test("b1 と b3 が欠けて b2 だけ (2026-11-10 の実例): 2文目用の絵�
   assert.deepEqual(assignBeats([b(2)], 3, null), { hook: b(2), body: [b(2), b(2), b(2)] });
 });
 
-test("全部欠けて冒頭の絵だけ: 本文は冒頭の絵を続ける", () => {
-  assert.deepEqual(assignBeats([], 3, HERO), { hook: HERO, body: [HERO, HERO, HERO] });
+test("全部欠けて冒頭の絵だけ: 本文は手持ちの写真に落とす", () => {
+  assert.deepEqual(assignBeats([], 3, HERO), { hook: HERO, body: [] });
 });
 
 test("冒頭の絵も無い: 何も当てない (呼び出し側が手持ちの写真に落とす)", () => {
@@ -46,7 +46,7 @@ test("文が絵より多い: 最後の絵を続ける", () => {
 
 test("文が1つ", () => {
   assert.deepEqual(assignBeats([b(1)], 1, HERO), { hook: HERO, body: [b(1)] });
-  assert.deepEqual(assignBeats([], 1, HERO), { hook: HERO, body: [HERO] });
+  assert.deepEqual(assignBeats([], 1, HERO), { hook: HERO, body: [] });
   assert.deepEqual(assignBeats([b(2)], 1, null), { hook: b(2), body: [b(2)] });
   assert.deepEqual(assignBeats([b(1)], 0, HERO), { hook: HERO, body: [] });
 });
@@ -70,8 +70,7 @@ test("firstOfCue: 同じ絵が続く文の頭は false (同じ絵のままの暗
   assert.deepEqual(pictureStarts(chunksOf(only2, [1, 3, 2]), false), [true, false, false, false, false, false]);
   const withHero = assignBeats([b(2)], 3, HERO).body;
   assert.deepEqual(pictureStarts(chunksOf(withHero, [1, 3, 2]), false), [true, true, false, false, false, false]);
-  const heroOnly = assignBeats([], 3, HERO).body;
-  assert.deepEqual(pictureStarts(chunksOf(heroOnly, [2, 2, 2]), false), [true, false, false, false, false, false]);
+  assert.deepEqual(pictureStarts(chunksOf([HERO, HERO, HERO], [2, 2, 2]), false), [true, false, false, false, false, false]);
 });
 
 test("firstOfCue: 手持ちの写真の本も同じ決め方 (文の途中で写真が替われば true、絵が無ければ最初だけ)", () => {
