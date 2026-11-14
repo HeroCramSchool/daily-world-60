@@ -38,6 +38,11 @@ export const Short: React.FC<ShortProps> = (props) => {
   const shift = eyeFrames;                 // フレーム
   const offsetSec = shift / fps;           // 秒 (字幕同期の補正に使う)
   const at = (sec: number) => f(sec, fps) + shift;
+  // 締めと問いかけは読む順に並べ、それぞれ次の場面が始まるまで映す (最後の場面は動画の終わりまで)
+  const tails = [
+    ...(v.outro ? [{ kind: "outro" as const, start: v.outro.start }] : []),
+    ...(v.question ? [{ kind: "question" as const, start: v.question.start }] : []),
+  ].sort((a, b) => a.start - b.start);
 
   return (
     <AbsoluteFill style={{ background: "#0A0A0A", fontFamily: FONT }}>
@@ -61,7 +66,7 @@ export const Short: React.FC<ShortProps> = (props) => {
       {v.chunks.map((c, i) => {
         const from = at(c.start);
         const next = v.chunks[i + 1];
-        const endSec = next ? next.start : (v.question?.start ?? v.outro?.start ?? v.duration);
+        const endSec = next ? next.start : (tails[0]?.start ?? v.duration);
         return (
           <Sequence key={i} from={from} durationInFrames={Math.max(1, at(endSec) - from)} name={`body-${i + 1}`}>
             <BodyScene v={v} chunk={c} absFrom={from} audioOffset={offsetSec} isFirstBody={i === 0} />
@@ -69,17 +74,15 @@ export const Short: React.FC<ShortProps> = (props) => {
         );
       })}
 
-      {v.question && (
-        <Sequence from={at(v.question.start)} durationInFrames={Math.max(1, at(v.outro?.start ?? v.duration) - at(v.question.start))} name="question">
-          <QuestionScene v={v} />
-        </Sequence>
-      )}
-
-      {v.outro && (
-        <Sequence from={at(v.outro.start)} durationInFrames={Math.max(1, at(v.duration) - at(v.outro.start))} name="outro">
-          <OutroScene v={v} />
-        </Sequence>
-      )}
+      {tails.map((t, i) => {
+        const from = at(t.start);
+        const next = tails[i + 1];
+        return (
+          <Sequence key={t.kind} from={from} durationInFrames={next ? Math.max(1, at(next.start) - from) : undefined} name={t.kind}>
+            {t.kind === "question" ? <QuestionScene v={v} /> : <OutroScene v={v} />}
+          </Sequence>
+        );
+      })}
     </AbsoluteFill>
   );
 };
@@ -198,14 +201,23 @@ const QuestionScene: React.FC<{ v: ShortVideo }> = ({ v }) => {
   const local = useCurrentFrame();
   const { fps } = useVideoConfig();
   const bar = interpolate(local, [0, 14], [0, 1], { easing: Easing.out(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const q = v.question!;
+  // 定型の問い ("What do you think about this?") を読み始めるフレーム
+  const ctaAt = q.cta ? Math.max(0, Math.round((q.cta.start - q.start) * fps)) : 0;
   return (
     <AbsoluteFill style={{ background: "#0A0A0A" }}>
       <Backplate bg={v.hookBg} motion={null} local={local} fadeIn fps={fps} />
       <AbsoluteFill style={{ background: "rgba(10,10,10,.86)" }} />
       <TopStripe />
       <div style={{ position: "absolute", left: 60, top: 700, width: 300, height: 12, background: v.accent, borderRadius: 6, transform: `scaleX(${bar})`, transformOrigin: "left" }} />
-      <div style={{ position: "absolute", left: 60, right: 60, top: 780, height: 700 }}>
-        <BigText text={v.question!.text} local={local} fps={fps} boxW={960} boxH={640} maxSize={[104, 92, 84, 76, 68, 60]} />
+      {/* 幅 840 = Shorts の右のボタンの列 (x 907 より右) にかからない幅 */}
+      <div style={{ position: "absolute", left: 60, width: 840, top: 780, height: 700 }}>
+        <BigText text={q.text} local={local} fps={fps} boxW={840} boxH={520} maxSize={[104, 92, 84, 76, 68, 60, 52]} />
+        {q.cta && (
+          <div style={{ marginTop: 36 }}>
+            <BigText text="WHAT DO YOU THINK?" local={local - ctaAt} fps={fps} boxW={840} boxH={60} maxSize={[48]} color={v.accent} />
+          </div>
+        )}
       </div>
       <SourceFooter name={v.source.name} url={v.source.url} />
     </AbsoluteFill>

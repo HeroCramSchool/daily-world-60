@@ -5,6 +5,7 @@ import { laneFromStory, mapSceneParts } from "../scripts/lib/mapscene.js";
 import { realMapScene } from "../scripts/lib/realmap.js";
 import { recordBgmUsed } from "../scripts/lib/bgm-credit.js";
 import { pickBgm, isConflictStory } from "../scripts/lib/bgm-select.js";
+import { narrationSentences, shortTail } from "../scripts/lib/short-tail.js";
 import { geocode, type GeoPoint } from "../scripts/lib/geocode.js";
 import { countryLonLat } from "../scripts/lib/worldmap.js";
 import { armRecordFor, hookLayoutFor } from "../domain/experiment/Assignment.js";
@@ -185,12 +186,12 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
   }
 
   const countryIdx = sentences.findIndex(c => /here's what's happening|comes from|news from/i.test(c.text));
-  const outroIdx = sentences.findIndex(c => /that's the latest|thanks for watching|subscribe/i.test(c.text));
-  const qIdx = sentences.findIndex(c => /what do you think about this/i.test(c.text));
+  // 締めと問いかけは原稿の文で決める。単語データは句読点を落とすので、問いの「?」は原稿からしか取れない
+  const spoken = narrationSentences(narration);
+  const { bodyEnd, outroIdx, question } = shortTail(sentences.map((s, i) => ({ ...s, text: spoken[i] ?? s.text })));
 
   const hookEnd = countryIdx >= 0 ? sentences[countryIdx].end : Math.min(4, duration);
   const bodyStart = countryIdx + 1;
-  const bodyEnd = qIdx >= 0 ? qIdx : outroIdx >= 0 ? outroIdx : sentences.length;
 
   const assets = await fs.readdir(path.join(dir, "_assets")).catch(() => [] as string[]);
   const beatSrc = assets.filter(f => new RegExp(`^beat-${code}-s${story.index}-b\\d+\\.jpg$`).test(f)).sort();
@@ -325,7 +326,7 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
     duration: duration + 0.4,
     hookEnd, hookBg, map,
     chunks,
-    question: qIdx >= 0 ? tail(qIdx) : null,
+    question,
     outro: tail(outroIdx),
     date,
     hookLayout: armRecordFor(LIVE_EXPERIMENTS, date, story.index, HOOK_OVERRIDE).variant,
