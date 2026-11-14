@@ -16,8 +16,8 @@ import { audioDuration, fillNarration, normalizeLoudness, speak, timeLines, type
 const FPS = 30;
 const DEFAULT_DURATION_SEC = 7;
 const BRAND = "Daily World 60";
-// ナレーションは塗りが入り始めてから始め、読み終わってから少し余白を置いて頭へループする
-const NARRATION_OFFSET_SEC = 0.4;
+// ナレーションは塗りが入り始める頃に声が出るように始め (声の出だしは約 0.2 秒)、読み終わってから少し余白を置いて頭へループする
+const NARRATION_OFFSET_SEC = 0.15;
 const NARRATION_TAIL_SEC = 1.0;
 
 const HERE = path.resolve(new URL(".", import.meta.url).pathname);

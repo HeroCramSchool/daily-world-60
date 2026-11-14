@@ -5,6 +5,7 @@ import { laneFromStory, mapSceneParts } from "../scripts/lib/mapscene.js";
 import { realMapScene } from "../scripts/lib/realmap.js";
 import { recordBgmUsed } from "../scripts/lib/bgm-credit.js";
 import { pickBgm, isConflictStory } from "../scripts/lib/bgm-select.js";
+import { narrationSentences, shortTail } from "../scripts/lib/short-tail.js";
 import { geocode, type GeoPoint } from "../scripts/lib/geocode.js";
 import { countryLonLat } from "../scripts/lib/worldmap.js";
 import { armRecordFor, hookLayoutFor } from "../domain/experiment/Assignment.js";
@@ -35,6 +36,8 @@ const ENGINE = (process.env.TTS_ENGINE ?? "kokoro").toLowerCase();
 const KOKORO_VOICE = process.env.KOKORO_VOICE ?? "am_michael";
 const VOICE = process.env.EN_VOICE ?? "en-US-AndrewMultilingualNeural";
 const RATE = process.env.TTS_RATE ?? "-5%";
+// Kokoro が声の前後とかたまりの境目に入れる無音を詰める (tts-kokoro.py の trim)。TTS_TRIM=0 で詰めない
+const KOKORO_TRIM = process.env.TTS_TRIM === "0" ? [] : ["trim"];
 
 const HERE = path.resolve(new URL(".", import.meta.url).pathname);
 const ROOT = path.resolve(HERE, "..");
@@ -155,7 +158,7 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
   const edge = () => run("python3", [path.join(ROOT, "scripts", "tts-words.py"), VOICE, RATE, textFile, mp3, wordsVtt]);
   try {
     if (ENGINE === "kokoro") {
-      await run("python3", [path.join(ROOT, "scripts", "tts-kokoro.py"), KOKORO_VOICE, RATE, textFile, mp3, wordsVtt]);
+      await run("python3", [path.join(ROOT, "scripts", "tts-kokoro.py"), KOKORO_VOICE, RATE, textFile, mp3, wordsVtt, ...KOKORO_TRIM]);
     } else {
       await edge();
     }
@@ -185,12 +188,12 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
   }
 
   const countryIdx = sentences.findIndex(c => /here's what's happening|comes from|news from/i.test(c.text));
-  const outroIdx = sentences.findIndex(c => /that's the latest|thanks for watching|subscribe/i.test(c.text));
-  const qIdx = sentences.findIndex(c => /what do you think about this/i.test(c.text));
+  // 締めと問いかけは原稿の文で決める。単語データは句読点を落とすので、問いの「?」は原稿からしか取れない
+  const spoken = narrationSentences(narration);
+  const { bodyEnd, outroIdx, question } = shortTail(sentences.map((s, i) => ({ ...s, text: spoken[i] ?? s.text })));
 
   const hookEnd = countryIdx >= 0 ? sentences[countryIdx].end : Math.min(4, duration);
   const bodyStart = countryIdx + 1;
-  const bodyEnd = qIdx >= 0 ? qIdx : outroIdx >= 0 ? outroIdx : sentences.length;
 
   const assets = await fs.readdir(path.join(dir, "_assets")).catch(() => [] as string[]);
   const beatSrc = assets.filter(f => new RegExp(`^beat-${code}-s${story.index}-b\\d+\\.jpg$`).test(f)).sort();
@@ -325,7 +328,7 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
     duration: duration + 0.4,
     hookEnd, hookBg, map,
     chunks,
-    question: qIdx >= 0 ? tail(qIdx) : null,
+    question,
     outro: tail(outroIdx),
     date,
     hookLayout: armRecordFor(LIVE_EXPERIMENTS, date, story.index, HOOK_OVERRIDE).variant,
@@ -662,7 +665,7 @@ function shortUrl(url: string, maxLen = 56): string {
 /** 単語列を原稿の文へ整列し、各文の開始インデックスを返す (末尾に総数)。 */
 function sentenceBounds(words: Word[], narration: string): number[] {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const sentences = narration.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/).filter(Boolean);
+  const sentences = narrationSentences(narration);
   const bounds: number[] = [0];
   let wi = 0;
   for (const sentence of sentences) {

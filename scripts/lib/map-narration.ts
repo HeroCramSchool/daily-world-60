@@ -16,6 +16,8 @@ const ENGINE = (process.env.TTS_ENGINE ?? "kokoro").toLowerCase();
 const KOKORO_VOICE = process.env.KOKORO_VOICE ?? "am_michael";
 const VOICE = process.env.EN_VOICE ?? "en-US-AndrewMultilingualNeural";
 const RATE = process.env.TTS_RATE ?? "-5%";
+// Kokoro が声の前後に入れる無音を詰める (tts-kokoro.py の trim)。TTS_TRIM=0 で詰めない
+const KOKORO_TRIM = process.env.TTS_TRIM === "0" ? [] : ["trim"];
 
 export type RankedCountry = { name: string; ccn3: string };
 export type NarrationLine = { text: string; keys: string[]; highlight: string | null };
@@ -79,7 +81,7 @@ export async function speak(text: string, mp3: string, workDir: string, tag: str
   const edge = () => run("python3", [path.join(ROOT, "scripts", "tts-words.py"), VOICE, RATE, textFile, mp3, wordsVtt]);
   try {
     if (ENGINE === "kokoro") {
-      await run("python3", [path.join(ROOT, "scripts", "tts-kokoro.py"), KOKORO_VOICE, RATE, textFile, mp3, wordsVtt]).catch(async e => {
+      await run("python3", [path.join(ROOT, "scripts", "tts-kokoro.py"), KOKORO_VOICE, RATE, textFile, mp3, wordsVtt, ...KOKORO_TRIM]).catch(async e => {
         console.warn(`[map-narration] kokoro failed (${e instanceof Error ? e.message : e}) — falling back to edge-tts`);
         await edge();
       });

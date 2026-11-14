@@ -16,6 +16,8 @@ export type SChunk = {
   firstOfCue: boolean;
 };
 export type STail = { text: string; start: number; end: number };
+/** cta = 定型の問い ("What do you think about this?") の文と読み始めの時刻。本ごとの問いがある本だけ持つ。 */
+export type SQuestion = STail & { cta?: { text: string; start: number } };
 export type ShortVideo = {
   style?: "legacy";
   code: string;
@@ -33,7 +35,7 @@ export type ShortVideo = {
   hookBg: string | null;
   map: SMap | null;
   chunks: SChunk[];
-  question: STail | null;
+  question: SQuestion | null;
   outro: STail | null;
   date: string;
   hookLayout?: "top" | "legacy";

@@ -14,6 +14,32 @@ const run = (cmd, args) => {
 };
 
 /**
+ * 出来た動画の無音を点検する (-50dB・0.2秒以上)。頭 0.2秒・末尾 0.5秒・途中 0.8秒以上あれば警告を1行出す。
+ * 知らせるだけで書き出しは止めない。点検そのものが失敗しても成功のまま進める。
+ */
+const warnSilence = (file, dur) => {
+  try {
+    const r = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", file, "-vn",
+      "-af", "silencedetect=noise=-50dB:d=0.2", "-f", "null", "-"], { encoding: "utf-8" });
+    if (r.status !== 0) throw new Error(r.error?.message ?? `ffmpeg exit ${r.status}`);
+    const spans = [];
+    for (const [, edge, t] of r.stderr.matchAll(/silence_(start|end): (-?[\d.]+)/g)) {
+      // 終わりまで続く無音は silence_end が出ないことがあるので、終わりは動画の長さで仮置きする
+      if (edge === "start") spans.push([Math.max(0, Number(t)), dur]);
+      else if (spans.length) spans[spans.length - 1][1] = Number(t);
+    }
+    console.log(`  ${file}: 無音 (-50dB・0.2秒以上) ${spans.map(([s, e]) => `${s.toFixed(2)}–${e.toFixed(2)}s`).join(", ") || "なし"}`);
+    const found = spans.flatMap(([s, e]) => {
+      const [where, min] = s <= 0.1 ? ["頭", 0.2] : e >= dur - 0.1 ? ["末尾", 0.5] : ["途中", 0.8];
+      return e - s >= min ? [`${where} ${(e - s).toFixed(2)}秒 (${s.toFixed(2)}–${e.toFixed(2)}s)`] : [];
+    });
+    if (found.length) console.warn(`::warning::[short] ${file} に無音: ${found.join(" / ")}`);
+  } catch (e) {
+    console.warn(`  ${file}: 無音の点検をとばした (${e instanceof Error ? e.message : e})`);
+  }
+};
+
+/**
  * BGM は書き出し後に ffmpeg で混ぜる。
  *  - -stream_loop -1 -ss <offset> : 曲の途中から流して足りなければループ (build-news-video.ts と同じ)
  *  - sidechaincompress            : ナレーションが鳴っている間だけ BGM を自動で下げる。
@@ -28,10 +54,14 @@ props.videos.forEach((v, i) => {
   run("npx", ["remotion", "render", id, raw, "--log=error"]);
 
   if (v.bgm) {
-    const fadeOut = Math.max(0.1, v.duration - 1.4);
+    // フェードアウトは書き出した raw の映像の実尺から決める (測れなければ v.duration)。今の形式はアイキャッチのぶん
+    // v.duration より 1.4 秒長く、v.duration で決めると BGM が先に消え切って末尾が約1秒無音になる
+    const rawDur = parseFloat((spawnSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=duration",
+                                                     "-of", "csv=p=0", raw], { encoding: "utf-8" }).stdout || "").trim());
+    const fadeOut = Math.max(0.1, (rawDur > 0 ? rawDur : v.duration) - 1.4);
     const chain =
       `[1:a]volume=${v.bgm.volume},` +
-      `afade=t=in:st=0:d=1.2,afade=t=out:st=${fadeOut.toFixed(2)}:d=1.4[bg];` +
+      `afade=t=in:st=0:d=0.3,afade=t=out:st=${fadeOut.toFixed(2)}:d=1.4[bg];` +
       `[0:a]asplit=2[voice][key];` +
       // パラメータは build-news-video.ts の DUCK と同一にする (自前で強めたら BGM が -33dB まで潰れた)
       `[bg][key]sidechaincompress=threshold=0.02:ratio=8:attack=20:release=300[duck];` +
@@ -59,5 +89,8 @@ props.videos.forEach((v, i) => {
     process.exit(1);
   }
   console.log(`  ${final}: ${dur.toFixed(1)}s (上限 ${MAX_SEC}s)`);
+  warnSilence(final, dur);
+  // BGM が頭から鳴るので、声の出だしの遅れと境目の間は出来た動画では無音にならない。今の形式は声のファイルも見る (0.4 = prep-short.ts の終わりの余白)
+  if (v.style !== "explainer") warnSilence(`public/${v.audio}`, v.duration - 0.4);
 });
 console.log("\nall shorts rendered");
