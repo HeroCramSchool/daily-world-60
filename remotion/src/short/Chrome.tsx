@@ -6,7 +6,10 @@ import { fitLines } from "../lib/fit";
 export const W = 1080;
 export const H = 1920;
 
-/** 背景の絵。ズーム・パンはしない (オーナー指示)。切り替わりだけ 0.22s のフェードで繋ぐ。 */
+/**
+ * 背景の絵。ズーム・パンはしない (オーナー指示)。切り替わりだけ 0.22s のフェードで繋ぐ。
+ * 前の絵を先に描いておくと、黒地でなくその絵の上に重なる。children (場面の暗幕) は絵と一緒にフェードする。
+ */
 export const Backplate: React.FC<{
   bg: string | null;
   motion: string | null;
@@ -14,7 +17,8 @@ export const Backplate: React.FC<{
   local: number;
   fadeIn: boolean;
   fps: number;
-}> = ({ bg, motion, motionSeek = 0, local, fadeIn, fps }) => {
+  children?: React.ReactNode;
+}> = ({ bg, motion, motionSeek = 0, local, fadeIn, fps, children }) => {
   const o = fadeIn
     ? interpolate(local, [0, 0.22 * fps], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
     : 1;
@@ -32,6 +36,7 @@ export const Backplate: React.FC<{
       ) : (
         <AbsoluteFill style={{ background: "#0A0A0A" }} />
       )}
+      {children}
     </AbsoluteFill>
   );
 };

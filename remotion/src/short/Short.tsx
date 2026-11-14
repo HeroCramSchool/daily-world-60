@@ -43,6 +43,8 @@ export const Short: React.FC<ShortProps> = (props) => {
     ...(v.outro ? [{ kind: "outro" as const, start: v.outro.start }] : []),
     ...(v.question ? [{ kind: "question" as const, start: v.question.start }] : []),
   ].sort((a, b) => a.start - b.start);
+  // i 番目のチャンクが映している絵。本文の前 (ロゴ) と、地図を映す最初のチャンクには無い
+  const shown = (i: number) => (i < 0 || (i === 0 && v.map !== null) ? null : v.chunks[i].bg);
 
   return (
     <AbsoluteFill style={{ background: "#0A0A0A", fontFamily: FONT }}>
@@ -69,7 +71,7 @@ export const Short: React.FC<ShortProps> = (props) => {
         const endSec = next ? next.start : (tails[0]?.start ?? v.duration);
         return (
           <Sequence key={i} from={from} durationInFrames={Math.max(1, at(endSec) - from)} name={`body-${i + 1}`}>
-            <BodyScene v={v} chunk={c} absFrom={from} audioOffset={offsetSec} isFirstBody={i === 0} />
+            <BodyScene v={v} chunk={c} under={shown(i - 1)} absFrom={from} audioOffset={offsetSec} isFirstBody={i === 0} />
           </Sequence>
         );
       })}
@@ -79,7 +81,7 @@ export const Short: React.FC<ShortProps> = (props) => {
         const next = tails[i + 1];
         return (
           <Sequence key={t.kind} from={from} durationInFrames={next ? Math.max(1, at(next.start) - from) : undefined} name={t.kind}>
-            {t.kind === "question" ? <QuestionScene v={v} /> : <OutroScene v={v} />}
+            {t.kind === "question" ? <QuestionScene v={v} /> : <OutroScene v={v} under={shown(v.chunks.length - 1)} />}
           </Sequence>
         );
       })}
@@ -174,7 +176,7 @@ const fmtDate = (iso: string) => {
   return m ? `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}, ${m[1]}` : iso;
 };
 
-const BodyScene: React.FC<{ v: ShortVideo; chunk: SChunk; absFrom: number; audioOffset: number; isFirstBody: boolean }> = ({ v, chunk, absFrom, audioOffset, isFirstBody }) => {
+const BodyScene: React.FC<{ v: ShortVideo; chunk: SChunk; under: string | null; absFrom: number; audioOffset: number; isFirstBody: boolean }> = ({ v, chunk, under, absFrom, audioOffset, isFirstBody }) => {
   const local = useCurrentFrame();
   const { fps } = useVideoConfig();
   const time = (absFrom + local) / fps - audioOffset;
@@ -184,6 +186,8 @@ const BodyScene: React.FC<{ v: ShortVideo; chunk: SChunk; absFrom: number; audio
     <AbsoluteFill>
       {/* 画の切り替わりに whoosh を置く。素材は ffmpeg 合成なので Content ID の心配が無い */}
       {chunk.firstOfCue && <Audio src={staticFile("sfx/whoosh.mp3")} volume={0.4} />}
+      {/* 絵が替わるチャンクは、前の絵を下に敷いてから新しい絵を重ねる (黒地を挟まない) */}
+      {chunk.firstOfCue && under && <Backplate bg={under} motion={null} local={local} fadeIn={false} fps={fps} />}
       {useMap
         ? <MapScene bg={v.map!.bg} markers={v.map!.markers} accent={v.accent} appear />
         : <Backplate bg={chunk.bg} motion={chunk.motion} local={local} fadeIn={chunk.firstOfCue} fps={fps} />}
@@ -224,13 +228,14 @@ const QuestionScene: React.FC<{ v: ShortVideo }> = ({ v }) => {
   );
 };
 
-const OutroScene: React.FC<{ v: ShortVideo }> = ({ v }) => {
+const OutroScene: React.FC<{ v: ShortVideo; under: string | null }> = ({ v, under }) => {
   const local = useCurrentFrame();
   const { fps } = useVideoConfig();
   return (
     <AbsoluteFill>
-      <Backplate bg={v.hookBg} motion={null} local={local} fadeIn fps={fps} />
-      <Scrim variant="hook" />
+      {/* 本文の最後の絵を本文の暗幕ごと下に敷き、締めの絵を締めの暗幕ごと重ねる (暗幕だけ先に替えると前の絵が一瞬明るくなる) */}
+      {under && <Backplate bg={under} motion={null} local={local} fadeIn={false} fps={fps}><Scrim variant="body" /></Backplate>}
+      <Backplate bg={v.hookBg} motion={null} local={local} fadeIn fps={fps}><Scrim variant="hook" /></Backplate>
       <TopStripe />
       <CountryLine name={v.country.name} accent={v.accent} />
       <div style={{ position: "absolute", left: 60, right: 60, top: 1000, height: 620, display: "flex", alignItems: "flex-end" }}>
