@@ -709,6 +709,7 @@ async function main() {
     const countryName = story.country.name ?? COUNTRY_NAMES[story.country.code.toUpperCase()] ?? story.country.code;
     // 絵は本の順に頼む。待ちが延びた日に最後の本だけ絵が0枚にならないよう、後ろの本のぶんを残して打ち切る
     storyBudget = storyBudgetMs(IMAGE_BUDGET_MS, POLLINATIONS_GAP_MS, script.stories.indexOf(story), script.stories.length);
+    await fs.rm(path.join(assets, `hero-${code}-s${story.index}.jpg`), { force: true });
 
     // 解説形式の本 (write-explainers が storyboard を書いた本) はデータから描く図だけで作るので、写真も AI hero もモーションも作らない。
     // 下地 (= 投稿用画像 generate-social-images の背景) は単色のまま。ただし prep-short が今の形式に戻したとき
