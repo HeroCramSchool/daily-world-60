@@ -7,7 +7,7 @@ const bgm = { file: "/x/Rising Tide.mp3", offset: 42, conflict: false, volume: 0
 test("声があるときは本編と同じく、声が鳴る間だけ BGM を下げてから -14 LUFS にそろえる", () => {
   const args = bgmMixArgs("raw.mp4", "out.mp4", bgm, 12.4, true);
   const chain = args[args.indexOf("-filter_complex") + 1];
-  assert.match(chain, /\[1:a\]volume=0\.25,afade=t=in:st=0:d=1\.2,afade=t=out:st=11\.00:d=1\.4\[bg\]/);
+  assert.match(chain, /\[1:a\]volume=0\.25,afade=t=in:st=0:d=0\.3,afade=t=out:st=11\.00:d=1\.4\[bg\]/);
   assert.match(chain, /\[0:a\]volume=-13dB,asplit=2\[voice\]\[key\]/);
   assert.match(chain, /\[bg\]\[key\]sidechaincompress=threshold=0\.02:ratio=8:attack=20:release=300\[duck\]/);
   assert.match(chain, /amix=inputs=2:duration=first:dropout_transition=0:normalize=0,loudnorm=I=-14:TP=-1\.5:LRA=11\[a\]$/);

@@ -47,6 +47,7 @@ cd remotion && npm run render:short          # out/short-{index}-{code}.mp4
 
 - **ナレーション**: 既存 vtt の文を連結して作り直す（原稿は公開済みと同一）。
   既定は **Kokoro-82M** (`am_michael`・Apache-2.0・自前実行)、失敗時は edge-tts へ降格。
+  Kokoro が声の前後とかたまりの境目に入れる無音は詰める（`TTS_TRIM=0` で詰めない。edge-tts に降格した回は詰めない）。
   単語タイムスタンプが取れるので、字幕の表示語と発話語が 1:1 で一致する
   （build-news-video.ts の `resampleDurs` による近似が不要）
 - **カット割り**: 文ごとに絵1枚、文の中は 3-6 語のチャンク。`MAX_SCENE_SEC` / `MAX_WORDS_PER_CHUNK` /
@@ -75,7 +76,7 @@ cd remotion && npm run render:short          # out/short-{index}-{code}.mp4
 - ダッキングは `sidechaincompress=threshold=0.02:ratio=8:attack=20:release=300`、音量 0.25。
   **本番と同じ値にすること**。強めた版（ratio 12 + makeup、音量 0.20）は実測で BGM が
   -33dB まで潰れ、ナレーションが連続するため常時押さえ込まれた（2026-09-01 実測）
-- 本番に無い追加として冒頭 1.2s のフェードイン / 末尾 1.4s のフェードアウト
+- 本番に無い追加として冒頭 0.3s のフェードイン / 末尾 1.4s のフェードアウト
 
 **曲は `news-bed.mp3` 1曲のみ。** `assets/bgm/` に複数置けば曲もローテする（コード変更不要）。
 ポリシー上の理由は `assets/bgm/README.md` を参照。

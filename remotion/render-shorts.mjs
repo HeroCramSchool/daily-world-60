@@ -61,7 +61,7 @@ props.videos.forEach((v, i) => {
     const fadeOut = Math.max(0.1, (rawDur > 0 ? rawDur : v.duration) - 1.4);
     const chain =
       `[1:a]volume=${v.bgm.volume},` +
-      `afade=t=in:st=0:d=1.2,afade=t=out:st=${fadeOut.toFixed(2)}:d=1.4[bg];` +
+      `afade=t=in:st=0:d=0.3,afade=t=out:st=${fadeOut.toFixed(2)}:d=1.4[bg];` +
       `[0:a]asplit=2[voice][key];` +
       // パラメータは build-news-video.ts の DUCK と同一にする (自前で強めたら BGM が -33dB まで潰れた)
       `[bg][key]sidechaincompress=threshold=0.02:ratio=8:attack=20:release=300[duck];` +

@@ -8,7 +8,7 @@ import { isConflictStory, pickBgm, type BgmPick } from "./bgm-select.js";
  */
 
 const BGM_VOLUME = Number(process.env.BGM_VOLUME ?? "0.25");
-const FADE_IN_SEC = 1.2;
+const FADE_IN_SEC = 0.3;
 const FADE_OUT_SEC = 1.4;
 // prep-map は読み上げを -14 LUFS にそろえてある。本編は Kokoro の素の音量 (約 -27 LUFS) のまま BGM と混ぜるので、
 // 声と BGM の釣り合いを本編と同じにするため声を 13 dB 下げてから混ぜる (最後の loudnorm で -14 に戻る)。

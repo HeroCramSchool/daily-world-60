@@ -36,6 +36,8 @@ const ENGINE = (process.env.TTS_ENGINE ?? "kokoro").toLowerCase();
 const KOKORO_VOICE = process.env.KOKORO_VOICE ?? "am_michael";
 const VOICE = process.env.EN_VOICE ?? "en-US-AndrewMultilingualNeural";
 const RATE = process.env.TTS_RATE ?? "-5%";
+// Kokoro が声の前後とかたまりの境目に入れる無音を詰める (tts-kokoro.py の trim)。TTS_TRIM=0 で詰めない
+const KOKORO_TRIM = process.env.TTS_TRIM === "0" ? [] : ["trim"];
 
 const HERE = path.resolve(new URL(".", import.meta.url).pathname);
 const ROOT = path.resolve(HERE, "..");
@@ -156,7 +158,7 @@ async function buildStory(dir: string, pub: string, story: Story, date: string) 
   const edge = () => run("python3", [path.join(ROOT, "scripts", "tts-words.py"), VOICE, RATE, textFile, mp3, wordsVtt]);
   try {
     if (ENGINE === "kokoro") {
-      await run("python3", [path.join(ROOT, "scripts", "tts-kokoro.py"), KOKORO_VOICE, RATE, textFile, mp3, wordsVtt]);
+      await run("python3", [path.join(ROOT, "scripts", "tts-kokoro.py"), KOKORO_VOICE, RATE, textFile, mp3, wordsVtt, ...KOKORO_TRIM]);
     } else {
       await edge();
     }
@@ -531,7 +533,7 @@ async function speak(dir: string, mp3: string, text: string, tag: string): Promi
   const edge = () => run("python3", [path.join(ROOT, "scripts", "tts-words.py"), VOICE, RATE, textFile, mp3, wordsVtt]);
   try {
     if (ENGINE === "kokoro") {
-      await run("python3", [path.join(ROOT, "scripts", "tts-kokoro.py"), KOKORO_VOICE, RATE, textFile, mp3, wordsVtt]);
+      await run("python3", [path.join(ROOT, "scripts", "tts-kokoro.py"), KOKORO_VOICE, RATE, textFile, mp3, wordsVtt, ...KOKORO_TRIM]);
     } else {
       await edge();
     }
